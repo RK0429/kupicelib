@@ -24,19 +24,24 @@ International Support functions
 Not using other known unicode detection libraries because we don't need something so complicated. LTSpice only supports
 for the time being a reduced set of encodings.
 """
+import re
 from pathlib import Path
 from typing import Union
-import re
 
 
 class EncodingDetectError(Exception):
     """
     Exception raised when the encoding of a file cannot be detected
     """
+
     pass
 
 
-def detect_encoding(file_path: Union[str, Path], expected_pattern: str = '', re_flags: re.RegexFlag = 0) -> str:
+def detect_encoding(
+    file_path: Union[str, Path],
+    expected_pattern: str = "",
+    re_flags: Union[int, re.RegexFlag] = 0,
+) -> str:
     """
     Simple strategy to detect file encoding.  If an expected_str is given the function will scan through the possible
     encodings and return a match.
@@ -52,9 +57,17 @@ def detect_encoding(file_path: Union[str, Path], expected_pattern: str = '', re_
 
     :rtype: str
     """
-    for encoding in ('utf-8', 'utf-16', 'windows-1252', 'utf_16_le', 'cp1252', 'cp1250', 'shift_jis'):
+    for encoding in (
+        "utf-8",
+        "utf-16",
+        "windows-1252",
+        "utf_16_le",
+        "cp1252",
+        "cp1250",
+        "shift_jis",
+    ):
         try:
-            with open(file_path, 'r', encoding=encoding) as f:
+            with open(file_path, "r", encoding=encoding) as f:
                 lines = f.read()
                 f.seek(0)
         except UnicodeDecodeError:
@@ -62,7 +75,7 @@ def detect_encoding(file_path: Union[str, Path], expected_pattern: str = '', re_
             continue
         except UnicodeError:
             # This encoding didn't work, let's try again
-            continue        
+            continue
         else:
             if len(lines) == 0:
                 # Empty file
@@ -72,11 +85,15 @@ def detect_encoding(file_path: Union[str, Path], expected_pattern: str = '', re_
                     # File did not have the expected string
                     # Try again with a different encoding (This is unlikely to resolve the issue)
                     continue
-            if encoding == 'utf-8' and lines[1] == '\x00':
+            if encoding == "utf-8" and lines[1] == "\x00":
                 continue
             return encoding
     else:
         if expected_pattern:
-            raise EncodingDetectError(f"Expected pattern \"{expected_pattern}\" not found in file:{file_path}")
+            raise EncodingDetectError(
+                f'Expected pattern "{expected_pattern}" not found in file:{file_path}'
+            )
         else:
-            raise EncodingDetectError(f"Unable to detect encoding on log file: {file_path}")
+            raise EncodingDetectError(
+                f"Unable to detect encoding on log file: {file_path}"
+            )
