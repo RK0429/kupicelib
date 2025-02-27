@@ -85,11 +85,12 @@ and use it.
 """
 __author__ = "Nuno Canto Brum <me@nunobrum.com>"
 __copyright__ = "Copyright 2023, Fribourg Switzerland"
+import logging
 import os
 import sys
 
-from spicelib.log.ltsteps import *
-import logging
+from spicelib.log.ltsteps import LTSpiceLogReader, reformat_LTSpice_export
+
 _logger = logging.getLogger("spicelib.LTSteps")
 
 
@@ -97,9 +98,14 @@ def main():
     """
     Main function for the ltsteps.py script
     """
+
     def valid_extension(filename):
         """A simple function to check if the filename has a valid extension"""
-        return filename.endswith('.txt') or filename.endswith('.log') or filename.endswith('.mout')
+        return (
+            filename.endswith(".txt")
+            or filename.endswith(".log")
+            or filename.endswith(".mout")
+        )
 
     if len(sys.argv) > 1:
         filename = sys.argv[1]
@@ -119,19 +125,19 @@ def main():
         print("File not found")
         print("This tool only supports the following extensions :'.txt','.log','.mout'")
         exit(-1)
-        
+
     if not valid_extension(filename):
         print("Invalid extension in filename '%s'" % filename)
         print("This tool only supports the following extensions :'.txt','.log','.mout'")
         exit(-1)
 
     fname_out = None
-    if filename.endswith('.txt'):
-        fname_out = filename[:-len('txt')] + 'tsv'
-    elif filename.endswith('.log'):
-        fname_out = filename[:-len('log')] + 'tlog'
-    elif filename.endswith('.mout'):
-        fname_out = filename[:-len('mout')] + 'tmout'
+    if filename.endswith(".txt"):
+        fname_out = filename[: -len("txt")] + "tsv"
+    elif filename.endswith(".log"):
+        fname_out = filename[: -len("log")] + "tlog"
+    elif filename.endswith(".mout"):
+        fname_out = filename[: -len("mout")] + "tmout"
     else:
         print("Error in file type")
         print("This tool only supports the following extensions :'.txt','.log','.mout'")
@@ -139,7 +145,7 @@ def main():
 
     if fname_out is not None:
         print("Creating File %s" % fname_out)
-        if filename.endswith('txt'):
+        if filename.endswith("txt"):
             _logger.debug("Processing Data File")
             reformat_LTSpice_export(filename, fname_out)
         elif filename.endswith("log"):
@@ -147,7 +153,7 @@ def main():
             data.split_complex_values_on_datasets()
             data.export_data(fname_out)
         elif filename.endswith(".mout"):
-            log_file = filename[:len('mout')] + 'log'
+            log_file = filename[: len("mout")] + "log"
             if os.path.exists(log_file):
                 steps = LTSpiceLogReader(log_file, read_measures=False)
                 data = LTSpiceLogReader(filename, step_set=steps.stepset)
