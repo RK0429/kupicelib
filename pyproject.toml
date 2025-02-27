@@ -12,7 +12,7 @@ license = "GPL-3.0"
 keywords = ["spice", "ltspice", "qspice", "ngspice", "electronic simulator", "montecarlo", "worst-case"]
 
 [tool.poetry.dependencies]
-python = "^3.9"
+python = "^3.10"
 numpy = "*"
 scipy = "*"
 psutil = "*"
@@ -21,6 +21,8 @@ matplotlib = "*"
 keyboard = "*"
 types-keyboard = "^0.13.2.20240310"
 types-psutil = "^7.0.0.20250218"
+pandas = "^2.2.3"
+pandas-stubs = "^2.2.3.241126"
 
 [tool.poetry.scripts]
 ltsteps = "spicelib.scripts.ltsteps:main"
