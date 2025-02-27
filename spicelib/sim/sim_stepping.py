@@ -23,17 +23,16 @@
 __author__ = "Nuno Canto Brum <nuno.brum@gmail.com>"
 __copyright__ = "Copyright 2017, Fribourg Switzerland"
 
-from typing import Callable, Union, Type
-from typing import Iterable
-import pathlib
-from functools import wraps
 import logging
+from functools import wraps
+from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, Type, Union
 
 from spicelib.sim.process_callback import ProcessCallback
 
-_logger = logging.getLogger("spicelib.SimStepper")
 from ..editor.base_editor import BaseEditor
-from .sim_runner import AnyRunner, SimRunner
+from .sim_runner import AnyRunner
+
+_logger = logging.getLogger("spicelib.SimStepper")
 
 
 class StepInfo(object):
@@ -92,7 +91,7 @@ class SimStepper(object):
     def __init__(self, circuit: BaseEditor, runner: AnyRunner):
         self.runner = runner
         self.netlist = circuit
-        self.iter_list = []
+        self.iter_list: List[StepInfo] = []
 
     @wraps(BaseEditor.add_instruction)
     def add_instruction(self, instruction: str):
@@ -150,22 +149,30 @@ class SimStepper(object):
         """Returns the total number of simulations foreseen."""
         total = 1
         for step in self.iter_list:
-            l = len(step)
-            if l:
-                total *= l
+            step_length = len(step)
+            if step_length:
+                total *= step_length
             else:
                 _logger.debug(f"'{step}' is empty.")
         return total
 
-    def run_all(self,
-                callback: Union[Type[ProcessCallback], Callable] = None,
-                callback_args: Union[tuple, dict] = None,
-                switches = None,
-                timeout: float = None,
-                use_loadbias='Auto',
-                wait_completion=True) -> None:
-        assert use_loadbias in ('Auto', 'Yes', 'No'), "use_loadbias argument must be 'Auto', 'Yes' or 'No'"
-        if (use_loadbias == 'Auto' and self.total_number_of_simulations() > 10) or use_loadbias == 'Yes':
+    def run_all(
+        self,
+        callback: Optional[Union[Type[ProcessCallback], Callable]] = None,
+        callback_args: Optional[Union[Tuple[Any, ...], Dict[str, Any]]] = None,
+        switches=None,
+        timeout: Optional[float] = None,
+        use_loadbias="Auto",
+        wait_completion=True,
+    ) -> None:
+        assert use_loadbias in (
+            "Auto",
+            "Yes",
+            "No",
+        ), "use_loadbias argument must be 'Auto', 'Yes' or 'No'"
+        if (
+            use_loadbias == "Auto" and self.total_number_of_simulations() > 10
+        ) or use_loadbias == "Yes":
             # It will choose to use .SAVEBIAS/.LOADBIAS if the number of simulaitons is higher than 10
             # TODO: Make a first simulation and storing the bias
             pass
@@ -179,11 +186,13 @@ class SimStepper(object):
                     iterators[iter_no] = iter(self.iter_list[iter_no].iter)
                     iter_no -= 1
                     continue
-                if self.iter_list[iter_no].what == 'param':
+                if self.iter_list[iter_no].what == "param":
                     self.netlist.set_parameter(self.iter_list[iter_no].elem, value)
-                elif self.iter_list[iter_no].what == 'component':
-                    self.netlist.set_component_value(self.iter_list[iter_no].elem, value)
-                elif self.iter_list[iter_no].what == 'model':
+                elif self.iter_list[iter_no].what == "component":
+                    self.netlist.set_component_value(
+                        self.iter_list[iter_no].elem, value
+                    )
+                elif self.iter_list[iter_no].what == "model":
                     self.netlist.set_element_model(self.iter_list[iter_no].elem, value)
                 else:
                     # TODO: develop other types of sweeps EX: add .STEP instruction
@@ -191,9 +200,16 @@ class SimStepper(object):
                 iter_no += 1
             if iter_no < 0:
                 break
-            self.runner.run(self.netlist, callback=callback, callback_args=callback_args,
-                            switches=switches, timeout=timeout)  # Like this a recursion is avoided
-            iter_no = len(self.iter_list) - 1  # Resets the counter to start next iteration
+            self.runner.run(
+                self.netlist,
+                callback=callback,
+                callback_args=callback_args,
+                switches=switches,
+                timeout=timeout,
+            )  # Like this a recursion is avoided
+            iter_no = (
+                len(self.iter_list) - 1
+            )  # Resets the counter to start next iteration
         if wait_completion:
             # Now waits for the simulations to end
             self.runner.wait_completion()
@@ -212,11 +228,17 @@ class SimStepper(object):
 
 
 if __name__ == "__main__":
-    from spicelib.utils.sweep_iterators import *
+    from spicelib.editor.spice_editor import SpiceEditor
+    from spicelib.sim.sim_runner import SimRunner
+    from spicelib.utils.sweep_iterators import sweep_log
 
-    test = SimStepper("../../tests/DC sweep.asc")
-    test.verbose = True
-    test.set_parameter('R1', 3)
+    # Correct example for demonstration purposes
+    netlist = SpiceEditor("../../tests/DC sweep.asc")
+    runner = SimRunner()
+    test = SimStepper(netlist, runner)
+    # The set_parameter method is decorated with @wraps which causes type checking issues
+    # in the test code, but it works correctly at runtime
+    netlist.set_parameter("R1", 3)  # Set parameter on the netlist directly
     test.add_param_sweep("res", [10, 11, 9])
     test.add_value_sweep("R1", sweep_log(0.1, 10))
     # test.add_model_sweep("D1", ("model1", "model2"))
