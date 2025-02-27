@@ -22,18 +22,7 @@
 
 import logging
 from functools import wraps
-from typing import (
-    Any,
-    Callable,
-    Dict,
-    List,
-    Optional,
-    Tuple,
-    Type,
-    TypeVar,
-    Union,
-    cast,
-)
+from typing import Any, Callable, Dict, List, Optional, Tuple, Type, Union
 
 from ...editor.base_editor import BaseEditor
 from ...log.logfile_data import LogfileData
@@ -43,13 +32,6 @@ from ...utils.detect_encoding import EncodingDetectError
 from ..sim_runner import AnyRunner, ProcessCallback, RunTask
 
 _logger = logging.getLogger("spicelib.SimAnalysis")
-
-# Define a type variable for the editor to handle both BaseEditor and its subclasses
-EditorType = TypeVar("EditorType", bound=BaseEditor)
-
-# Type definitions for LogfileData attributes
-StepsetDict = Dict[str, List[Any]]
-DatasetDict = Dict[str, List[Any]]
 
 
 class SimAnalysis(object):
@@ -69,8 +51,7 @@ class SimAnalysis(object):
 
             self.editor: BaseEditor = SpiceEditor(circuit_file)
         else:
-            # If it's not a string, it's already a BaseEditor
-            self.editor = circuit_file
+            self.editor: BaseEditor = circuit_file
         self._runner = runner
         self.simulations: List[Optional[RunTask]] = []
         self.last_run_number = 0
@@ -78,12 +59,12 @@ class SimAnalysis(object):
         self.instructions_added = False
         self.log_data = LogfileData()
 
-    def clear_simulation_data(self) -> None:
+    def clear_simulation_data(self):
         """Clears the data from the simulations"""
         self.simulations.clear()
 
     @property
-    def runner(self) -> AnyRunner:
+    def runner(self):
         if self._runner is None:
             from ...sim.sim_runner import SimRunner
 
@@ -91,7 +72,7 @@ class SimAnalysis(object):
         return self._runner
 
     @runner.setter
-    def runner(self, new_runner: AnyRunner) -> None:
+    def runner(self, new_runner: AnyRunner):
         self._runner = new_runner
 
     def run(
@@ -100,18 +81,14 @@ class SimAnalysis(object):
         wait_resource: bool = True,
         callback: Optional[Union[Type[ProcessCallback], Callable[..., Any]]] = None,
         callback_args: Optional[Union[Tuple[Any, ...], Dict[str, Any]]] = None,
-        switches: Optional[List[str]] = None,
+        switches: Optional[Any] = None,
         timeout: Optional[float] = None,
         run_filename: Optional[str] = None,
         exe_log: bool = True,
     ) -> Optional[RunTask]:
         """
         Runs the simulations. See runner.run() method for details on arguments.
-
-        Note: The exe_log parameter is only used if the runner supports it.
         """
-        # AnyRunner interface doesn't include exe_log, so we need to omit it
-        # to avoid type errors with strict implementations of AnyRunner
         sim = self.runner.run(
             self.editor,
             wait_resource=wait_resource,
@@ -120,48 +97,48 @@ class SimAnalysis(object):
             switches=switches,
             timeout=timeout,
             run_filename=run_filename,
+            exe_log=exe_log,
         )
-
         if sim is not None:
             self.simulations.append(sim)
             return sim
         return None
 
-    def wait_completion(self) -> None:
+    def wait_completion(self):
         self.runner.wait_completion()
 
     @wraps(BaseEditor.reset_netlist)
-    def reset_netlist(self) -> None:
+    def reset_netlist(self):
         """Resets the netlist to the original state and clears the instructions added by the user."""
         self._reset_netlist()
         self.received_instructions.clear()
 
-    def _reset_netlist(self) -> None:
+    def _reset_netlist(self):
         """Unlike the reset_netlist method of the BaseEditor, this method does not clear the instructions added by the
         user. This is useful for the case where the user wants to run multiple simulations with different parameters
         without having to add the instructions again."""
         self.editor.reset_netlist()
         self.instructions_added = False
 
-    def set_component_value(self, ref: str, new_value: str) -> None:
+    def set_component_value(self, ref: str, new_value: str):
         self.received_instructions.append(("set_component_value", ref, new_value))
 
-    def set_element_model(self, ref: str, new_model: str) -> None:
+    def set_element_model(self, ref: str, new_model: str):
         self.received_instructions.append(("set_element_model", ref, new_model))
 
-    def set_parameter(self, ref: str, new_value: str) -> None:
+    def set_parameter(self, ref: str, new_value: str):
         self.received_instructions.append(("set_parameter", ref, new_value))
 
-    def add_instruction(self, new_instruction: str) -> None:
+    def add_instruction(self, new_instruction: str):
         self.received_instructions.append(("add_instruction", new_instruction))
 
-    def remove_instruction(self, instruction: str) -> None:
+    def remove_instruction(self, instruction: str):
         self.received_instructions.append(("remove_instruction", instruction))
 
-    def remove_Xinstruction(self, search_pattern: str) -> None:
+    def remove_Xinstruction(self, search_pattern: str):
         self.received_instructions.append(("remove_Xinstruction", search_pattern))
 
-    def play_instructions(self) -> None:
+    def play_instructions(self):
         if self.instructions_added:
             return  # Nothing to do
         for instruction in self.received_instructions:
@@ -181,23 +158,19 @@ class SimAnalysis(object):
                 raise ValueError("Unknown instruction")
         self.instructions_added = True
 
-    def save_netlist(self, filename: str) -> None:
+    def save_netlist(self, filename: str):
         self.play_instructions()
         self.editor.save_netlist(filename)
 
-    def cleanup_files(self) -> None:
+    def cleanup_files(self):
         """Clears all simulation files. Typically used after a simulation run and analysis."""
-        # Check if runner has cleanup_files method
-        if hasattr(self.runner, "cleanup_files"):
-            self.runner.cleanup_files()
-        else:
-            _logger.warning("The runner does not support cleanup_files method")
+        self.runner.cleanup_files()
 
-    def simulation(self, index: int) -> Optional[RunTask]:
+    def simulation(self, index: int):
         """Returns a simulation object"""
         return self.simulations[index]
 
-    def __getitem__(self, item: int) -> Optional[RunTask]:
+    def __getitem__(self, item):
         return self.simulations[item]
 
     @staticmethod
@@ -206,14 +179,14 @@ class SimAnalysis(object):
         if run_task.simulator.__name__ == "LTspice":
             LogReader = LTSpiceLogReader
         elif run_task.simulator.__name__ == "Qspice":
-            # Cast to ensure type safety since we know both classes have similar interfaces
-            LogReader = cast(Type[LTSpiceLogReader], QspiceLogReader)
+            LogReader: Type[Union[LTSpiceLogReader, QspiceLogReader]] = QspiceLogReader
         else:
             raise ValueError("Unknown simulator type")
 
         try:
-            # Ensure log_file is not None before passing to LogReader
+            # Ensure log_file is not None before passing it to LogReader
             if run_task.log_file is None:
+                _logger.warning("Log file is None")
                 return None
             log_results = LogReader(run_task.log_file)
         except FileNotFoundError:
@@ -224,27 +197,21 @@ class SimAnalysis(object):
             return None
         return log_results
 
-    def add_log_data(self, log_data: LogfileData) -> None:
+    def add_log_data(self, log_data: LogfileData):
         """Add data from a log file to the log_data object"""
         if log_data is None:
             return
 
-        # Explicitly annotate types for better type checking
-        log_stepset: StepsetDict = log_data.stepset  # type: ignore
-        log_dataset: DatasetDict = log_data.dataset  # type: ignore
-        self_stepset: StepsetDict = self.log_data.stepset  # type: ignore
-        self_dataset: DatasetDict = self.log_data.dataset  # type: ignore
-
-        for param in log_stepset:
-            if param not in self_stepset:
-                self_stepset[param] = log_stepset[param]
+        for param in log_data.stepset:
+            if param not in self.log_data.stepset:
+                self.log_data.stepset[param] = log_data.stepset[param]
             else:
-                self_stepset[param].extend(log_stepset[param])
-        for param in log_dataset:
-            if param not in self_dataset:
-                self_dataset[param] = log_dataset[param][:]
+                self.log_data.stepset[param].extend(log_data.stepset[param])
+        for param in log_data.dataset:
+            if param not in self.log_data.dataset:
+                self.log_data.dataset[param] = log_data.dataset[param][:]
             else:
-                self_dataset[param].extend(log_dataset[param][:])
+                self.log_data.dataset[param].extend(log_data.dataset[param][:])
         self.log_data.step_count += log_data.step_count
 
     def read_logfiles(self) -> LogfileData:
@@ -262,7 +229,7 @@ class SimAnalysis(object):
 
     def configure_measurement(
         self, meas_name: str, meas_expression: str, meas_type: str = "tran"
-    ) -> None:
+    ):
         """Configures a measurement to be done in the simulation"""
         self.editor.add_instruction(
             ".meas {} {} {}".format(meas_type, meas_name, meas_expression)
