@@ -46,12 +46,13 @@ class SimAnalysis(object):
     def __init__(
         self, circuit_file: Union[str, BaseEditor], runner: Optional[AnyRunner] = None
     ):
-        if isinstance(circuit_file, str):
-            from ...editor.spice_editor import SpiceEditor
+        from ...editor.spice_editor import SpiceEditor
 
-            self.editor: BaseEditor = SpiceEditor(circuit_file)
+        self.editor: BaseEditor
+        if isinstance(circuit_file, str):
+            self.editor = SpiceEditor(circuit_file)
         else:
-            self.editor: BaseEditor = circuit_file
+            self.editor = circuit_file
         self._runner = runner
         self.simulations: List[Optional[RunTask]] = []
         self.last_run_number = 0
@@ -176,10 +177,11 @@ class SimAnalysis(object):
     @staticmethod
     def read_logfile(run_task: RunTask) -> Optional[LogfileData]:
         """Reads the log file and returns a dictionary with the results"""
+        log_reader_cls: Type[Union[LTSpiceLogReader, QspiceLogReader]]
         if run_task.simulator.__name__ == "LTspice":
-            LogReader = LTSpiceLogReader
+            log_reader_cls = LTSpiceLogReader
         elif run_task.simulator.__name__ == "Qspice":
-            LogReader: Type[Union[LTSpiceLogReader, QspiceLogReader]] = QspiceLogReader
+            log_reader_cls = QspiceLogReader
         else:
             raise ValueError("Unknown simulator type")
 
@@ -188,7 +190,7 @@ class SimAnalysis(object):
             if run_task.log_file is None:
                 _logger.warning("Log file is None")
                 return None
-            log_results = LogReader(run_task.log_file)
+            log_results = log_reader_cls(run_task.log_file)
         except FileNotFoundError:
             _logger.warning("Log file not found: %s", run_task.log_file)
             return None
