@@ -3790,6 +3790,17 @@ files = [
 ]
 
 [[package]]
+name = "types-psutil"
+version = "7.0.0.20250218"
+description = "Typing stubs for psutil"
+optional = false
+python-versions = ">=3.9"
+files = [
+    {file = "types_psutil-7.0.0.20250218-py3-none-any.whl", hash = "sha256:1447a30c282aafefcf8941ece854e1100eee7b0296a9d9be9977292f0269b121"},
+    {file = "types_psutil-7.0.0.20250218.tar.gz", hash = "sha256:1e642cdafe837b240295b23b1cbd4691d80b08a07d29932143cbbae30eb0db9c"},
+]
+
+[[package]]
 name = "zipp"
 version = "3.21.0"
 description = "Backport of pathlib-compatible object wrapper for zip files"
@@ -3811,4 +3822,4 @@ type = ["pytest-mypy"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.9"
-content-hash = "5daa47833760c789d21f678b4951032fbbd33c23c532e9d231457e8605940312"
+content-hash = "61fb4eee6933ccac93596e99fa9f97557bd3a30dc227cc32c263db2b1803798e"
