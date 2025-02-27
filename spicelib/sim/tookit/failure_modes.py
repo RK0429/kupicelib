@@ -20,11 +20,11 @@
 # -------------------------------------------------------------------------------
 
 from collections import OrderedDict
-from typing import Union, Optional, Iterable, Type
+from typing import Any, Dict, Iterable, Optional, Type, Union
 
-from ..simulator import Simulator
 from ...editor.base_editor import BaseEditor, ComponentNotFoundError
-from .sim_analysis import SimAnalysis, AnyRunner
+from ..simulator import Simulator
+from .sim_analysis import AnyRunner, SimAnalysis
 
 
 class FailureMode(SimAnalysis):
@@ -46,27 +46,35 @@ class FailureMode(SimAnalysis):
         * Integrated Circuits
             # The failure modes are defined by the user by using the add_failure_mode() method
     """
-    def __init__(self, circuit_file: Union[str, BaseEditor], simulator: Optional[Type[Simulator]] = None,
-                 runner: Optional[AnyRunner] = None):
-        SimAnalysis.__init__(self, circuit_file, simulator, runner)
-        self.resistors = self.editor.get_components('R')
-        self.capacitors = self.editor.get_components('C')
-        self.inductors = self.editor.get_components('L')
-        self.diodes = self.editor.get_components('D')
-        self.bipolars = self.editor.get_components('Q')
-        self.mosfets = self.editor.get_components('M')
-        self.subcircuits = self.editor.get_components('X')
-        self.user_failure_modes = OrderedDict()
+
+    def __init__(
+        self,
+        circuit_file: Union[str, BaseEditor],
+        simulator: Optional[Type[Simulator]] = None,
+        runner: Optional[AnyRunner] = None,
+    ):
+        SimAnalysis.__init__(self, circuit_file, runner)
+        self.simulator = simulator
+        self.resistors = self.editor.get_components("R")
+        self.capacitors = self.editor.get_components("C")
+        self.inductors = self.editor.get_components("L")
+        self.diodes = self.editor.get_components("D")
+        self.bipolars = self.editor.get_components("Q")
+        self.mosfets = self.editor.get_components("M")
+        self.subcircuits = self.editor.get_components("X")
+        self.user_failure_modes: Dict[str, Dict[str, Any]] = OrderedDict()
 
     def add_failure_circuit(self, component, sub_circuit):
-        if not component.startswith('X'):
-            raise RuntimeError("The failure modes addition only works with sub circuits")
+        if not component.startswith("X"):
+            raise RuntimeError(
+                "The failure modes addition only works with sub circuits"
+            )
         if component not in self.subcircuits:
             raise ComponentNotFoundError()
         raise NotImplementedError("TODO")  # TODO: Implement this
 
     def add_failure_mode(self, component, short_pins: Iterable, open_pins: Iterable):
-        if not component.startswith('X'):
+        if not component.startswith("X"):
             raise RuntimeError("The failure modes addition only works with subcircuits")
         if component not in self.subcircuits:
             raise ComponentNotFoundError()
@@ -75,7 +83,9 @@ class FailureMode(SimAnalysis):
     def run_all(self):
         for resistor in self.resistors:
             # Short Circuit
-            self.editor.set_component_value(resistor, '1f')  # replaces the resistor with a one femto-Ohm
+            self.editor.set_component_value(
+                resistor, "1f"
+            )  # replaces the resistor with a one femto-Ohm
             self.simulations[f"{resistor}_S"] = self.runner.run()
             # Open Circuit
             self.editor.remove_component(resistor)
@@ -89,6 +99,8 @@ class FailureMode(SimAnalysis):
                 self.editor.remove_component(two_pin_component)
                 self.simulations[f"{two_pin_component}_O"] = self.simulator.run()
                 # Short Circuit
-                self.editor.netlist[cinfo['line']] = f"Rfmea_short_{two_pin_component}{cinfo['nodes']} 1f"
+                self.editor.netlist[cinfo["line"]] = (
+                    f"Rfmea_short_{two_pin_component}{cinfo['nodes']} 1f"
+                )
                 self.simulations[f"{two_pin_component}_S"] = self.simulator.run()
                 self.editor.reset_netlist()
