@@ -577,7 +577,7 @@ class SimRunner(AnyRunner):
         simulator = Simulator
         process_name = simulator.process_name
         try:
-            import psutil  # type: ignore
+            import psutil
         except ImportError:
             _logger.error("psutil library not installed, cannot kill processes")
             return
