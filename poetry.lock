@@ -3779,6 +3779,17 @@ files = [
 ]
 
 [[package]]
+name = "types-keyboard"
+version = "0.13.2.20240310"
+description = "Typing stubs for keyboard"
+optional = false
+python-versions = ">=3.8"
+files = [
+    {file = "types-keyboard-0.13.2.20240310.tar.gz", hash = "sha256:88eba8a8c2ade5dbe9b84587c342c07b0f6afc2ac0c13e122e41be04253bea8a"},
+    {file = "types_keyboard-0.13.2.20240310-py3-none-any.whl", hash = "sha256:7efa930d7283a1f9c59dfa18ba48284b1d1975a1a80be9dfa44b4e0ec5181eb1"},
+]
+
+[[package]]
 name = "zipp"
 version = "3.21.0"
 description = "Backport of pathlib-compatible object wrapper for zip files"
@@ -3800,4 +3811,4 @@ type = ["pytest-mypy"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.9"
-content-hash = "f98d9e50df626f16dc2d7b0c4758458e94ac8831b9b6c57cb4f3f0b222779bdc"
+content-hash = "5daa47833760c789d21f678b4951032fbbd33c23c532e9d231457e8605940312"
