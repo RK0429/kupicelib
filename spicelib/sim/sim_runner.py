@@ -144,6 +144,7 @@ class AnyRunner(Protocol):
         switches: Optional[List[str]] = None,
         timeout: Optional[float] = None,
         run_filename: Optional[str] = None,
+        exe_log: bool = False,
     ) -> Optional[RunTask]: ...
 
     def wait_completion(self, timeout=None, abort_all_on_timeout=False) -> bool: ...
