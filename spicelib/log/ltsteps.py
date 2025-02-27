@@ -88,14 +88,17 @@ __author__ = "Nuno Canto Brum <me@nunobrum.com>"
 __copyright__ = "Copyright 2023, Fribourg Switzerland"
 
 import dataclasses
+import logging
 import os.path
 import re
-from typing import List
+from typing import Any, Dict, List, Optional, TypeVar, Union
 
-from .logfile_data import LogfileData, try_convert_value
 from ..utils.detect_encoding import detect_encoding
-import logging
+from .logfile_data import LogfileData, try_convert_value
+
 _logger = logging.getLogger("spicelib.LTSteps")
+
+T = TypeVar("T")
 
 
 def reformat_LTSpice_export(export_file: str, tabular_file: str):
@@ -122,15 +125,17 @@ def reformat_LTSpice_export(export_file: str, tabular_file: str):
     :return: Nothing
     """
     encoding = detect_encoding(export_file)
-    fin = open(export_file, 'r', encoding=encoding)
-    fout = open(tabular_file, 'w', encoding=encoding)
+    fin = open(export_file, "r", encoding=encoding)
+    fout = open(tabular_file, "w", encoding=encoding)
 
     headers = fin.readline()
     # writing header
     go_header = True
-    run_no = 0  # Just to avoid warning, this is later overridden by the step information
-    param_values = ""  # Just to avoid warning, this is later overridden by the step information
-    regx = re.compile(r"Step Information: ([\w=\d\. \-]+) +\((?:Run|Step): (\d*)/\d*\)\n")
+    run_no = "0"  # Changed from int to str as the regex will return a string
+    param_values = ""
+    regx = re.compile(
+        r"Step Information: ([\w=\d\. \-]+) +\((?:Run|Step): (\d*)/\d*\)\n"
+    )
     for line in fin:
         if line.startswith("Step Information:"):
             match = regx.match(line)
@@ -138,13 +143,13 @@ def reformat_LTSpice_export(export_file: str, tabular_file: str):
                 step, run_no = match.groups()
                 params = []
                 for param in step.split():
-                    params.append(param.split('=')[1])
+                    params.append(param.split("=")[1])
                 param_values = "\t".join(params)
 
                 if go_header:
                     header_keys = []
                     for param in step.split():
-                        header_keys.append(param.split('=')[0])
+                        header_keys.append(param.split("=")[0])
                     param_header = "\t".join(header_keys)
                     msg = "Run\t%s\t%s" % (param_header, headers)
                     fout.write(msg)
@@ -181,15 +186,15 @@ class LTSpiceExport(object):
 
     def __init__(self, export_filename: str):
         self.encoding = detect_encoding(export_filename)
-        fin = open(export_filename, 'r', encoding=self.encoding)
+        fin = open(export_filename, "r", encoding=self.encoding)
         file_header = fin.readline()
 
-        self.headers = file_header.split('\t')
+        self.headers = file_header.split("\t")
         # Set to read header
         go_header = True
 
-        curr_dic = {}
-        self.dataset = {}
+        curr_dic: Dict[str, Any] = {}
+        self.dataset: Dict[str, List[Any]] = {}
 
         regx = re.compile(r"Step Information: ([\w=\d\. -]+) +\(Run: (\d*)/\d*\)\n")
         for line in fin:
@@ -197,9 +202,9 @@ class LTSpiceExport(object):
                 match = regx.match(line)
                 if match:
                     step, run_no = match.groups()
-                    curr_dic['runno'] = run_no
+                    curr_dic["runno"] = run_no
                     for param in step.split():
-                        key, value = param.split('=')
+                        key, value = param.split("=")
                         curr_dic[key] = try_convert_value(value)
 
                     if go_header:
@@ -211,13 +216,15 @@ class LTSpiceExport(object):
                             self.dataset[key.lower()] = []  # Initializes an empty list
 
             else:
-                values = line.split('\t')
+                values = line.split("\t")
 
                 for key in curr_dic:
                     self.dataset[key.lower()].append(curr_dic[key])
 
                 for i in range(len(values)):
-                    self.dataset[self.headers[i].lower()].append(try_convert_value(values[i]))
+                    self.dataset[self.headers[i].lower()].append(
+                        try_convert_value(values[i])
+                    )
 
         fin.close()
 
@@ -239,9 +246,16 @@ class HarmonicData:
         frequency = float(tokens[1])
         fourier_component = float(tokens[2])
         normalized_component = float(tokens[3])
-        phase = float(tokens[4].rstrip('°'))
-        normalized_phase = float(tokens[5].rstrip('°'))
-        return cls(harmonic_number, frequency, fourier_component, normalized_component, phase, normalized_phase)
+        phase = float(tokens[4].rstrip("°"))
+        normalized_phase = float(tokens[5].rstrip("°"))
+        return cls(
+            harmonic_number,
+            frequency,
+            fourier_component,
+            normalized_component,
+            phase,
+            normalized_phase,
+        )
 
 
 @dataclasses.dataclass
@@ -295,12 +309,20 @@ class LTSpiceLogReader(LogfileData):
     :type step_set: dict
     """
 
-    def __init__(self, log_filename: str, read_measures=True, step_set: dict = None, encoding=None):
+    def __init__(
+        self,
+        log_filename: str,
+        read_measures: bool = True,
+        step_set: Optional[Dict[str, List[Any]]] = None,
+        encoding: Optional[str] = None,
+    ):
         super().__init__(step_set)
         self.logname = log_filename
-        self.fourier = {}
+        self.fourier: Dict[str, List[FourierData]] = {}
         if encoding is None:
-            self.encoding = detect_encoding(log_filename, r"^((.*\n)?Circuit:|([\s\S]*)--- Expanded Netlist ---)")
+            self.encoding = detect_encoding(
+                log_filename, r"^((.*\n)?Circuit:|([\s\S]*)--- Expanded Netlist ---)"
+            )
         else:
             self.encoding = encoding
 
@@ -314,17 +336,18 @@ class LTSpiceLogReader(LogfileData):
         # fcut: v(vout)=vmax/sqrt(2) AT 252.921
         # fcutac=8.18166e+006 FROM 1.81834e+006 TO 1e+007 => AC Find Computation
         regx = re.compile(
-                # r"^(?P<name>\w+)(:\s+.*)?=(?P<value>[\d(inf)\.E+\-\(\)dB,°]+)(( FROM (?P<from>[\d\.E+-]*) TO (?P<to>[\d\.E+-]*))|( at (?P<at>[\d\.E+-]*)))?",
-                r"^(?P<name>\w+)(:\s+.*)?=(?P<value>[\d(inf)E+\-\(\)dB,°(-/\w]+)( FROM (?P<from>[\d\.E+-]*) TO (?P<to>[\d\.E+-]*)|( at (?P<at>[\d\.E+-]*)))?",
-                re.IGNORECASE)
+            # r"^(?P<name>\w+)(:\s+.*)?=(?P<value>[\d(inf)\.E+\-\(\)dB,°]+)(( FROM (?P<from>[\d\.E+-]*) TO (?P<to>[\d\.E+-]*))|( at (?P<at>[\d\.E+-]*)))?",
+            r"^(?P<name>\w+)(:\s+.*)?=(?P<value>[\d(inf)E+\-\(\)dB,°(-/\w]+)( FROM (?P<from>[\d\.E+-]*) TO (?P<to>[\d\.E+-]*)|( at (?P<at>[\d\.E+-]*)))?",
+            re.IGNORECASE,
+        )
 
         _logger.debug(f"Processing LOG file:{log_filename}")
-        with open(log_filename, 'r', encoding=self.encoding) as fin:
+        with open(log_filename, "r", encoding=self.encoding) as fin:
             line = fin.readline()
             # init variables, just in case. Not needed really, but helps debugging
-            signal = None
-            n_periods = 0
-            dc_component = 0
+            signal: Optional[str] = None
+            n_periods: Union[int, float] = 0
+            dc_component: float = 0.0
 
             while line:
                 if len(line.strip()) == 0:
@@ -332,58 +355,78 @@ class LTSpiceLogReader(LogfileData):
                     pass
                 elif line.startswith("N-Period"):
                     # Read number of periods
-                    n_periods = line.strip('\r\n').split("=")[-1].strip()
-                    if n_periods == 'all':
+                    n_periods_str = line.strip("\r\n").split("=")[-1].strip()
+                    if n_periods_str == "all":
                         n_periods = -1
                     else:
-                        n_periods = float(n_periods)
+                        n_periods = float(
+                            n_periods_str
+                        )  # Now it's a float, which is compatible with the expected type
                 elif line.startswith("Fourier components of"):
                     # Read signal name
-                    line = line.strip('\r\n')
+                    line = line.strip("\r\n")
                     signal = line.split(" of ")[-1].strip()
                 elif line.startswith("DC component:"):
                     # Read DC component
-                    line = line.strip('\r\n')
-                    dc_component = float(line.split(':')[-1].strip())
+                    line = line.strip("\r\n")
+                    dc_component = float(line.split(":")[-1].strip())
                 elif line.startswith("Harmonic"):
                     # Skip next header line
                     fin.readline()
                     # Read Harmonics table
-                    phd = thd = None
-                    harmonics = []
+                    phd: Optional[float] = None
+                    thd: Optional[float] = None
+                    harmonics: List[HarmonicData] = []
                     while True:
-                        line = fin.readline().strip('\r\n')
+                        line = fin.readline().strip("\r\n")
                         if line.startswith("Total Harmonic"):
                             # Find THD
-                            thd = float(re.search(r"\d+.\d+", line).group())
+                            match = re.search(r"\d+.\d+", line)
+                            if match:  # Check if match exists
+                                thd = float(match.group())
                         elif line.startswith("Partial Harmonic"):
                             # Find PHD
-                            phd = float(re.search(r"\d+.\d+", line).group())
+                            match = re.search(r"\d+.\d+", line)
+                            if match:  # Check if match exists
+                                phd = float(match.group())
                         elif line == "":
                             # End of the table
                             break
                         else:
                             harmonics.append(HarmonicData.from_line(line))
 
-                    fourier_data = FourierData(signal, n_periods, dc_component, phd, thd, harmonics, self.step_count - 1)
-                    if signal in self.fourier:
-                        self.fourier[signal].append(fourier_data)
-                    else:
-                        self.fourier[signal] = [fourier_data]
+                    if signal is not None and phd is not None and thd is not None:
+                        fourier_data = FourierData(
+                            signal,
+                            (
+                                int(n_periods)
+                                if isinstance(n_periods, float)
+                                else n_periods
+                            ),
+                            dc_component,
+                            phd,
+                            thd,
+                            harmonics,
+                            self.step_count - 1,
+                        )
+                        if signal in self.fourier:
+                            self.fourier[signal].append(fourier_data)
+                        else:
+                            self.fourier[signal] = [fourier_data]
 
                 elif line.startswith(".step"):
                     self.step_count += 1
-                    tokens = line.strip('\r\n').split(' ')
+                    tokens = line.strip("\r\n").split(" ")
                     for tok in tokens[1:]:
                         lhs, rhs = tok.split("=")
                         # Try to convert to int or float
-                        rhs = try_convert_value(rhs)
+                        converted_rhs = try_convert_value(rhs)
                         lhs = lhs.lower()
                         ll = self.stepset.get(lhs, None)
                         if ll:
-                            ll.append(rhs)
+                            ll.append(converted_rhs)
                         else:
-                            self.stepset[lhs] = [rhs]
+                            self.stepset[lhs] = [converted_rhs]
 
                 elif line.startswith("Measurement:"):
                     if not read_measures:
@@ -396,54 +439,72 @@ class LTSpiceLogReader(LogfileData):
                     match = regx.match(line)
                     if match:
                         # Get the data
-                        dataname = match.group('name')
-                        if match.group('from'):
+                        dataname = match.group("name")
+                        if match.group("from"):
                             headers = [dataname, dataname + "_FROM", dataname + "_TO"]
-                            measurements = [match.group('value'), match.group('from'), match.group('to')]
-                        elif match.group('at'):
+                            measurements = [
+                                match.group("value"),
+                                match.group("from"),
+                                match.group("to"),
+                            ]
+                        elif match.group("at"):
                             headers = [dataname, dataname + "_at"]
-                            measurements = [match.group('value'), match.group('at')]
+                            measurements = [match.group("value"), match.group("at")]
                         else:
                             headers = [dataname]
-                            measurements = [match.group('value')]
+                            measurements = [match.group("value")]
                         self.measure_count += 1
                         for k, title in enumerate(headers):
                             self.dataset[title.lower()] = [
-                                try_convert_value(measurements[k])]  # need to be a list for compatibility
+                                try_convert_value(measurements[k])
+                            ]  # need to be a list for compatibility
                 line = fin.readline()
 
-            dataname = None
+            meas_name: Optional[str] = None
 
             headers = []  # Initializing an empty parameters
             measurements = []
             while line:
-                line = line.strip('\r\n')
+                line = line.strip("\r\n")
                 if line.startswith("Measurement: "):
-                    if dataname:  # If previous measurement was saved
+                    if meas_name:  # If previous measurement was saved
                         # store the info
                         if len(measurements):
-                            _logger.debug("Storing Measurement %s (count %d)" % (dataname, len(measurements)))
+                            _logger.debug(
+                                "Storing Measurement %s (count %d)"
+                                % (meas_name, len(measurements))
+                            )
                             self.measure_count += len(measurements)
                             for k, title in enumerate(headers):
-                                self.dataset[title.lower()] = [measure[k] for measure in measurements]
+                                self.dataset[title.lower()] = [
+                                    measure[k] for measure in measurements
+                                ]
                         headers = []
                         measurements = []
-                    dataname = line[13:]  # text which is after "Measurement: ". len("Measurement: ") -> 13
+                    meas_name = line[
+                        13:
+                    ]  # text which is after "Measurement: ". len("Measurement: ") -> 13
                     _logger.debug("Reading Measurement %s" % line[13:])
                 else:
                     tokens = line.split("\t")
                     if len(tokens) >= 2:
                         try:
-                            int(tokens[0])  # This instruction only serves to trigger the exception
+                            int(
+                                tokens[0]
+                            )  # This instruction only serves to trigger the exception
                             meas = tokens[1:]  # remove the first token
                             measurements.append(try_convert_value(meas))
                             self.measure_count += 1
                         except ValueError:
-                            if len(tokens) >= 3 and (tokens[2] == "FROM" or tokens[2] == 'at'):
-                                tokens[2] = dataname + '_' + tokens[2]
+                            if len(tokens) >= 3 and (
+                                tokens[2] == "FROM" or tokens[2] == "at"
+                            ):
+                                if meas_name is not None:
+                                    tokens[2] = meas_name + "_" + tokens[2]
                             if len(tokens) >= 4 and tokens[3] == "TO":
-                                tokens[3] = dataname + "_TO"
-                            headers = [dataname] + tokens[2:]
+                                if meas_name is not None:
+                                    tokens[3] = meas_name + "_TO"
+                            headers = [meas_name] + tokens[2:]
                             measurements = []
                     else:
                         _logger.debug("->" + line)
@@ -451,68 +512,102 @@ class LTSpiceLogReader(LogfileData):
                 line = fin.readline()  # advance to the next line
 
             # storing the last data into the dataset
-            if dataname:
-                _logger.debug("Storing Measurement %s (count %d)" % (dataname, len(measurements)))
+            if meas_name:
+                _logger.debug(
+                    "Storing Measurement %s (count %d)" % (meas_name, len(measurements))
+                )
             if len(measurements):
                 self.measure_count += len(measurements)
                 for k, title in enumerate(headers):
-                    self.dataset[title.lower()] = [measure[k] for measure in measurements]
+                    self.dataset[title.lower()] = [
+                        measure[k] for measure in measurements
+                    ]
 
             _logger.debug("%d measurements" % len(self.dataset))
-            _logger.info("Identified %d steps, read %d measurements" % (self.step_count, self.measure_count))
+            _logger.info(
+                "Identified %d steps, read %d measurements"
+                % (self.step_count, self.measure_count)
+            )
 
-    def export_data(self, export_file: str, encoding=None, append_with_line_prefix=None):
+    def export_data(
+        self,
+        export_file: str,
+        encoding=None,
+        append_with_line_prefix=None,
+        value_separator: str = "\t",
+        line_terminator: str = "\n",
+    ):
         """Aside from exporting the data, it also exports fourier data if it exists"""
-        super().export_data(export_file, encoding, append_with_line_prefix)
+        super().export_data(
+            export_file,
+            encoding,
+            append_with_line_prefix,
+            value_separator,
+            line_terminator,
+        )
 
         fourier_export_file = os.path.splitext(export_file)[0] + "_fourier.txt"
         if self.fourier:
             with open(fourier_export_file, "w", encoding=encoding) as fout:
                 if self.step_count > 0:
                     fout.write("\t".join(self.stepset.keys()) + "\t")
-                fout.write("Signal\tN-Periods\tDC Component\tFundamental\tN-Harmonics\tPHD\tTHD\n")
+                fout.write(
+                    "Signal\tN-Periods\tDC Component\tFundamental\tN-Harmonics\tPHD\tTHD\n"
+                )
                 for signal in self.fourier:
                     if self.step_count > 0:
                         for step_no in range(self.step_count):
-                            step_values = [f"{self.stepset[step][step_no]}" for step in self.stepset]
+                            step_values = [
+                                f"{self.stepset[step][step_no]}"
+                                for step in self.stepset
+                            ]
                             for analysis in self.fourier[signal]:
                                 if analysis.step == step_no:
-                                    fout.write('\t'.join(step_values) + '\t')
+                                    fout.write("\t".join(step_values) + "\t")
                                     if analysis.n_periods < 1:
-                                        n_periods = 'all'
+                                        n_periods_str = "all"
                                     else:
-                                        n_periods = analysis.n_periods
-                                    fout.write(f"{signal}\t"
-                                               f"{n_periods}\t"
-                                               f"{analysis.dc_component}\t"
-                                               f"{analysis.fundamental}\t"
-                                               f"{len(analysis)}\t"
-                                               f"{analysis.phd}\t"
-                                               f"{analysis.thd}\n")
+                                        n_periods_str = str(analysis.n_periods)
+                                    fout.write(
+                                        f"{signal}\t"
+                                        f"{n_periods_str}\t"
+                                        f"{analysis.dc_component}\t"
+                                        f"{analysis.fundamental}\t"
+                                        f"{len(analysis)}\t"
+                                        f"{analysis.phd}\t"
+                                        f"{analysis.thd}\n"
+                                    )
                     else:
                         for analysis in self.fourier[signal]:
                             if analysis.n_periods == -1:
-                                n_periods = 'all'
+                                n_periods_str = "all"
                             else:
-                                n_periods = analysis.n_periods
-                            fout.write(f"{signal}\t"
-                                       f"{n_periods}\t"
-                                       f"{analysis.dc_component}\t"
-                                       f"{analysis.fundamental}"
-                                       f"\t{len(analysis)}\t"
-                                       f"{analysis.phd}\t"
-                                       f"{analysis.thd}\n")
+                                n_periods_str = str(analysis.n_periods)
+                            fout.write(
+                                f"{signal}\t"
+                                f"{n_periods_str}\t"
+                                f"{analysis.dc_component}\t"
+                                f"{analysis.fundamental}"
+                                f"\t{len(analysis)}\t"
+                                f"{analysis.phd}\t"
+                                f"{analysis.thd}\n"
+                            )
                 fout.write("\n\nHarmonic Analysis\n")
                 fout.write("\t".join(self.stepset.keys()) + "\t")
-                fout.write("Signal\tN-Periods\tHarmonic\tFrequency\tFourier\tNormalized\tPhase\tNormalized\n")
+                fout.write(
+                    "Signal\tN-Periods\tHarmonic\tFrequency\tFourier\tNormalized\tPhase\tNormalized\n"
+                )
                 for signal in self.fourier:
                     for analysis in self.fourier[signal]:
                         if self.step_count > 0:
                             for step_no in range(self.step_count):
                                 if analysis.step == step_no:
-                                    step_values = [f"{self.stepset[step][step_no]}" for step in self.stepset]
+                                    step_values = [
+                                        f"{self.stepset[step][step_no]}"
+                                        for step in self.stepset
+                                    ]
                                     for harmonic in analysis:
-                                        fout.write('\t'.join(step_values) + '\t')
+                                        fout.write("\t".join(step_values) + "\t")
                                         fout.write(
                                             f"{signal}\t"
                                             f"{analysis.n_periods}\t"
@@ -525,13 +620,14 @@ class LTSpiceLogReader(LogfileData):
                                         )
                         else:
                             for harmonic in analysis:
-                                fout.write(f"{signal}\t"
-                                           f"{analysis.n_periods}\t"
-                                           f"{harmonic.harmonic_number}\t"
-                                           f"{harmonic.frequency}\t"
-                                           f"{harmonic.fourier_component}\t"
-                                           f"{harmonic.normalized_component}\t"
-                                           f"{harmonic.phase}\t"
-                                           f"{harmonic.normalized_phase}\n"
-                                           )
+                                fout.write(
+                                    f"{signal}\t"
+                                    f"{analysis.n_periods}\t"
+                                    f"{harmonic.harmonic_number}\t"
+                                    f"{harmonic.frequency}\t"
+                                    f"{harmonic.fourier_component}\t"
+                                    f"{harmonic.normalized_component}\t"
+                                    f"{harmonic.phase}\t"
+                                    f"{harmonic.normalized_phase}\n"
+                                )
                 fout.write("\n")
