@@ -19,6 +19,7 @@ psutil = "*"
 clipboard = "*"
 matplotlib = "*"
 keyboard = "*"
+types-keyboard = "^0.13.2.20240310"
 
 [tool.poetry.scripts]
 ltsteps = "spicelib.scripts.ltsteps:main"
