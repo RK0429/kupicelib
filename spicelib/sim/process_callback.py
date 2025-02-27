@@ -31,10 +31,12 @@ class ProcessCallback(Process):
     """
     Wrapper for the callback function
     """
-    def __init__(self, raw, log, group=None, name=None, *, daemon: bool | None = ...,
-                 **kwargs) -> None:
+
+    def __init__(
+        self, raw, log, group=None, name=None, *, daemon: bool | None = None, **kwargs
+    ) -> None:
         super().__init__(group=group, name=name, daemon=daemon)
-        self.queue = Queue()
+        self.queue: Queue = Queue()
         self.raw_file = raw
         self.log_file = log
         self.kwargs = kwargs
