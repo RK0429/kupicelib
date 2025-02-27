@@ -101,40 +101,52 @@ simulation is finished.
 __author__ = "Nuno Canto Brum <nuno.brum@gmail.com>"
 __copyright__ = "Copyright 2020, Fribourg Switzerland"
 
-__all__ = ['SimRunner', 'SimRunnerTimeoutError', 'AnyRunner', 'ProcessCallback', 'RunTask', 'clock_function']
+__all__ = [
+    "SimRunner",
+    "SimRunnerTimeoutError",
+    "AnyRunner",
+    "ProcessCallback",
+    "RunTask",
+    "clock_function",
+]
 
-import shutil
 import inspect  # Library used to get the arguments of the callback function
-from pathlib import Path
-from time import sleep, thread_time as clock
-from typing import Callable, Union, Type, Protocol, Tuple
 import logging
+import shutil
+from pathlib import Path
+from time import sleep
+from time import thread_time as clock
+from typing import Any, Callable, Dict, List, Optional, Protocol, Tuple, Type, Union
 
-from .process_callback import ProcessCallback
+from ..editor.base_editor import BaseEditor
 from ..sim.run_task import RunTask, clock_function
 from ..sim.simulator import Simulator
-from ..editor.base_editor import BaseEditor
+from .process_callback import ProcessCallback
 
 _logger = logging.getLogger("spicelib.SimRunner")
-END_LINE_TERM = '\n'
+END_LINE_TERM = "\n"
 
 
 class SimRunnerTimeoutError(TimeoutError):
     """Timeout Error class"""
+
     ...
 
 
 class AnyRunner(Protocol):
-    def run(self, netlist: Union[str, Path, BaseEditor], *,
-            wait_resource: bool = True,
-            callback: Union[Type[ProcessCallback], Callable] = None,
-            callback_args: Union[tuple, dict] = None,
-            switches=None,
-            timeout: float = None, run_filename: str = None) -> Union[RunTask, None]:
-        ...
+    def run(
+        self,
+        netlist: Union[str, Path, BaseEditor],
+        *,
+        wait_resource: bool = True,
+        callback: Optional[Union[Type[ProcessCallback], Callable]] = None,
+        callback_args: Optional[Union[tuple, dict]] = None,
+        switches: Optional[List[str]] = None,
+        timeout: Optional[float] = None,
+        run_filename: Optional[str] = None,
+    ) -> Optional[RunTask]: ...
 
-    def wait_completion(self, timeout=None, abort_all_on_timeout=False) -> bool:
-        ...
+    def wait_completion(self, timeout=None, abort_all_on_timeout=False) -> bool: ...
 
 
 class SimRunner(AnyRunner):
@@ -157,24 +169,33 @@ class SimRunner(AnyRunner):
     :type simulator: Simulator, optional
     """
 
-    def __init__(self, *, simulator=None, parallel_sims: int = 4, timeout: float = 600.0, verbose=False,
-                 output_folder: str = None):
+    def __init__(
+        self,
+        *,
+        simulator=None,
+        parallel_sims: int = 4,
+        timeout: float = 600.0,
+        verbose: bool = False,
+        output_folder: Optional[str] = None,
+    ):
         # The '*' in the parameter list forces the user to use named parameters for the rest of the parameters.
         # This is a good practice to avoid confusion.
         self.verbose = verbose
         self.timeout = timeout
-        self.cmdline_switches = []
+        self.cmdline_switches: List[str] = []
 
+        # Define output_folder attribute with type annotation once
+        self.output_folder: Optional[Path] = None
         if output_folder:
-            self.output_folder = Path(output_folder)  # If not None converts to Path() object
+            self.output_folder = Path(
+                output_folder
+            )  # If not None converts to Path() object
             if not self.output_folder.exists():
                 self.output_folder.mkdir()
-        else:
-            self.output_folder = None
 
         self.parallel_sims = parallel_sims
-        self.active_tasks = []
-        self.completed_tasks = []
+        self.active_tasks: List[RunTask] = []
+        self.completed_tasks: List[RunTask] = []
         self._iterator_counter = 0  # Note: Nested iterators are not supported
 
         self.runno = 0  # number of total runs
@@ -215,7 +236,7 @@ class SimRunner(AnyRunner):
         """Clear all the command line switches added previously"""
         self.cmdline_switches.clear()
 
-    def add_command_line_switch(self, switch, path=''):
+    def add_command_line_switch(self, switch, path=""):
         """
         Used to add an extra command line argument such as -I<path> to add symbol search path or -FastAccess
         to convert the raw file into Fast Access.
@@ -238,7 +259,7 @@ class SimRunner(AnyRunner):
         else:
             return Path(afile)
 
-    def _to_output_folder(self, afile: Path, *, copy: bool, new_name: str = ''):
+    def _to_output_folder(self, afile: Path, *, copy: bool, new_name: str = ""):
         if self.output_folder:
             if new_name:
                 ddst = self.output_folder / new_name
@@ -260,12 +281,14 @@ class SimRunner(AnyRunner):
     def _run_file_name(self, netlist):
         if not isinstance(netlist, Path):
             netlist = Path(netlist)
-        if netlist.suffix == '.qsch':
+        if netlist.suffix == ".qsch":
             # The Qsch files can't be simulated, so, they have to be converted to netlist first.
-            netlist = netlist.with_suffix('.net')
+            netlist = netlist.with_suffix(".net")
         return "%s_%i%s" % (netlist.stem, self.runno, netlist.suffix)
 
-    def _prepare_sim(self, netlist: Union[str, Path, BaseEditor], run_filename: str):
+    def _prepare_sim(
+        self, netlist: Union[str, Path, BaseEditor], run_filename: Optional[str]
+    ):
         """Internal function"""
         # update number of simulation
         self.runno += 1  # Incrementing internal simulation number
@@ -283,14 +306,21 @@ class SimRunner(AnyRunner):
                 run_filename = self._run_file_name(netlist)
             if isinstance(netlist, str):
                 netlist = Path(netlist)
-            run_netlist_file = self._to_output_folder(netlist, copy=True, new_name=run_filename)
+            run_netlist_file = self._to_output_folder(
+                netlist, copy=True, new_name=run_filename
+            )
         else:
-            raise TypeError("'netlist' parameter shall be a SpiceEditor, pathlib.Path or a plain str")
+            raise TypeError(
+                "'netlist' parameter shall be a SpiceEditor, pathlib.Path or a plain str"
+            )
 
         return run_netlist_file
 
     @staticmethod
-    def validate_callback_args(callback: Callable, callback_args: Union[tuple, dict]) -> Union[dict, None]:
+    def validate_callback_args(
+        callback: Optional[Union[Type[ProcessCallback], Callable]],
+        callback_args: Optional[Union[tuple, dict]],
+    ) -> Optional[Dict[str, Any]]:
         """
         It validates that the callback_args are matching the callback function.
         Note that the first two parameters of the callback functions need to be the raw and log files.
@@ -306,30 +336,48 @@ class SimRunner(AnyRunner):
             raise ValueError("Callback function must have at least two arguments")
         if len(args) > 2:
             if callback_args is None:
-                raise ValueError("Callback function has more than two arguments, but no callback_args are given")
+                raise ValueError(
+                    "Callback function has more than two arguments, but no callback_args are given"
+                )
             if isinstance(callback_args, dict):
                 for pos, param in enumerate(args):
                     if pos > 1:
                         if param not in callback_args:
-                            raise ValueError("Callback argument '%s' not found in callback_args" % param)
+                            raise ValueError(
+                                "Callback argument '%s' not found in callback_args"
+                                % param
+                            )
 
             if len(args) - 2 != len(callback_args):
-                raise ValueError("Callback function has %d arguments, but %d callback_args are given" %
-                                 (len(args), len(callback_args))
-                                 )
+                raise ValueError(
+                    "Callback function has %d arguments, but %d callback_args are given"
+                    % (len(args), len(callback_args))
+                )
             if isinstance(callback_args, tuple):
                 # Convert into a dictionary
-                return {param: callback_args[pos - 2] for pos, param in enumerate(args) if pos > 1}
+                return {
+                    param: callback_args[pos - 2]
+                    for pos, param in enumerate(args)
+                    if pos > 1
+                }
             else:
                 return callback_args
+        return {}  # Return empty dict for functions with exactly 2 arguments
 
-    def run(self, netlist: Union[str, Path, BaseEditor], *, wait_resource: bool = True,
-            callback: Union[Type[ProcessCallback], Callable] = None,
-            callback_args: Union[tuple, dict] = None,
-            switches=None,
-            timeout: float = None,
-            run_filename: str = None,
-            exe_log: bool = False) -> Union[RunTask, None]:
+    def run(
+        self,
+        netlist: Union[str, Path, BaseEditor],
+        *,
+        wait_resource: bool = True,
+        callback: Optional[
+            Union[Type[ProcessCallback], Callable[[Path, Path], Any]]
+        ] = None,
+        callback_args: Optional[Union[tuple, dict]] = None,
+        switches: Optional[List[str]] = None,
+        timeout: Optional[float] = None,
+        run_filename: Optional[str] = None,
+        exe_log: bool = False,
+    ) -> Optional[RunTask]:
         """
         Executes a simulation run with the conditions set by the user.
         Conditions are set by the set_parameter, set_component_value or add_instruction functions.
@@ -368,10 +416,10 @@ class SimRunner(AnyRunner):
         :type timeout: float, optional
         :param run_filename: Name to be used for the log and raw file.
         :type run_filename: str or Path
-        :param exe_log: If True, the simulator's execution console messages will be written to a log file 
+        :param exe_log: If True, the simulator's execution console messages will be written to a log file
             (named ...exe.log) instead of console. This is especially useful when running under wine or when running
             simultaneous tasks.
-        :type exe_log: bool, optional        
+        :type exe_log: bool, optional
         :returns: The task object of type RunTask
         """
         callback_kwargs = self.validate_callback_args(callback, callback_args)
@@ -383,30 +431,53 @@ class SimRunner(AnyRunner):
             timeout = self.timeout
 
         t0 = clock()  # Store the time for timeout calculation
-        while clock() - t0 < timeout + 1:  # Give one second slack in relation to the task timeout
-            cmdline_switches = switches or self.cmdline_switches  # If switches are passed, they override the ones
+        while (
+            clock() - t0 < timeout + 1
+        ):  # Give one second slack in relation to the task timeout
+            cmdline_switches = (
+                switches or self.cmdline_switches
+            )  # If switches are passed, they override the ones
             # inside the class.
 
             if (wait_resource is False) or (self.active_threads() < self.parallel_sims):
+                # Use a dummy callback if None is provided, as RunTask expects a non-None callback
+                actual_callback = (
+                    callback if callback is not None else (lambda raw, log: None)
+                )
+
                 t = RunTask(
-                    simulator=self.simulator, runno=self.runno, netlist_file=run_netlist_file,
-                    callback=callback, callback_args=callback_kwargs,
-                    switches=cmdline_switches, timeout=timeout, verbose=self.verbose,
-                    exe_log=exe_log
-                )                
+                    simulator=self.simulator,
+                    runno=self.runno,
+                    netlist_file=run_netlist_file,
+                    callback=actual_callback,
+                    callback_args=callback_kwargs,
+                    switches=cmdline_switches,
+                    timeout=timeout,
+                    verbose=self.verbose,
+                    exe_log=exe_log,
+                )
                 self.active_tasks.append(t)
                 t.start()
                 sleep(0.01)  # Give slack for the thread to start
                 return t  # Returns the task object
             sleep(0.1)  # Give Time for other simulations to end
         else:
-            _logger.error("Timeout waiting for resources for simulation %d" % self.runno)
+            _logger.error(
+                "Timeout waiting for resources for simulation %d" % self.runno
+            )
             if self.verbose:
                 _logger.warning("Timeout on launching simulation %d." % self.runno)
             return None
 
-    def run_now(self, netlist: Union[str, Path, BaseEditor], *, switches=None, run_filename: str = None,
-                timeout: float = None, exe_log: bool = False) -> Tuple[str, str]:
+    def run_now(
+        self,
+        netlist: Union[str, Path, BaseEditor],
+        *,
+        switches: Optional[List[str]] = None,
+        run_filename: Optional[str] = None,
+        timeout: Optional[float] = None,
+        exe_log: bool = False,
+    ) -> Tuple[Optional[Path], Optional[Path]]:
         """
         Executes a simulation run with the conditions set by the user.
         Conditions are set by the set_parameter, set_component_value or add_instruction functions.
@@ -422,7 +493,7 @@ class SimRunner(AnyRunner):
         :param timeout: Timeout to be used in waiting for resources. Default time is value defined in this class
             constructor.
         :type timeout: float, optional
-        :param exe_log: If True, the simulator's execution console messages will be written to a log file 
+        :param exe_log: If True, the simulator's execution console messages will be written to a log file
             (named ...exe.log) instead of console. This is especially useful when running under wine or when running simultaneous tasks.
         :type exe_log: bool, optional
         :returns: the raw and log filenames
@@ -431,7 +502,9 @@ class SimRunner(AnyRunner):
             switches = []
         run_netlist_file = self._prepare_sim(netlist, run_filename)
 
-        cmdline_switches = switches or self.cmdline_switches  # If switches are passed, they override the ones inside
+        cmdline_switches = (
+            switches or self.cmdline_switches
+        )  # If switches are passed, they override the ones inside
         # the class.
 
         if timeout is None:
@@ -442,10 +515,15 @@ class SimRunner(AnyRunner):
             return None
 
         t = RunTask(
-            simulator=self.simulator, runno=self.runno, netlist_file=run_netlist_file,
-            callback=dummy_callback, callback_args=None,
-            switches=cmdline_switches, timeout=timeout, verbose=self.verbose,
-            exe_log=exe_log
+            simulator=self.simulator,
+            runno=self.runno,
+            netlist_file=run_netlist_file,
+            callback=dummy_callback,
+            callback_args=None,
+            switches=cmdline_switches,
+            timeout=timeout,
+            verbose=self.verbose,
+            exe_log=exe_log,
         )
         t.start()
         sleep(0.01)  # Give slack for the thread to start
@@ -487,20 +565,24 @@ class SimRunner(AnyRunner):
     def kill_all_ltspice(self):
         """
         .. deprecated:: 1.0 Use `kill_all_spice()` instead.
-        
+
         This is only here for compatibility with previous code.
-        
+
         Function to terminate LTSpice"""
         self.kill_all_spice()
-        
+
     def kill_all_spice(self):
         """Function to terminate xxSpice processes"""
         simulator = Simulator
         process_name = simulator.process_name
-        import psutil
+        try:
+            import psutil  # type: ignore
+        except ImportError:
+            _logger.error("psutil library not installed, cannot kill processes")
+            return
+
         for proc in psutil.process_iter():
             # check whether the process name matches
-
             if proc.name() == process_name:
                 _logger.info("killing Spice", proc.pid)
                 proc.kill()
@@ -544,7 +626,9 @@ class SimRunner(AnyRunner):
             self.update_completed()
             if timeout is None:
                 stop_time = self._maximum_stop_time()
-            if stop_time is not None:  # This can happen if timeout was set as none everywhere
+            if (
+                stop_time is not None
+            ):  # This can happen if timeout was set as none everywhere
                 if clock_function() > stop_time:
                     if abort_all_on_timeout:
                         self.kill_all_spice()
@@ -586,19 +670,29 @@ class SimRunner(AnyRunner):
 
         for task in self.completed_tasks:
             netlistfile = task.netlist_file
-            self._del_file_if_exists(netlistfile)  # Delete the netlist file if still exists
-            self._del_file_if_exists(task.log_file)  # Delete the log file if was created
-            self._del_file_if_exists(netlistfile.with_suffix('.exe.log'))  # Delete the log file if was created
-            self._del_file_if_exists(task.raw_file)  # Delete the raw file if was created
+            self._del_file_if_exists(
+                netlistfile
+            )  # Delete the netlist file if still exists
+            self._del_file_if_exists(
+                task.log_file
+            )  # Delete the log file if was created
+            self._del_file_if_exists(
+                netlistfile.with_suffix(".exe.log")
+            )  # Delete the log file if was created
+            self._del_file_if_exists(
+                task.raw_file
+            )  # Delete the raw file if was created
 
-            if netlistfile.suffix == '.net' or netlistfile.suffix == '.asc':
+            if netlistfile.suffix == ".net" or netlistfile.suffix == ".asc":
                 # Delete the files that have been potentially created by LTSpice
-                for ext in ('.log.raw', '.op.raw'):
+                for ext in (".log.raw", ".op.raw"):
                     self._del_file_ext_if_exists(netlistfile, ext)
 
-                if netlistfile.suffix == '.asc':  # If simulated from an asc file, delete the .net file
+                if (
+                    netlistfile.suffix == ".asc"
+                ):  # If simulated from an asc file, delete the .net file
                     # Then needs to delete the .net as well
-                    self._del_file_ext_if_exists(netlistfile, '.net')
+                    self._del_file_ext_if_exists(netlistfile, ".net")
 
     def file_cleanup(self):
         """
@@ -607,7 +701,9 @@ class SimRunner(AnyRunner):
         self.cleanup_files()  # Alias for backward compatibility, this will be deleted in the future
 
     def __iter__(self):
-        self._iterator_counter = 0  # Reset the iterator counter. Note: nested iterators are not supported
+        self._iterator_counter = (
+            0  # Reset the iterator counter. Note: nested iterators are not supported
+        )
         return self
 
     def __next__(self):
@@ -629,8 +725,12 @@ class SimRunner(AnyRunner):
             # Then go through the active tasks to get the maximum timeout
             stop_time = self._maximum_stop_time()
 
-            if stop_time is not None and clock_function() > stop_time:  # All tasks are on timeout condition
-                raise SimRunnerTimeoutError(f"Exceeded {self.timeout} seconds waiting for tasks to finish")
+            if (
+                stop_time is not None and clock_function() > stop_time
+            ):  # All tasks are on timeout condition
+                raise SimRunnerTimeoutError(
+                    f"Exceeded {self.timeout} seconds waiting for tasks to finish"
+                )
 
             # Wait for the active tasks to finish with a timeout
             sleep(0.2)  # Go asleep for a while
