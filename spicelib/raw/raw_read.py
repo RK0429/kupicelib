@@ -832,7 +832,13 @@ class RawRead(object):
         local_vars.update(
             {name: float(value) for name, value in self.spice_params.items()}
         )
-        local_vars.update({namify(trace.name): trace.data for trace in self._traces})
+        local_vars.update(
+            {
+                namify(trace.name): trace.data
+                for trace in self._traces
+                if not isinstance(trace, DummyTrace)
+            }
+        )
         try:
             trace.data = eval(formula, local_vars)
         except Exception as err:
@@ -1156,16 +1162,12 @@ class RawRead(object):
         :type kwargs: ``**dict``
         """
         try:
-            import pandas  # type: ignore
+            # Import pandas with alias to make usage explicit for linters
+            import pandas as pd
 
-            use_pandas = True
-        except ImportError:
-            use_pandas = False
-
-        if use_pandas:
             df = self.to_dataframe(columns=columns, step=step)
-            df.to_csv(filename, sep=separator, **kwargs)
-        else:
+            pd.DataFrame.to_csv(df, filename, sep=separator, **kwargs)
+        except ImportError:
             # Export to CSV using python built-in functions
             data = self.export(columns=columns, step=step)
             with open(filename, "w") as f:
@@ -1199,11 +1201,13 @@ class RawRead(object):
         :raises ImportError: when the 'pandas' module is not installed
         """
         try:
-            import pandas  # type: ignore
+            # Import pandas with alias to make usage explicit for linters
+            import pandas as pd
+
+            df = self.to_dataframe(columns=columns, step=step)
+            pd.DataFrame.to_excel(df, filename, **kwargs)
         except ImportError:
             raise ImportError(
                 "The 'pandas' module is required to use this function.\n"
                 "Use 'pip install pandas' to install it."
             )
-        df = self.to_dataframe(columns=columns, step=step)
-        df.to_excel(filename, **kwargs)
