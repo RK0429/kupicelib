@@ -1,12 +1,29 @@
 # -*- coding: utf-8 -*-
 
 # Convenience direct imports
-from .raw.raw_read import RawRead, SpiceReadException
-from .raw.raw_write import RawWrite, Trace
-from .editor.spice_editor import SpiceEditor, SpiceCircuit, SpiceComponent
 from .editor.asc_editor import AscEditor
 from .editor.qsch_editor import QschEditor
+from .editor.spice_editor import SpiceCircuit, SpiceComponent, SpiceEditor
+from .raw.raw_read import RawRead, SpiceReadException
+from .raw.raw_write import RawWrite, Trace
 from .sim.sim_runner import SimRunner
+
+# Define public API to avoid unused import errors
+__all__ = [
+    "RawRead",
+    "SpiceReadException",
+    "RawWrite",
+    "Trace",
+    "SpiceEditor",
+    "SpiceCircuit",
+    "SpiceComponent",
+    "AscEditor",
+    "QschEditor",
+    "SimRunner",
+    "all_loggers",
+    "set_log_level",
+    "add_log_handler",
+]
 
 
 def all_loggers():
@@ -39,7 +56,7 @@ def all_loggers():
         "spicelib.Simulator",
         "spicelib.SpiceEditor",
         "spicelib.Utils",
-        "spicelib.XYCESimulator"
+        "spicelib.XYCESimulator",
     ]
 
 
@@ -51,6 +68,7 @@ def set_log_level(level):
     :type level: int
     """
     import logging
+
     for logger in all_loggers():
         logging.getLogger(logger).setLevel(level)
 
@@ -63,5 +81,6 @@ def add_log_handler(handler):
     :type handler: Handler
     """
     import logging
+
     for logger in all_loggers():
         logging.getLogger(logger).addHandler(handler)
