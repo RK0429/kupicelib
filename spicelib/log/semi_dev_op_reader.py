@@ -24,10 +24,12 @@ Implements a parser for extracting Semiconductor Devices Operating Points from a
 """
 
 import re
+from typing import Dict, List, Union
+
 from ..utils.detect_encoding import detect_encoding
 
 
-def opLogReader(filename: str) -> dict:
+def opLogReader(filename: str) -> Dict[str, Dict[str, Dict[str, Union[float, str]]]]:
     """
     This function is exclusively dedicated to retrieving operation point parameters of Semiconductor Devices. This is
     handled separately from the main LogReader class because of its specialization and therefore not judged to be
@@ -91,13 +93,15 @@ def opLogReader(filename: str) -> dict:
     :return: Dictionary containing the information as described above.
     :rtype: dict
     """
-    dataset = {}
+    dataset: Dict[str, Dict[str, Dict[str, Union[float, str]]]] = {}
     is_title = re.compile(r"^\s*--- (.*) ---\s*$")
     encoding = detect_encoding(filename)
-    log = open(filename, 'r', encoding=encoding)
-    where = None
+    log = open(filename, "r", encoding=encoding)
+    where: Union[str, None] = None
     n_devices = 0
     line = None
+    devices: List[str] = []
+
     for line in log:
         if line.startswith("Semiconductor Device Operating Points:"):
             break
@@ -107,22 +111,34 @@ def opLogReader(filename: str) -> dict:
             match = is_title.search(line)
             if match is not None:
                 where = match.group(1)
-                dataset[where.lower()] = {}  # Creates a dictionary for each component type
+                if where is not None:  # Ensure where is not None before using lower()
+                    dataset[where.lower()] = (
+                        {}
+                    )  # Creates a dictionary for each component type
             else:
-                cols = re.split(r'\s+', line.rstrip('\r\n'))
-                if len(cols) > 1 and (cols[0].endswith(":") or cols[0] == 'Gmb'):  # The last 'or condition solves an
+                cols = re.split(r"\s+", line.rstrip("\r\n"))
+                if len(cols) > 1 and (
+                    cols[0].endswith(":") or cols[0] == "Gmb"
+                ):  # The last 'or condition solves an
                     # LTSpice bug where the Gmb parameter is not suffixed by :  - Thanks to Amitkumar for finding this.
                     if cols[0] == "Name:":
                         devices = cols[1:]
                         n_devices = len(devices)
-                        for dev in cols[1:]:
-                            dataset[where.lower()][dev] = {}
+                        if (
+                            where is not None
+                        ):  # Ensure where is not None before using lower()
+                            for dev in cols[1:]:
+                                dataset[where.lower()][dev] = {}
                     else:
-                        if n_devices > 0 and len(cols) == (n_devices + 1):
-                            param = cols[0].rstrip(':')
+                        if (
+                            n_devices > 0
+                            and len(cols) == (n_devices + 1)
+                            and where is not None
+                        ):
+                            param = cols[0].rstrip(":")
                             for i, val in enumerate(cols[1:]):
                                 try:
-                                    value = float(val)
+                                    value: Union[float, str] = float(val)
                                 except ValueError:
                                     value = val
                                 dataset[where.lower()][devices[i]][param] = value
