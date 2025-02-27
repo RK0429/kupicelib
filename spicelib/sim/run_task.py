@@ -24,26 +24,26 @@ Internal classes not to be used directly by the user
 __author__ = "Nuno Canto Brum <nuno.brum@gmail.com>"
 __copyright__ = "Copyright 2023, Fribourg Switzerland"
 
-from pathlib import Path
+import logging
 import sys
 import threading
 import time
 import traceback
+from pathlib import Path
 from time import sleep
-from typing import Callable, Union, Any, Tuple, Type
-import logging
-import subprocess
-_logger = logging.getLogger("spicelib.RunTask")
+from typing import Any, Callable, Optional, Tuple, Type, Union
 
 from .process_callback import ProcessCallback
 from .simulator import Simulator
 
-END_LINE_TERM = '\n'
+_logger = logging.getLogger("spicelib.RunTask")
+
+END_LINE_TERM = "\n"
 
 if sys.version_info.major >= 3 and sys.version_info.minor >= 6:
     clock_function = time.time
 else:
-    clock_function = time.clock
+    clock_function = time.perf_counter
 
 
 def format_time_difference(time_diff):
@@ -59,17 +59,26 @@ def format_time_difference(time_diff):
         else:
             return f"{int(minutes):02d}:{int(seconds):02d}.{milliseconds:04d}"
     else:
-        return f"{int(hours):02d}:{int(minutes):02d}:{int(seconds):02d}.{milliseconds:04d}"
+        return (
+            f"{int(hours):02d}:{int(minutes):02d}:{int(seconds):02d}.{milliseconds:04d}"
+        )
 
 
 class RunTask(threading.Thread):
     """This is an internal Class and should not be used directly by the User."""
 
-    def __init__(self, simulator: Type[Simulator], runno, netlist_file: Path,
-                 callback: Union[Type[ProcessCallback], Callable[[Path, Path], Any]],
-                 callback_args: dict = None,
-                 switches: Any = None, timeout: float = None, verbose: bool = False,
-                 exe_log: bool = False):
+    def __init__(
+        self,
+        simulator: Type[Simulator],
+        runno,
+        netlist_file: Path,
+        callback: Union[Type[ProcessCallback], Callable[[Path, Path], Any]],
+        callback_args: Optional[dict] = None,
+        switches: Any = None,
+        timeout: Optional[float] = None,
+        verbose: bool = False,
+        exe_log: bool = False,
+    ):
 
         super().__init__(name=f"RunTask#{runno}")
         self.start_time = None
@@ -98,37 +107,59 @@ class RunTask(threading.Thread):
         # Running the Simulation
 
         self.start_time = clock_function()
-        self.print_info(_logger.info, ": Starting simulation %d: %s" % (self.runno, self.netlist_file))
+        self.print_info(
+            _logger.info,
+            ": Starting simulation %d: %s" % (self.runno, self.netlist_file),
+        )
         # start execution
-        self.retcode = self.simulator.run(self.netlist_file.absolute().as_posix(), self.switches, self.timeout,
-                                          exe_log=self.exe_log)
+        self.retcode = self.simulator.run(
+            self.netlist_file.absolute().as_posix(),
+            self.switches,
+            self.timeout,
+            exe_log=self.exe_log,
+        )
         self.stop_time = clock_function()
         # print simulation time with format HH:MM:SS.mmmmmm
 
         # Calculate the time difference
         sim_time = format_time_difference(self.stop_time - self.start_time)
         # Format the time difference
-        self.log_file = self.netlist_file.with_suffix('.log')
+        self.log_file = self.netlist_file.with_suffix(".log")
 
         # Cleanup everything
         if self.retcode == 0:
             self.raw_file = self.netlist_file.with_suffix(self.simulator.raw_extension)
             if self.raw_file.exists() and self.log_file.exists():
                 # simulation successful
-                self.print_info(_logger.info, "Simulation Successful. Time elapsed: %s" % sim_time)
+                self.print_info(
+                    _logger.info, "Simulation Successful. Time elapsed: %s" % sim_time
+                )
 
                 if self.callback:
                     if self.callback_args is not None:
-                        callback_print = ', '.join([f"{key}={value}" for key, value in self.callback_args.items()])
+                        callback_print = ", ".join(
+                            [
+                                f"{key}={value}"
+                                for key, value in self.callback_args.items()
+                            ]
+                        )
                     else:
-                        callback_print = ''
-                    self.print_info(_logger.info, "Simulation Finished. Calling...{}(rawfile, logfile{})".format(
-                        self.callback.__name__, callback_print))
+                        callback_print = ""
+                    self.print_info(
+                        _logger.info,
+                        "Simulation Finished. Calling...{}(rawfile, logfile{})".format(
+                            self.callback.__name__, callback_print
+                        ),
+                    )
                     try:
                         if self.callback_args is not None:
-                            return_or_process = self.callback(self.raw_file, self.log_file, **self.callback_args)
+                            return_or_process = self.callback(
+                                self.raw_file, self.log_file, **self.callback_args
+                            )
                         else:
-                            return_or_process = self.callback(self.raw_file, self.log_file)
+                            return_or_process = self.callback(
+                                self.raw_file, self.log_file
+                            )
                     except Exception:
                         error = traceback.format_exc()
                         self.print_info(_logger.error, error)
@@ -143,17 +174,30 @@ class RunTask(threading.Thread):
                     finally:
                         callback_start_time = self.stop_time
                         self.stop_time = clock_function()
-                        self.print_info(_logger.info, "Callback Finished. Time elapsed: %s" % format_time_difference(
-                            self.stop_time - callback_start_time))
+                        self.print_info(
+                            _logger.info,
+                            "Callback Finished. Time elapsed: %s"
+                            % format_time_difference(
+                                self.stop_time - callback_start_time
+                            ),
+                        )
                 else:
-                    self.print_info(_logger.info, 'Simulation Finished. No Callback function given')
+                    self.print_info(
+                        _logger.info, "Simulation Finished. No Callback function given"
+                    )
             else:
-                self.print_info(_logger.error, "Simulation Raw file or Log file were not found")
+                self.print_info(
+                    _logger.error, "Simulation Raw file or Log file were not found"
+                )
         else:
             # simulation failed
-            self.print_info(_logger.error, ": Simulation Aborted. Time elapsed: %s" % sim_time)
+            self.print_info(
+                _logger.error, ": Simulation Aborted. Time elapsed: %s" % sim_time
+            )
             if self.log_file.exists():
-                self.log_file = self.log_file.replace(self.log_file.with_suffix('.fail'))
+                self.log_file = self.log_file.replace(
+                    self.log_file.with_suffix(".fail")
+                )
 
     def get_results(self) -> Union[None, Any, Tuple[str, str]]:
         """
