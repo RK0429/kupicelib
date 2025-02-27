@@ -42,43 +42,64 @@ will try to find the trace name with the I() qualifier.
 """
 
 from optparse import OptionParser
-import clipboard
+
+import clipboard  # type: ignore
+
 from spicelib.raw.raw_read import RawRead
 
 
 def main():
     usage = "usage: %prog [options] <rawfile> <trace_list>"
     parser = OptionParser(usage=usage, version="%prog 0.1")
-    parser.add_option("-o", "--output", dest="output", default=None,
-                      help="Output file name.\n"
-                           "Use .csv for CSV output, .xlsx for Excel output",
-                      metavar="FILE")
-    parser.add_option("-c", "--clipboard", dest="clipboard", action="store_true",
-                      help="Output to clipboard", default=False)
-    parser.add_option("-v", "--verbose", dest="verbose", action="store_true",
-                      help="Verbose output", default=False)
-    parser.add_option('-s', '--sep', dest='separator', default='\t',
-                      help='Value separator for CSV output. Default: "\\t" <TAB>\n'
-                           'Example: -d ";"'
-                      )
+    parser.add_option(
+        "-o",
+        "--output",
+        dest="output",
+        default=None,
+        help="Output file name.\n" "Use .csv for CSV output, .xlsx for Excel output",
+        metavar="FILE",
+    )
+    parser.add_option(
+        "-c",
+        "--clipboard",
+        dest="clipboard",
+        action="store_true",
+        help="Output to clipboard",
+        default=False,
+    )
+    parser.add_option(
+        "-v",
+        "--verbose",
+        dest="verbose",
+        action="store_true",
+        help="Verbose output",
+        default=False,
+    )
+    parser.add_option(
+        "-s",
+        "--sep",
+        dest="separator",
+        default="\t",
+        help='Value separator for CSV output. Default: "\\t" <TAB>\n' 'Example: -d ";"',
+    )
 
     (options, args) = parser.parse_args()
 
     if len(args) < 1:
         print("Error: Missing arguments")
         parser.print_help()
-        traces = '*'  # This is here just to avoid a warning on the IDE
+        traces = "*"  # This is here just to avoid a warning on the IDE
         exit(1)
     elif len(args) < 2:
-        traces = '*'
+        traces = "*"
     else:
         traces = args[1:]
 
     rawfile = args[0]
 
     # Read the raw file
-    if traces != '*':
-        raw_data = RawRead(rawfile, '*', header_only=True, verbose=False)
+    if traces != "*":
+        raw_data = RawRead(rawfile, "*", header_only=True, verbose=False)
         raw_traces = raw_data.get_trace_names()
         found_traces = []
         for trace in traces:
@@ -86,14 +107,22 @@ def main():
                 found_traces.append(trace)
             else:
                 if options.verbose:
-                    print("Trace " + trace + " not found. Searching for V(" + trace + ")")
-                if 'V(' + trace + ')' in raw_traces:
-                    found_traces.append('V(' + trace + ')')
+                    print(
+                        "Trace " + trace + " not found. Searching for V(" + trace + ")"
+                    )
+                if "V(" + trace + ")" in raw_traces:
+                    found_traces.append("V(" + trace + ")")
                 else:
                     if options.verbose:
-                        print("Trace V(" + trace + ") not found. Searching for I(" + trace + ")")
-                    if 'I(' + trace + ')' in raw_traces:
-                        found_traces.append('I(' + trace + ')')
+                        print(
+                            "Trace V("
+                            + trace
+                            + ") not found. Searching for I("
+                            + trace
+                            + ")"
+                        )
+                    if "I(" + trace + ")" in raw_traces:
+                        found_traces.append("I(" + trace + ")")
                     else:
                         print("Warning: Trace " + trace + " not found")
 
@@ -112,10 +141,13 @@ def main():
     if options.output is None:
         data = raw_data.export()
 
-        text = options.separator.join(data.keys()) + '\n'
+        text = options.separator.join(data.keys()) + "\n"
         data_size = len(data[data.__iter__().__next__()])
         for i in range(data_size):
-            text += options.separator.join([str(data[col][i]) for col in data.keys()]) + '\n'
+            text += (
+                options.separator.join([str(data[col][i]) for col in data.keys()])
+                + "\n"
+            )
         if options.clipboard:
             print(f"Copying to clipboard text with {len(text)} bytes")
             clipboard.copy(text)
