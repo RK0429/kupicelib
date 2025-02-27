@@ -21,6 +21,7 @@
 # From https://stackoverflow.com/questions/23598289/how-to-get-windows-short-file-name-in-python
 import ctypes
 from ctypes import wintypes
+
 _GetShortPathNameW = ctypes.windll.kernel32.GetShortPathNameW
 _GetShortPathNameW.argtypes = [wintypes.LPCWSTR, wintypes.LPWSTR, wintypes.DWORD]
 _GetShortPathNameW.restype = wintypes.DWORD
