@@ -19,13 +19,11 @@
 # -------------------------------------------------------------------------------
 
 import logging
-from time import sleep
-from typing import Union, Callable, Type
 from enum import IntEnum
+from typing import Callable, Dict, Optional, Tuple, Type, Union
 
-from .worst_case import WorstCaseAnalysis, DeviationType, ToleranceDeviations
 from ..process_callback import ProcessCallback
-from ...log.logfile_data import LogfileData
+from .worst_case import DeviationType, WorstCaseAnalysis
 
 _logger = logging.getLogger("spicelib.SimAnalysis")
 
@@ -71,26 +69,28 @@ class FastWorstCaseAnalysis(WorstCaseAnalysis):
     """
 
     def run_testbench(
-            self, *,
-            runs_per_sim: int = None,  # This parameter is ignored
-            wait_resource: bool = True, # This parameter is ignored
-            callback: Union[Type[ProcessCallback], Callable] = None,
-            callback_args: Union[tuple, dict] = None,
-            switches=None,
-            timeout: float = None,
-            run_filename: str = None,
-            exe_log: bool = False,
+        self,
+        *,
+        runs_per_sim: Optional[int] = None,  # This parameter is ignored
+        wait_resource: bool = True,  # This parameter is ignored
+        callback: Optional[Union[Type[ProcessCallback], Callable]] = None,
+        callback_args: Optional[Union[tuple, dict]] = None,
+        switches=None,
+        timeout: Optional[float] = None,
+        run_filename: Optional[str] = None,
+        exe_log: bool = False,
     ) -> None:
         raise NotImplementedError("run_testbench() is not implemented in this class")
 
-    def run_analysis(self,
-                     callback: Union[Type[ProcessCallback], Callable] = None,
-                     callback_args: Union[tuple, dict] = None,
-                     switches=None,
-                     timeout: float = None,
-                     measure: str = None,
-                     exe_log: bool = True,
-                     ):
+    def run_analysis(
+        self,
+        callback: Optional[Union[Type[ProcessCallback], Callable]] = None,
+        callback_args: Optional[Union[tuple, dict]] = None,
+        switches=None,
+        timeout: Optional[float] = None,
+        exe_log: bool = True,
+        measure: Optional[str] = None,
+    ) -> Tuple[float, float, Dict[str, float], float, Dict[str, float]]:
         """
         As described in the class description, this method will perform a worst case analysis using a faster algorithm.
         """
@@ -101,10 +101,12 @@ class FastWorstCaseAnalysis(WorstCaseAnalysis):
         worst_case_elements = {}
 
         def check_and_add_component(ref1: str):
-            val1, dev1 = self.get_component_value_deviation_type(ref1)  # get there present value
+            val1, dev1 = self.get_component_value_deviation_type(
+                ref1
+            )  # get there present value
             if dev1.min_val == dev1.max_val or dev1.typ == DeviationType.none:
                 return
-            worst_case_elements[ref1] = val1, dev1, 'component'
+            worst_case_elements[ref1] = val1, dev1, "component"
             self.elements_analysed.append(ref1)
 
         def value_change(val, dev, to: WorstCaseType):
@@ -138,19 +140,30 @@ class FastWorstCaseAnalysis(WorstCaseAnalysis):
         def set_ref_to(ref, to: WorstCaseType):
             val, dev, typ = worst_case_elements[ref]
             new_val = value_change(val, dev, to)
-            if typ == 'component':
+            if typ == "component":
                 self.editor.set_component_value(ref, new_val)  # update the value
-            elif typ == 'parameter':
+            elif typ == "parameter":
                 self.editor.set_parameter(ref, new_val)
             else:
                 _logger.warning("Unknown type")
 
         def run_and_get_measure():
             # Run the simulation
+            # Prepare callbacks and timeouts
+            actual_callback = (
+                callback if callback is not None else lambda: None
+            )  # default no-op callable
+            actual_callback_args = callback_args if callback_args is not None else ()
+            actual_timeout = timeout if timeout is not None else 0.0  # default timeout
+
             task = self.run(
                 wait_resource=True,
-                callback=callback, callback_args=callback_args,
-                switches=switches, timeout=timeout, exe_log=exe_log)
+                callback=actual_callback,
+                callback_args=actual_callback_args,
+                switches=switches,
+                timeout=actual_timeout,
+                exe_log=exe_log,
+            )
             self.wait_completion()
             # Get the results from the simulation
             log_data = self.add_log(task)
@@ -162,7 +175,7 @@ class FastWorstCaseAnalysis(WorstCaseAnalysis):
         for ref in self.parameter_deviations:
             val, dev = self.get_parameter_value_deviation_type(ref)
             if dev.typ == DeviationType.tolerance or dev.typ == DeviationType.minmax:
-                worst_case_elements[ref] = val, dev, 'parameter'
+                worst_case_elements[ref] = val, dev, "parameter"
                 self.elements_analysed.append(ref)
 
         for prefix in self.default_tolerance:
@@ -170,24 +183,46 @@ class FastWorstCaseAnalysis(WorstCaseAnalysis):
                 if ref not in self.device_deviations:
                     check_and_add_component(ref)
 
-        _logger.info("Worst Case Analysis: %d elements to be analysed", len(self.elements_analysed))
+        _logger.info(
+            "Worst Case Analysis: %d elements to be analysed",
+            len(self.elements_analysed),
+        )
+
+        # Prepare callbacks and timeouts for all run calls
+        actual_callback = (
+            callback if callback is not None else lambda: None
+        )  # default no-op callable
+        actual_callback_args = callback_args if callback_args is not None else ()
+        actual_timeout = timeout if timeout is not None else 0.0  # default timeout
 
         self._reset_netlist()  # reset the netlist
         self.play_instructions()  # play the instructions
         # Simulate the nominal case
-        self.run(wait_resource=True,
-                 callback=callback, callback_args=callback_args,
-                 switches=switches, timeout=timeout, exe_log=exe_log)
+        self.run(
+            wait_resource=True,
+            callback=actual_callback,
+            callback_args=actual_callback_args,
+            switches=switches,
+            timeout=actual_timeout,
+            exe_log=exe_log,
+        )
 
         # Sequence a change of a component value at a time, setting it to the maximum value
         for ref in self.elements_analysed:
             set_ref_to(ref, WorstCaseType.max)
             # Run the simulation
-            self.run(wait_resource=True,
-                     callback=callback, callback_args=callback_args,
-                     switches=switches, timeout=timeout, exe_log=exe_log)
+            self.run(
+                wait_resource=True,
+                callback=actual_callback,
+                callback_args=actual_callback_args,
+                switches=switches,
+                timeout=actual_timeout,
+                exe_log=exe_log,
+            )
         self.wait_completion()
-        self.analysis_executed = True  # Need to set this to True, so that the next step can be executed
+        self.analysis_executed = (
+            True  # Need to set this to True, so that the next step can be executed
+        )
         self.testbench_executed = True  # Idem
         # Get the results from the simulation
         log_data = self.read_logfiles()
@@ -210,7 +245,9 @@ class FastWorstCaseAnalysis(WorstCaseAnalysis):
         # the minimum value
         component_changed = False
         for ref in max_setting:
-            if not max_setting[ref]:  # Set the negative impact components to the minimum value
+            if not max_setting[
+                ref
+            ]:  # Set the negative impact components to the minimum value
                 set_ref_to(ref, WorstCaseType.min)
                 component_changed = True
 
@@ -229,7 +266,9 @@ class FastWorstCaseAnalysis(WorstCaseAnalysis):
                 ref = next(iterator)
             except StopIteration:
                 break
-            if max_setting[ref]:  # Set the negative impact components to the minimum value
+            if max_setting[
+                ref
+            ]:  # Set the negative impact components to the minimum value
                 set_ref_to(ref, WorstCaseType.min)
             else:
                 set_ref_to(ref, WorstCaseType.max)
@@ -242,7 +281,7 @@ class FastWorstCaseAnalysis(WorstCaseAnalysis):
                 max_setting[ref] = not max_setting[ref]
                 max_value = new_value
                 # Need to restart the cycle
-                iterator = iterator(self.elements_analysed)
+                iterator = iter(self.elements_analysed)
 
             # setting it back to the maximum value
             if max_setting[ref]:
@@ -310,7 +349,7 @@ class FastWorstCaseAnalysis(WorstCaseAnalysis):
 
         self.clear_simulation_data()
         self.cleanup_files()
-        self.reset_netlist()
+        self._reset_netlist()
         self.play_instructions()
 
         return nominal, min_value, max_comp_values, max_value, min_comp_values
