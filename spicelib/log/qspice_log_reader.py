@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 # coding=utf-8
 
+import logging
+
 # -------------------------------------------------------------------------------
 #
 #  ███████╗██████╗ ██╗ ██████╗███████╗██╗     ██╗██████╗
@@ -19,12 +21,12 @@
 # Licence:     refer to the LICENSE file
 # -------------------------------------------------------------------------------
 import re
-import logging
 from pathlib import Path
+from typing import Any, Dict, Optional
 
-from .logfile_data import LogfileData, try_convert_value, split_line_into_values
 from ..sim.simulator import run_function
 from ..simulators.qspice_simulator import Qspice
+from .logfile_data import LogfileData, split_line_into_values, try_convert_value
 
 _logger = logging.getLogger("spicelib.qspice_log_reader")
 
@@ -56,18 +58,24 @@ class QspiceLogReader(LogfileData):
     :type step_set: dict
     """
 
-    def __init__(self, log_filename: str, read_measures=True, step_set: dict = None, encoding=None):
+    def __init__(
+        self,
+        log_filename: str,
+        read_measures=True,
+        step_set: Optional[Dict[str, Any]] = None,
+        encoding=None,
+    ):
         super().__init__(step_set)
         self.logname = Path(log_filename)
         if encoding is None:
-            self.encoding = 'utf-8'
+            self.encoding = "utf-8"
         else:
             self.encoding = encoding
 
         step_regex = re.compile(r"^\s*(\d+) of \d+ steps:\s+\.step (.*)$")
 
         _logger.debug(f"Processing LOG file:{log_filename}")
-        with open(log_filename, 'r', encoding=self.encoding) as fin:
+        with open(log_filename, "r", encoding=self.encoding) as fin:
             line = fin.readline()
             while line:
                 match = step_regex.match(line)
@@ -75,12 +83,14 @@ class QspiceLogReader(LogfileData):
                     self.step_count += 1
                     step = int(match.group(1))
                     stepset = match.group(2)
-                    assert self.step_count == step, f"Step count mismatch: {self.step_count} != {step}"
+                    assert (
+                        self.step_count == step
+                    ), f"Step count mismatch: {self.step_count} != {step}"
                     _logger.debug(f"Found step {step} with stepset {stepset}")
 
-                    tokens = stepset.strip('\r\n').split(' ')
+                    tokens = stepset.strip("\r\n").split(" ")
                     for tok in tokens:
-                        if '=' not in tok:
+                        if "=" not in tok:
                             continue
                         lhs, rhs = tok.split("=")
                         # Try to convert to int or float
@@ -98,7 +108,7 @@ class QspiceLogReader(LogfileData):
             meas_file = self.obtain_measures()
             self.parse_meas_file(meas_file)
 
-    def obtain_measures(self, meas_filename: Path = None) -> Path:
+    def obtain_measures(self, meas_filename: Optional[Path] = None) -> Path:
         """
         In QSpice the measures are obtained by calling the QPOST command giving as arguments
         the .qraw file and the .log file
@@ -124,15 +134,17 @@ class QspiceLogReader(LogfileData):
             _logger.error("A specific location of the QSPICE can be set")
             _logger.error("using the create_from(<location>) class method")
             _logger.error("==============================================")
-            raise RuntimeError("QSPICE not found in the usual locations. Please install it and try again.")
+            raise RuntimeError(
+                "QSPICE not found in the usual locations. Please install it and try again."
+            )
 
         # Get the QPOST location, which is the same as the QSPICE location
         qpost = [Qspice.spice_exe[0].replace("QSPICE64.exe", "QPOST.exe")]
         # Guess the name of the .net file
-        netlist = self.logname.with_suffix('.net').absolute()
+        netlist = self.logname.with_suffix(".net").absolute()
         if not Path.exists(netlist):
-            netlist = self.logname.with_suffix('.cir').absolute()
-                    
+            netlist = self.logname.with_suffix(".cir").absolute()
+
         # Run the QPOST command
         cmd_run = qpost + [netlist, "-o", meas_filename.absolute()]
         _logger.debug(f"Running QPOST command: {cmd_run}")
@@ -152,7 +164,7 @@ class QspiceLogReader(LogfileData):
         meas_name = None
         headers = None
 
-        with open(meas_filename, 'r', encoding=self.encoding) as fin:
+        with open(meas_filename, "r", encoding=self.encoding) as fin:
             line = fin.readline()
             while line:
                 match = meas_regex.match(line)
@@ -160,24 +172,35 @@ class QspiceLogReader(LogfileData):
                     headers = None
                     token1 = match.group(1)
                     token2 = match.group(2)
-                    if token1 in ('tran', 'ac', 'dc', 'op'):
+                    if token1 in ("tran", "ac", "dc", "op"):
                         sim_type = token1
                         meas_name = token2
                     else:
                         sim_type = token2
                         meas_name = token1
                     meas_expr = match.group(3)
-                    _logger.debug(f"Found measure {meas_name} of type {sim_type} with expression {meas_expr}")
+                    _logger.debug(
+                        f"Found measure {meas_name} of type {sim_type} with expression {meas_expr}"
+                    )
                 else:
                     if meas_name:
                         values = split_line_into_values(line)
                         if headers is None:
                             if self.has_steps():
-                                headers = ['step'] + [meas_name + "_" + str(i) for i in range(len(values) - 1)]
-                                headers[1] = meas_name  # first column is the measure name without _0
+                                headers = ["step"] + [
+                                    meas_name + "_" + str(i)
+                                    for i in range(len(values) - 1)
+                                ]
+                                headers[1] = (
+                                    meas_name  # first column is the measure name without _0
+                                )
                             else:
-                                headers = [meas_name + "_" + str(i) for i in range(len(values))]
-                                headers[0] = meas_name  # first column is the measure name without _0
+                                headers = [
+                                    meas_name + "_" + str(i) for i in range(len(values))
+                                ]
+                                headers[0] = (
+                                    meas_name  # first column is the measure name without _0
+                                )
 
                             for title in headers:
                                 self.dataset[title.lower()] = []
