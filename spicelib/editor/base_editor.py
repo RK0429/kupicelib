@@ -20,55 +20,67 @@ __author__ = "Nuno Canto Brum <nuno.brum@gmail.com>"
 __version__ = "0.1.0"
 __copyright__ = "Copyright 2021, Fribourg Switzerland"
 
+import logging
+import os
 from abc import ABC, abstractmethod
 from collections import OrderedDict
 from math import floor, log
 from pathlib import Path
-from typing import Union, List
-import logging
-import os
-from ..sim.simulator import Simulator
+from typing import List, Union
 
+from ..sim.simulator import Simulator
 
 _logger = logging.getLogger("spicelib.BaseEditor")
 
-SUBCKT_DIVIDER = ':'  #: This controls the sub-circuit divider when setting component values inside sub-circuits.
+SUBCKT_DIVIDER = ":"  #: This controls the sub-circuit divider when setting component values inside sub-circuits.
 # Ex: Editor.set_component_value('XU1:R1', '1k')
 
-UNIQUE_SIMULATION_DOT_INSTRUCTIONS = ('.AC', '.DC', '.TRAN', '.NOISE', '.DC', '.TF')
+UNIQUE_SIMULATION_DOT_INSTRUCTIONS = (".AC", ".DC", ".TRAN", ".NOISE", ".DC", ".TF")
 SPICE_DOT_INSTRUCTIONS = (
-    '.BACKANNO',
-    '.END',
-    '.ENDS',
-    '.FERRET',  # Downloads a File from a given URL
-    '.FOUR',  # Compute a Fourier Component after a .TRAN Analysis
-    '.FUNC', '.FUNCTION',
-    '.GLOBAL',
-    '.IC',
-    '.INC', '.INCLUDE',  # Include another file
-    '.LIB',  # Include a Library
-    '.LOADBIAS',  # Load a Previously Solved DC Solution
+    ".BACKANNO",
+    ".END",
+    ".ENDS",
+    ".FERRET",  # Downloads a File from a given URL
+    ".FOUR",  # Compute a Fourier Component after a .TRAN Analysis
+    ".FUNC",
+    ".FUNCTION",
+    ".GLOBAL",
+    ".IC",
+    ".INC",
+    ".INCLUDE",  # Include another file
+    ".LIB",  # Include a Library
+    ".LOADBIAS",  # Load a Previously Solved DC Solution
     # These Commands are part of the contraption Programming Language of the Arbitrary State Machine
-    '.MACHINE', '.STATE', '.RULE', '.OUTPUT', '.ENDMACHINE',
-    '.MEAS', '.MEASURE',
-    '.MODEL',
-    '.NET',  # Compute Network Parameters in a .AC Analysis
-    '.NODESET',  # Hints for Initial DC Solution
-    '.OP',
-    '.OPTIONS',
-    '.PARAM', '.PARAMS',
-    '.SAVE', '.SAV',
-    '.SAVEBIAS',
-    '.STEP',
-    '.SUBCKT',
-    '.TEXT',
-    '.WAVE',  # Write Selected Nodes to a .Wav File
-
+    ".MACHINE",
+    ".STATE",
+    ".RULE",
+    ".OUTPUT",
+    ".ENDMACHINE",
+    ".MEAS",
+    ".MEASURE",
+    ".MODEL",
+    ".NET",  # Compute Network Parameters in a .AC Analysis
+    ".NODESET",  # Hints for Initial DC Solution
+    ".OP",
+    ".OPTIONS",
+    ".PARAM",
+    ".PARAMS",
+    ".SAVE",
+    ".SAV",
+    ".SAVEBIAS",
+    ".STEP",
+    ".SUBCKT",
+    ".TEXT",
+    ".WAVE",  # Write Selected Nodes to a .Wav File
 )
 
 
 def PARAM_REGEX(pname):
-    return r"(?P<name>" + pname + r")\s*[= ]\s*(?P<value>(?P<cb>\{)?(?(cb)[^\}]*\}|[\d\.\+\-Ee]+[a-zA-Z%]*))"
+    return (
+        r"(?P<name>"
+        + pname
+        + r")\s*[= ]\s*(?P<value>(?P<cb>\{)?(?(cb)[^\}]*\}|[\d\.\+\-Ee]+[a-zA-Z%]*))"
+    )
 
 
 def format_eng(value) -> str:
@@ -91,7 +103,9 @@ def format_eng(value) -> str:
     :rtype: str
     """
     if value == 0.0:
-        return "{:g}".format(value)  # This avoids a problematic log(0), and the int and float conversions
+        return "{:g}".format(
+            value
+        )  # This avoids a problematic log(0), and the int and float conversions
     e = floor(log(abs(value), 1000))
     if -5 <= e < 0:
         suffix = "fpnum"[e]
@@ -100,14 +114,14 @@ def format_eng(value) -> str:
     elif e == 1:
         suffix = "k"
     elif e == 2:
-        suffix = 'Meg'
+        suffix = "Meg"
     elif e == 3:
-        suffix = 'g'
+        suffix = "g"
     elif e == 4:
-        suffix = 't'
+        suffix = "t"
     else:
-        return '{:E}'.format(value)
-    return '{:g}{:}'.format(value * 1000 ** -e, suffix)
+        return "{:E}".format(value)
+    return "{:g}{:}".format(value * 1000**-e, suffix)
 
 
 def scan_eng(value: str) -> float:
@@ -123,7 +137,7 @@ def scan_eng(value: str) -> float:
         * meg for Mega (10E+6)
         * g for giga (10E+9)
         * t for tera (10E+12)
-        
+
     The extra unit qualifiers such as V for volts or F for Farads are ignored.
 
 
@@ -146,47 +160,50 @@ def scan_eng(value: str) -> float:
         suffix = suffix.lower()
         # By industry convention, SPICE is not case sensitive
         if suffix.startswith("meg"):
-            return f * 1E+6
+            return f * 1e6
         elif suffix[0] in "fpnuµmkgt":
-            return f * {
-                'f': 1.0e-15,
-                'p': 1.0e-12,
-                'n': 1.0e-09,
-                'u': 1.0e-06,
-                'µ': 1.0e-06,
-                'm': 1.0e-03,
-                'k': 1.0e+03,
-                'g': 1.0e+09,
-                't': 1.0e+12,
-            }[suffix[0]]
+            return (
+                f
+                * {
+                    "f": 1.0e-15,
+                    "p": 1.0e-12,
+                    "n": 1.0e-09,
+                    "u": 1.0e-06,
+                    "µ": 1.0e-06,
+                    "m": 1.0e-03,
+                    "k": 1.0e03,
+                    "g": 1.0e09,
+                    "t": 1.0e12,
+                }[suffix[0]]
+            )
     return f
 
 
 def to_float(value, accept_invalid: bool = True) -> Union[float, str]:
     _MULT = {
-        'f': 1E-15,
-        'p': 1E-12,
-        'n': 1E-9,
-        'µ': 1E-6,
-        'u': 1E-6,
-        'U': 1E-6,
-        'm': 1E-3,
-        'M': 1E-3,
-        'k': 1E+3,
-        'K': 1E+3,  # For much of the world, K is the same as k. That is a sad fact of life. K is Kelvin in SI
-        'Meg': 1E+6,
-        'g': 1E+9,
-        't': 1E+12,
+        "f": 1e-15,
+        "p": 1e-12,
+        "n": 1e-9,
+        "µ": 1e-6,
+        "u": 1e-6,
+        "U": 1e-6,
+        "m": 1e-3,
+        "M": 1e-3,
+        "k": 1e3,
+        "K": 1e3,  # For much of the world, K is the same as k. That is a sad fact of life. K is Kelvin in SI
+        "Meg": 1e6,
+        "g": 1e9,
+        "t": 1e12,
         # These units can be used as decimal points in the number definition. Ex: 10R5 is 10.5 Ohms. In LTSpice
         # the units can be used in any number definition. For example 10H5 is 10.5 Henrys but also can be used in
         # resistors value definition. LTSpice doesn't care about the unit in the component value definition.
-        'Ω': 1,  # This is the Ohm symbol. It is supported by LTspice
-        'R': 1,  # This also represents the Ohm symbol. Can be used a decimal point. Ex: 10R2 is 10.2 Ohms
-        'V': 1,  # Volts
-        'A': 1,  # Amperes (Current)
-        'F': 1,  # Farads (Capacitance)
-        'H': 1,  # Henry (Inductance)
-        '%': 0.01,  # Percent. 10% is 0.1. 1%6 is 0.016
+        "Ω": 1,  # This is the Ohm symbol. It is supported by LTspice
+        "R": 1,  # This also represents the Ohm symbol. Can be used a decimal point. Ex: 10R2 is 10.2 Ohms
+        "V": 1,  # Volts
+        "A": 1,  # Amperes (Current)
+        "F": 1,  # Farads (Capacitance)
+        "H": 1,  # Henry (Inductance)
+        "%": 0.01,  # Percent. 10% is 0.1. 1%6 is 0.016
     }
 
     value = value.strip()  # Removing trailing and leading spaces
@@ -203,7 +220,7 @@ def to_float(value, accept_invalid: bool = True) -> Union[float, str]:
         else:
             raise ValueError("Doesn't start with a number")
 
-    if 0 < i < length and (value[i] == 'E' or value[i] == 'e'):
+    if 0 < i < length and (value[i] == "E" or value[i] == "e"):
         # if it is a number in scientific format, it doesn't have 1000x qualifiers (Ex: p, u, k, etc...)
         i += 1
         while i < length and (value[i] in "0123456789+-"):  # Includes spaces
@@ -218,9 +235,9 @@ def to_float(value, accept_invalid: bool = True) -> Union[float, str]:
 
         if i < length:  # Still has characters to consume
             if value[i] in _MULT:
-                if value[i:].upper().startswith('MEG'):  # to 1E+06 qualifier 'Meg'
+                if value[i:].upper().startswith("MEG"):  # to 1E+06 qualifier 'Meg'
                     i += 3
-                    multiplier = _MULT['Meg']
+                    multiplier = _MULT["Meg"]
                 else:
                     multiplier = _MULT[value[i]]
                     i += 1
@@ -276,8 +293,8 @@ class Component(Primitive):
     def __init__(self, parent, line: str):
         super().__init__(line)
         self.reference = ""
-        self.attributes = OrderedDict()
-        self.ports = []
+        self.attributes: OrderedDict = OrderedDict()
+        self.ports: List[str] = []
         self.parent = parent
 
     @property
@@ -287,34 +304,34 @@ class Component(Primitive):
         :getter: Returns the value as a string
         :setter: Sets the value. This behaves like the `set_component_value()` method of the editor, but it is more convenient to use when dealing with a single component.
 
-        """        
+        """
         return self.parent.get_component_value(self.reference)
 
     @value_str.setter
     def value_str(self, value):
         if self.parent.is_read_only():
-            raise ValueError("Editor is read-only")        
+            raise ValueError("Editor is read-only")
         self.parent.set_component_value(self.reference, value)
 
     @property
     def params(self) -> OrderedDict:
-        """Gets all parameters to the component 
-        
+        """Gets all parameters to the component
+
         This behaves like the `get_component_parameters()` method of the editor, but it is more convenient to use when dealing with a single component.
         """
         return self.parent.get_component_parameters(self.reference)
 
     def set_params(self, **param_dict):
-        """Adds one or more parameters to the component 
-        
+        """Adds one or more parameters to the component
+
         The argument is in the form of a key-value pair where each parameter is the key and the value is value to be set in the netlist.
-        
+
         This behaves like the `set_component_parameters()` method of the editor, but it is more convenient to use when dealing with a single component.
 
         :raises ValueError: If the component is read only, as when it comes from a library
         """
         if self.parent.is_read_only():
-            raise ValueError("Editor is read-only")           
+            raise ValueError("Editor is read-only")
         self.parent.set_component_parameters(self.reference, **param_dict)
 
     @property
@@ -327,22 +344,6 @@ class Component(Primitive):
         """
         return to_float(self.value_str, accept_invalid=True)
 
-    @property
-    def model(self) -> str:
-        """The model of the component
-
-        :getter: Returns the model of the component
-        :setter: Sets the model. This behaves like the `set_element_model()` method of the editor, but it is more convenient to use when dealing with a single component.
- 
-        """
-        return self.parent.get_element_value(self.reference)
-
-    @model.setter
-    def model(self, model: str):
-        if self.parent.is_read_only():
-            raise ValueError("Editor is read-only")   
-        self.parent.set_element_model(self.reference, model)
-
     @value.setter
     def value(self, value: Union[str, int, float]):
         if self.parent.is_read_only():
@@ -352,6 +353,22 @@ class Component(Primitive):
         else:
             self.value_str = value
 
+    @property
+    def model(self) -> str:
+        """The model of the component
+
+        :getter: Returns the model of the component
+        :setter: Sets the model. This behaves like the `set_element_model()` method of the editor, but it is more convenient to use when dealing with a single component.
+
+        """
+        return self.parent.get_element_value(self.reference)
+
+    @model.setter
+    def model(self, model: str):
+        if self.parent.is_read_only():
+            raise ValueError("Editor is read-only")
+        self.parent.set_element_model(self.reference, model)
+
     def __str__(self):
         return f"{self.reference} = {self.value}"
 
@@ -360,7 +377,7 @@ class Component(Primitive):
 
     def __setitem__(self, key, value):
         if self.parent.is_read_only():
-            raise ValueError("Editor is read-only")        
+            raise ValueError("Editor is read-only")
         self.attributes[key] = value
 
 
@@ -369,16 +386,17 @@ class BaseEditor(ABC):
     This defines the primitives (protocol) to be used for both SpiceEditor and AscEditor
     classes.
     """
+
     custom_lib_paths: List[str] = []
     """The custom library paths. Not to be modified, only set via `set_custom_library_paths()`.
     This is a class variable, so it will be shared between all instances
-    
-    :meta hide-value:"""    
+
+    :meta hide-value:"""
     simulator_lib_paths: List[str] = []
     """ This is initialised with typical locations found for your simulator.
     You can (and should, if you use wine), call `prepare_for_simulator()` once you've set the executable paths.
     This is a class variable, so it will be shared between all instances.
-    
+
     :meta hide-value:
     """
 
@@ -422,7 +440,7 @@ class BaseEditor(ABC):
         ...
 
     @abstractmethod
-    def get_subcircuit(self, reference: str) -> 'BaseEditor':
+    def get_subcircuit(self, reference: str) -> "BaseEditor":
         """Returns a hierarchical subdesign"""
         ...
 
@@ -441,7 +459,7 @@ class BaseEditor(ABC):
         Returns the value of the attribute of the component. Attributes are the values that are not related with
         SPICE parameters. For example, component manufacturer, footprint, schematic appearance, etc.
         User can define whatever attributes they want. The only restriction is that the attribute name must be a string.
-        
+
         :param reference: Reference of the component
         :type reference: str
         :param attribute: Name of the attribute to be retrieved
@@ -455,14 +473,14 @@ class BaseEditor(ABC):
 
     def get_component_nodes(self, reference: str) -> list:
         """Returns the value of the port of the component.
-        
+
         :param reference: Reference of the component
         :type reference: str
         :return: List with the ports of the component
         :rtype: str
         :raises: ComponentNotFoundError - In case the component is not found
                  KeyError - In case the port is not found
-        
+
         """
         return self.get_component(reference).ports
 
@@ -478,7 +496,7 @@ class BaseEditor(ABC):
         :raises: ParameterNotFoundError - In case the component is not found
         """
         ...
-        
+
     @abstractmethod
     def get_all_parameter_names(self, param: str) -> str:
         """
@@ -487,7 +505,7 @@ class BaseEditor(ABC):
         :return: A list of parameter names found in the netlist
         :rtype: List[str]
         """
-        ...        
+        ...
 
     def set_parameter(self, param: str, value: Union[str, int, float]) -> None:
         """Adds a parameter to the SPICE netlist.
@@ -608,11 +626,13 @@ class BaseEditor(ABC):
         """
         ...
 
-    def set_component_attribute(self, reference: str, attribute: str, value: str) -> None:
+    def set_component_attribute(
+        self, reference: str, attribute: str, value: str
+    ) -> None:
         """Sets the value of the attribute of the component. Attributes are the values that are not related with
         SPICE parameters. For example, component manufacturer, footprint, schematic appearance, etc.
         User can define whatever attributes they want. The only restriction is that the attribute name must be a string.
-        
+
         :param reference: Reference of the component
         :type reference: str
         :param attribute: Name of the attribute to be set
@@ -699,7 +719,7 @@ class BaseEditor(ABC):
             self.set_component_value(value, kwargs[value])
 
     @abstractmethod
-    def get_components(self, prefixes='*') -> list:
+    def get_components(self, prefixes="*") -> list:
         """
         Returns a list of components that match the list of prefixes indicated on the parameter prefixes.
         In case prefixes is left empty, it returns all the ones that are defined by the REPLACE_REGEXES.
@@ -770,9 +790,9 @@ class BaseEditor(ABC):
         Removes a SPICE instruction from the netlist.
 
         Example:
-        
+
         .. code-block:: python
-                
+
             editor.remove_instruction(".STEP run -1 1023 1")
 
         This only works if the instruction exactly matches the line on the netlist. This means that space characters,
@@ -807,32 +827,32 @@ class BaseEditor(ABC):
     def add_instructions(self, *instructions) -> None:
         """
         Adds a list of instructions to the SPICE NETLIST.
-        
+
         Example:
-        
+
         .. code-block:: python
 
             editor.add_instructions(".STEP run -1 1023 1", ".dc V1 -5 5")
-        
+
         :param instructions: Argument list of instructions to add
         :type instructions: argument list
-        :returns: Nothing        
+        :returns: Nothing
         """
 
         for instruction in instructions:
             self.add_instruction(instruction)
-       
-    @classmethod     
+
+    @classmethod
     def prepare_for_simulator(cls, simulator: Simulator) -> None:
         """
-        Sets the library paths that should be correct for the simulator object. 
+        Sets the library paths that should be correct for the simulator object.
         The simulator object should have had the executable path (spice_exe) set correctly.
-        
+
         This is especially useful in 2 cases:
             * when the simulator is running under wine, as it is difficult to detect \
                 the correct library paths in that case.
             * when the editor can be used with different simulators, that have different library paths.
-        
+
         Note:
             * you can always also set the library paths manually via `set_custom_library_paths()`
             * this method is a class method and will affect all instances of the class
@@ -842,33 +862,37 @@ class BaseEditor(ABC):
         :returns: Nothing
         """
         if simulator is None:
-            raise NotImplementedError("The prepare_for_simulator method requires a simulator object")
+            raise NotImplementedError(
+                "The prepare_for_simulator method requires a simulator object"
+            )
         cls.simulator_lib_paths = simulator.get_default_library_paths()
         return
-    
+
     @classmethod
     def _check_and_append_custom_library_path(cls, path) -> None:
         """:meta private:"""
         if path.startswith("~"):
             path = os.path.expanduser(path)
-            
+
         if os.path.exists(path) and os.path.isdir(path):
             _logger.debug(f"Adding path '{path}' to the custom library path list")
             cls.custom_lib_paths.append(path)
         else:
-            _logger.warning(f"Cannot add path '{path}' to the custom library path list, as it does not exist")            
+            _logger.warning(
+                f"Cannot add path '{path}' to the custom library path list, as it does not exist"
+            )
 
     @classmethod
     def set_custom_library_paths(cls, *paths) -> None:
         """
         Set the given library search paths to the list of directories to search when needed.
-        It will delete any previous list of custom paths, but will not affect the default paths 
+        It will delete any previous list of custom paths, but will not affect the default paths
         (be it from `init()` or from `prepare_for_simulator()`).
-        
+
         Note that this method is a class method and will affect all instances of the class.
 
         :param paths: Path(s) to add to the Search path
-        :return: Nothing    
+        :return: Nothing
         """
         # empty the list
         cls.custom_lib_paths = []
@@ -879,7 +903,7 @@ class BaseEditor(ABC):
             elif isinstance(path, list):
                 for p in path:
                     cls._check_and_append_custom_library_path(p)
-            
+
     def is_read_only(self) -> bool:
         """Check if the component can be edited. This is useful when the editor is used on non modifiable files.
 
@@ -901,7 +925,7 @@ class HierarchicalComponent(object):
         return getattr(self._component, attr)
 
     def __setattr__(self, attr, value):
-        if attr.startswith('_'):
+        if attr.startswith("_"):
             self.__dict__[attr] = value
         elif attr in ("value", "value_str"):
             self._parent.set_component_value(self._reference, value)
