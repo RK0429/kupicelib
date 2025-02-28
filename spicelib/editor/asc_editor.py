@@ -20,7 +20,7 @@ import logging
 import os.path
 import re
 from pathlib import Path
-from typing import List, Optional, Tuple, Union
+from typing import Dict, List, Optional, Tuple, Union
 
 from ..log.logfile_data import try_convert_value
 from ..simulators.ltspice_simulator import LTspice
@@ -38,6 +38,7 @@ from .base_schematic import (
     BaseSchematic,
     ERotation,
     Line,
+    LineStyle,
     Point,
     Port,
     SchematicComponent,
@@ -72,7 +73,7 @@ LTSPICE_ATTRIBUTES = ("InstName", "Def_Sub")
 class AscEditor(BaseSchematic):
     """Class made to update directly the LTspice ASC files"""
 
-    symbol_cache = (
+    symbol_cache: Dict[str, str] = (
         {}
     )  # This is a class variable, so it can be shared between all instances.
     """:meta private:"""
@@ -81,13 +82,13 @@ class AscEditor(BaseSchematic):
     """ This is initialised with typical locations found for LTspice.
     You can (and should, if you use wine), call `prepare_for_simulator()` once you've set the executable paths.
     This is a class variable, so it will be shared between all instances.
-    
+
     :meta hide-value:
     """
 
     def __init__(self, asc_file: Union[str, Path], encoding="autodetect"):
         super().__init__()
-        self.version = 4
+        self.version: str = "4"
         self.sheet = "1 0 0"  # Three values are present on the SHEET clause
         self.asc_file_path = Path(asc_file)
         if not self.asc_file_path.exists():
@@ -150,7 +151,7 @@ class AscEditor(BaseSchematic):
                     and "_SUBCKT" in component.attributes
                 ):
                     # writing the sub-circuit if it was updated
-                    sub_circuit: AscEditor = component.attributes["_SUBCKT"]
+                    sub_circuit: Optional[AscEditor] = component.attributes["_SUBCKT"]
                     if sub_circuit is not None and sub_circuit.updated:
                         sub_circuit.save_netlist(sub_circuit.asc_file_path)
                 for attr, value in component.attributes.items():
@@ -172,19 +173,15 @@ class AscEditor(BaseSchematic):
                     + END_LINE_TERM
                 )
             for line in self.lines:
-                line_style = (
-                    f" {line.style.pattern}" if line.style.pattern != "" else ""
-                )
+                style: LineStyle = line.style
+                line_style = f" {style.pattern}" if style.pattern != "" else ""
                 asc.write(
                     f"LINE Normal {line.V1.X} {line.V1.Y} {line.V2.X} {line.V2.Y}{line_style}"
                     + END_LINE_TERM
                 )
             for shape in self.shapes:
-                line_style = (
-                    f" {shape.line_style.pattern}"
-                    if shape.line_style.pattern != ""
-                    else ""
-                )
+                style: LineStyle = shape.line_style
+                line_style = f" {style.pattern}" if style.pattern != "" else ""
                 points = " ".join([f"{point.X} {point.Y}" for point in shape.points])
                 asc.write(f"{shape.name} Normal {points}{line_style}" + END_LINE_TERM)
 
@@ -213,13 +210,13 @@ class AscEditor(BaseSchematic):
                     assert (
                         component is not None
                     ), "Syntax Error: WINDOW clause without SYMBOL"
-                    tag, num_ref, posX, posY, alignment, size = line.split()
+                    tag, num_ref, posX, posY, alignment, size_str = line.split()
                     component.append(line)
                     coord = Point(int(posX), int(posY))
                     text = Text(
                         coord=coord,
                         text=num_ref,
-                        size=size,
+                        size=int(size_str),
                         type=TextTypeEnum.ATTRIBUTE,
                     )
                     text = asc_text_align_set(text, alignment)
@@ -230,42 +227,42 @@ class AscEditor(BaseSchematic):
                         component is not None
                     ), "Syntax Error: SYMATTR clause without SYMBOL"
                     component.append(line)
-                    tag, ref, text = line.split(maxsplit=2)
-                    text = text.strip()  # Gets rid of the \n terminator
+                    tag, ref, txt = line.split(maxsplit=2)
+                    txt_str = txt.strip()  # Gets rid of the \n terminator
                     if ref == "InstName":
-                        component.reference = text
-                        symbol = self._get_symbol(component.symbol)
+                        component.reference = txt_str
+                        symbol_obj = self._get_symbol(component.symbol)
                         if (
                             component.reference.startswith("X")
-                            or symbol.is_subcircuit()
+                            or symbol_obj.is_subcircuit()
                         ):  # This is a subcircuit
                             # then create the attribute "SUBCKT"
                             component.attributes["_SUBCKT"] = self._get_subcircuit(
-                                symbol
+                                symbol_obj
                             )
                     else:
                         # make sure prefix is uppercase, as this is used in a lot of places
                         if ref.upper() == "PREFIX":
-                            text = text.upper()
-                        component.attributes[ref] = text
+                            txt_str = txt_str.upper()
+                        component.attributes[ref] = txt_str
                 elif line.startswith("TEXT"):
                     match = TEXT_REGEX.match(line)
                     if match:
-                        text = match.group(TEXT_REGEX_TEXT)
+                        txt_str = match.group(TEXT_REGEX_TEXT)
                         X = int(match.group(TEXT_REGEX_X))
                         Y = int(match.group(TEXT_REGEX_Y))
                         coord = Point(X, Y)
-                        size = int(match.group(TEXT_REGEX_SIZE))
+                        size_int = int(match.group(TEXT_REGEX_SIZE))
                         if match.group(TEXT_REGEX_TYPE) == "!":
                             ttype = TextTypeEnum.DIRECTIVE
                         else:
                             ttype = TextTypeEnum.COMMENT
                         alignment = match.group(TEXT_REGEX_ALIGN)
-                        text = Text(
-                            coord=coord, text=text.strip(), size=size, type=ttype
+                        text_obj = Text(
+                            coord=coord, text=txt_str.strip(), size=size_int, type=ttype
                         )
-                        text = asc_text_align_set(text, alignment)
-                        self.directives.append(text)
+                        text_obj = asc_text_align_set(text_obj, alignment)
+                        self.directives.append(text_obj)
 
                 elif line.startswith("WIRE"):
                     tag, x1, y1, x2, y2 = line.split()
@@ -274,18 +271,20 @@ class AscEditor(BaseSchematic):
                     wire = Line(v1, v2)
                     self.wires.append(wire)
                 elif line.startswith("FLAG"):
-                    tag, posX, posY, text = line.split(maxsplit=4)
+                    tag, posX, posY, text_str = line.split(maxsplit=3)
                     coord = Point(int(posX), int(posY))
-                    flag = Text(coord=coord, text=text, type=TextTypeEnum.LABEL)
+                    flag = Text(
+                        coord=coord, text=text_str.strip(), type=TextTypeEnum.LABEL
+                    )
                     self.labels.append(flag)
                 elif line.startswith("Version"):
-                    tag, version = line.split()
-                    assert version in [
+                    tag, version_val = line.split()
+                    assert version_val in [
                         "4",
                         "4.0",
                         "4.1",
-                    ], f"Unsupported version : {version}"
-                    self.version = version
+                    ], f"Unsupported version : {version_val}"
+                    self.version = version_val
                 elif line.startswith("SHEET "):
                     self.sheet = line[len("SHEET ") :].strip()
                 elif line.startswith("IOPIN "):
@@ -310,19 +309,24 @@ class AscEditor(BaseSchematic):
                         6,
                         7,
                     ), "Syntax Error, line badly badly formatted"
-                    x1 = int(line_elements[2])
-                    y1 = int(line_elements[3])
-                    x2 = int(line_elements[4])
-                    y2 = int(line_elements[5])
+                    x1_val = int(line_elements[2])
+                    y1_val = int(line_elements[3])
+                    x2_val = int(line_elements[4])
+                    y2_val = int(line_elements[5])
                     if line.startswith("LINE"):
-                        line = Line(Point(x1, y1), Point(x2, y2))
+                        line_obj = Line(Point(x1_val, y1_val), Point(x2_val, y2_val))
                         if len(line_elements) == 7:
-                            line.style.pattern = line_elements[6]
-                        self.lines.append(line)
+                            style: LineStyle = line_obj.style
+                            style.pattern = line_elements[6]
+                        self.lines.append(line_obj)
                     if line_elements[0] in ("RECTANGLE", "CIRCLE"):
-                        shape = Shape(line_elements[0], [Point(x1, y1), Point(x2, y2)])
+                        shape = Shape(
+                            line_elements[0],
+                            [Point(x1_val, y1_val), Point(x2_val, y2_val)],
+                        )
                         if len(line_elements) == 7:
-                            shape.line_style.pattern = line_elements[6]
+                            style: LineStyle = shape.line_style
+                            style.pattern = line_elements[6]
                         self.shapes.append(shape)
 
                 elif line.startswith("ARC"):
@@ -340,7 +344,8 @@ class AscEditor(BaseSchematic):
                     ]
                     arc = Shape("ARC", points)
                     if len(line_elements) == 11:
-                        arc.line_style.pattern = line_elements[10]
+                        style: LineStyle = arc.line_style
+                        style.pattern = line_elements[10]
                     self.shapes.append(arc)
                 elif line.startswith("DATAFLAG"):
                     pass  # DATAFLAG is the placeholder to show simulation information. It is ignored by AscEditor
@@ -362,7 +367,9 @@ class AscEditor(BaseSchematic):
         answer = AsyReader(asy_path)
         return answer
 
-    def _get_subcircuit(self, symbol: AsyReader) -> Union[SpiceEditor, "AscEditor"]:
+    def _get_subcircuit(
+        self, symbol: AsyReader
+    ) -> Union[SpiceEditor, "AscEditor", None]:
         # two main possibilities here:
         # either the symbol refers to a library file,
         # either to a subcircuit in another .asc file. This appears to only happen with BLOCK symbols
@@ -388,6 +395,7 @@ class AscEditor(BaseSchematic):
             if asc_path is None:
                 raise FileNotFoundError(f"File {asc_filename} not found")
             answer = AscEditor(asc_path)
+            return answer
         elif lib is None and symbol.symbol_type == "CELL":
             # TODO: the library is often specified later on, so this may need to move.
             return None
@@ -398,7 +406,9 @@ class AscEditor(BaseSchematic):
             if lib_path is None:
                 raise FileNotFoundError(f"File {lib} not found")
             answer = SpiceEditor.find_subckt_in_lib(lib_path, model)
-        return answer
+            if isinstance(answer, SpiceEditor):
+                return answer
+            return None
 
     def get_subcircuit(self, reference: str) -> "AscEditor":
         """Returns an AscEditor file corresponding to the symbol"""
@@ -440,7 +450,7 @@ class AscEditor(BaseSchematic):
                         return match, directive
         return None, None
 
-    def get_all_parameter_names(self) -> List[str]:
+    def get_all_parameter_names(self, param: str = "") -> str:
         # docstring inherited from BaseEditor
         param_names = []
         search_expression = re.compile(PARAM_REGEX(r"\w+"), re.IGNORECASE)
@@ -450,7 +460,7 @@ class AscEditor(BaseSchematic):
                 for match in matches:
                     param_name = match.group("name")
                     param_names.append(param_name.upper())
-        return sorted(param_names)
+        return ",".join(sorted(param_names))
 
     def get_parameter(self, param: str) -> str:
         match, directive = self._get_param_named(param)
