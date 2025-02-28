@@ -854,7 +854,7 @@ class QschEditor(BaseSchematic):
                             return tag, match
         return None, None
 
-    def get_all_parameter_names(self, param: str = "") -> str:
+    def get_all_parameter_names(self, param: str = "") -> list:
         """
         Returns all parameter names from the netlist.
 
@@ -865,7 +865,7 @@ class QschEditor(BaseSchematic):
         param_regex = re.compile(PARAM_REGEX(r"\w+"), re.IGNORECASE)
 
         if self.schematic is None:
-            return "[]"  # Return empty list as string to match parent's return type
+            return []  # Return empty list
 
         text_tags = self.schematic.get_items("text")
         for tag in text_tags:
@@ -877,7 +877,7 @@ class QschEditor(BaseSchematic):
                     for match in matches:
                         param_name = match.group("name")
                         param_names.append(param_name.upper())
-        return str(sorted(param_names))
+        return sorted(param_names)
 
     def _qsch_file_find(
         self, filename: str, work_dir: Optional[str] = None
