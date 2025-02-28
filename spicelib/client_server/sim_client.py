@@ -28,7 +28,7 @@ import xmlrpc.client
 import zipfile
 from collections import OrderedDict
 from dataclasses import dataclass
-from typing import Iterable, List, Union
+from typing import Iterable, List, Optional, Union
 
 _logger = logging.getLogger("spicelib.SimClient")
 
@@ -150,9 +150,23 @@ class SimClient(object):
 
         # Read the zip file from the buffer and send it to the server
         zip_data = zip_buffer.read()
-        self.server.add_sources(self.session_id, zip_data)
+        try:
+            result = self.server.add_sources(self.session_id, zip_data)
+            return result
+        except xmlrpc.client.Fault as e:
+            _logger.error(
+                f"Client: Failed to add sources to session {self.session_id}: {e}"
+            )
+            return False
+        except Exception as e:
+            _logger.error(
+                f"Client: Unexpected error adding sources to session {self.session_id}: {e}"
+            )
+            return False
 
-    def run(self, circuit, dependencies: List[Union[str, pathlib.Path]] = None) -> int:
+    def run(
+        self, circuit, dependencies: Optional[List[Union[str, pathlib.Path]]] = None
+    ) -> int:
         """
         Sends the netlist identified with the argument "circuit" to the server, and it receives a run identifier
         (runno). Since the server can receive requests from different machines, this identifier is not guaranteed to be
