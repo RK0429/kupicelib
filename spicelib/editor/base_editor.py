@@ -321,14 +321,14 @@ class Component(Primitive):
         """
         return self.parent.get_component_parameters(self.reference)
 
-    def set_params(self, **param_dict):
-        """Adds one or more parameters to the component
+    @params.setter
+    def params(self, param_dict: dict):
+        """Sets parameters to the component
 
-        The argument is in the form of a key-value pair where each parameter is the key and the value is value to be set in the netlist.
+        :param param_dict: Dictionary containing parameter names as keys and their values
+        :type param_dict: dict
 
         This behaves like the `set_component_parameters()` method of the editor, but it is more convenient to use when dealing with a single component.
-
-        :raises ValueError: If the component is read only, as when it comes from a library
         """
         if self.parent.is_read_only():
             raise ValueError("Editor is read-only")
@@ -498,7 +498,7 @@ class BaseEditor(ABC):
         ...
 
     @abstractmethod
-    def get_all_parameter_names(self, param: str) -> str:
+    def get_all_parameter_names(self, param: str = "") -> list:
         """
         Returns all parameter names from the netlist.
 
