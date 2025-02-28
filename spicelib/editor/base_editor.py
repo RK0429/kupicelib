@@ -334,6 +334,19 @@ class Component(Primitive):
             raise ValueError("Editor is read-only")
         self.parent.set_component_parameters(self.reference, **param_dict)
 
+    def set_params(self, **param_dict):
+        """Adds one or more parameters to the component
+
+        The argument is in the form of a key-value pair where each parameter is the key and the value is value to be set in the netlist.
+
+        This behaves like the `set_component_parameters()` method of the editor, but it is more convenient to use when dealing with a single component.
+
+        :raises ValueError: If the component is read only, as when it comes from a library
+        """
+        if self.parent.is_read_only():
+            raise ValueError("Editor is read-only")
+        self.parent.set_component_parameters(self.reference, **param_dict)
+
     @property
     def value(self) -> Union[float, int, str]:
         """The Value
