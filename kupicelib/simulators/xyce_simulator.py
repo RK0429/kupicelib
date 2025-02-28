@@ -24,7 +24,7 @@ import os
 import shutil
 import subprocess
 from pathlib import Path
-from typing import Optional, Union
+from typing import Any, Optional, Union
 
 from ..sim.simulator import Simulator, SpiceSimulatorError, run_function
 
@@ -264,7 +264,7 @@ class XyceSimulator(Simulator):
     def run(
         cls,
         netlist_file: Union[str, Path],
-        cmd_line_switches: list = [],
+        cmd_line_switches: Optional[list[Any]] = None,
         timeout: Optional[float] = None,
         stdout=None,
         stderr=None,
