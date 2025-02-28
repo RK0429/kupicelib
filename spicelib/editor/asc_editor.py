@@ -173,15 +173,19 @@ class AscEditor(BaseSchematic):
                     + END_LINE_TERM
                 )
             for line in self.lines:
-                style: LineStyle = line.style
-                line_style = f" {style.pattern}" if style.pattern != "" else ""
+                line_style_obj: LineStyle = line.style
+                line_style = (
+                    f" {line_style_obj.pattern}" if line_style_obj.pattern != "" else ""
+                )
                 asc.write(
                     f"LINE Normal {line.V1.X} {line.V1.Y} {line.V2.X} {line.V2.Y}{line_style}"
                     + END_LINE_TERM
                 )
             for shape in self.shapes:
-                style: LineStyle = shape.line_style
-                line_style = f" {style.pattern}" if style.pattern != "" else ""
+                shape_style: LineStyle = shape.line_style
+                line_style = (
+                    f" {shape_style.pattern}" if shape_style.pattern != "" else ""
+                )
                 points = " ".join([f"{point.X} {point.Y}" for point in shape.points])
                 asc.write(f"{shape.name} Normal {points}{line_style}" + END_LINE_TERM)
 
@@ -316,8 +320,8 @@ class AscEditor(BaseSchematic):
                     if line.startswith("LINE"):
                         line_obj = Line(Point(x1_val, y1_val), Point(x2_val, y2_val))
                         if len(line_elements) == 7:
-                            style: LineStyle = line_obj.style
-                            style.pattern = line_elements[6]
+                            line_style_obj: LineStyle = line_obj.style
+                            line_style_obj.pattern = line_elements[6]
                         self.lines.append(line_obj)
                     if line_elements[0] in ("RECTANGLE", "CIRCLE"):
                         shape = Shape(
@@ -325,8 +329,8 @@ class AscEditor(BaseSchematic):
                             [Point(x1_val, y1_val), Point(x2_val, y2_val)],
                         )
                         if len(line_elements) == 7:
-                            style: LineStyle = shape.line_style
-                            style.pattern = line_elements[6]
+                            shape_style: LineStyle = shape.line_style
+                            shape_style.pattern = line_elements[6]
                         self.shapes.append(shape)
 
                 elif line.startswith("ARC"):
@@ -344,8 +348,8 @@ class AscEditor(BaseSchematic):
                     ]
                     arc = Shape("ARC", points)
                     if len(line_elements) == 11:
-                        style: LineStyle = arc.line_style
-                        style.pattern = line_elements[10]
+                        arc_style: LineStyle = arc.line_style
+                        arc_style.pattern = line_elements[10]
                     self.shapes.append(arc)
                 elif line.startswith("DATAFLAG"):
                     pass  # DATAFLAG is the placeholder to show simulation information. It is ignored by AscEditor
