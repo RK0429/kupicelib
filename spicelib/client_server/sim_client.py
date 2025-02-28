@@ -1,6 +1,9 @@
 #!/usr/bin/env python
 # coding=utf-8
 
+import io
+import logging
+
 # -------------------------------------------------------------------------------
 #
 #  ███████╗██████╗ ██╗ ██████╗███████╗██╗     ██╗██████╗
@@ -19,28 +22,32 @@
 # Licence:     refer to the LICENSE file
 # -------------------------------------------------------------------------------
 import os.path
-import zipfile
-import xmlrpc.client
-import io
 import pathlib
 import time
+import xmlrpc.client
+import zipfile
 from collections import OrderedDict
 from dataclasses import dataclass
-import logging
-from typing import Union, List, Iterable
+from typing import Iterable, List, Union
 
 _logger = logging.getLogger("spicelib.SimClient")
 
 
 class SimClientInvalidRunId(LookupError):
     """Raised when asking for a run_no that doesn't exist"""
+
     ...
+
 
 @dataclass
 class JobInformation:
     """Contains information about pending simulation jobs"""
-    run_number: int  # The run id that is returned by the Server and which identifies the server
+
+    run_number: (
+        int  # The run id that is returned by the Server and which identifies the server
+    )
     file_dir: pathlib.Path
+
 
 # class RunIterator(object):
 #
@@ -106,13 +113,19 @@ class SimClient(object):
     """
 
     def __init__(self, host_address, port):
-        self.server = xmlrpc.client.ServerProxy(f'{host_address}:{port}')
+        self.server = xmlrpc.client.ServerProxy(f"{host_address}:{port}")
         self.session_id = self.server.start_session()
         _logger.info(f"Client: Started {self.session_id}")
-        self.started_jobs = OrderedDict()  # This list keeps track of started jobs on the server
-        self.stored_jobs = OrderedDict()  # This list keeps track of finished simulations that haven't yet been transferred.
+        self.started_jobs = (
+            OrderedDict()
+        )  # This list keeps track of started jobs on the server
+        self.stored_jobs = (
+            OrderedDict()
+        )  # This list keeps track of finished simulations that haven't yet been transferred.
         self.completed_jobs = 0
-        self.minimum_time_between_server_calls = 0.2  # Minimum time between server calls
+        self.minimum_time_between_server_calls = (
+            0.2  # Minimum time between server calls
+        )
         self._last_server_call = time.time()
 
     def __del__(self):
@@ -121,12 +134,12 @@ class SimClient(object):
     def add_sources(self, sources: Iterable) -> bool:
         """Add sources to the simulation environment. The sources are a list of file paths that are going to be
         transferred to the server. The server will add the sources to the simulation folder. Returns True if the sources
-        were added and False if the session_id is not valid. """
+        were added and False if the session_id is not valid."""
         # Create a buffer to store the zip file in memory
         zip_buffer = io.BytesIO()
 
         # Create the zip file in memory
-        with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+        with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
             for source in sources:
                 dep_path = pathlib.Path(source)
                 if dep_path.exists():
@@ -161,8 +174,10 @@ class SimClient(object):
             zip_buffer = io.BytesIO()
 
             # Create the zip file in memory
-            with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
-                zip_file.write(circuit, circuit_name)  # Makes sure it writes it to the root of the zipfile
+            with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
+                zip_file.write(
+                    circuit, circuit_name
+                )  # Makes sure it writes it to the root of the zipfile
                 if dependencies is not None:
                     for dep in dependencies:
                         dep_path = pathlib.Path(dep)
@@ -182,7 +197,7 @@ class SimClient(object):
         else:
             _logger.error(f"Client: Circuit {circuit} doesn't exit")
             return -1
-        
+
     def get_runno_data(self, runno) -> Union[str, None]:
         """
         Returns the simulation output data inside a zip file name.
@@ -195,9 +210,9 @@ class SimClient(object):
         zip_filename, zipdata = self.server.get_files(self.session_id, runno)
         job = self.stored_jobs.pop(runno)  # Removes it from stored jobs
         self.completed_jobs += 1
-        if zip_filename != '':
+        if zip_filename != "":
             store_path = job.file_dir / zip_filename
-            with open(store_path, 'wb') as f:
+            with open(store_path, "wb") as f:
                 f.write(zipdata.data)
             return store_path
         else:
@@ -205,23 +220,27 @@ class SimClient(object):
 
     def __iter__(self):
         return self
-    
+
     def __next__(self):
         while len(self.started_jobs) > 0:
             status = self.server.status(self.session_id)
             if len(status) > 0:
                 runno = status.pop(0)
-                self.stored_jobs[runno] = self.started_jobs.pop(runno)  # Job is taken out of the started jobs list and
+                self.stored_jobs[runno] = self.started_jobs.pop(
+                    runno
+                )  # Job is taken out of the started jobs list and
                 # is added to the stored jobs
                 return runno
             else:
                 now = time.time()
-                delta = self.minimum_time_between_server_calls - (now - self._last_server_call)
+                delta = self.minimum_time_between_server_calls - (
+                    now - self._last_server_call
+                )
                 if delta > 0:
                     time.sleep(delta)  # Go asleep for a sec
                 self._last_server_call = now
 
-        # when there are no pending jobs left, exit the iterator    
+        # when there are no pending jobs left, exit the iterator
         raise StopIteration
 
     def close_session(self):
