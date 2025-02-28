@@ -1,7 +1,8 @@
 # README <!-- omit in toc -->
+
 _current version: 1.0.0_
 
-*kupicelib* is a modified version of [spicelib](https://github.com/nunobrum/spicelib), a toolchain of python utilities designed to interact with spice simulators, including:
+_kupicelib_ is a modified version of [spicelib](https://github.com/nunobrum/spicelib), a toolchain of python utilities designed to interact with spice simulators, including:
 
 * LTspice
 * Ngspice
@@ -19,9 +20,10 @@ _current version: 1.0.0_
 ## What is kupicelib
 
 kupicelib is a fork of the spicelib project with the following modifications:
-- [List your modifications/enhancements here]
-- [For example: Added support for XYZ simulator]
-- [For example: Enhanced performance for large circuit simulations]
+
+* [List your modifications/enhancements here]
+* [For example: Added support for XYZ simulator]
+* [For example: Enhanced performance for large circuit simulations]
 
 ## Original Project
 
@@ -48,4 +50,4 @@ from kupicelib.simulators.ltspice_simulator import LTspice
 
 ## LICENSE
 
-This project is licensed under the GPL-3.0 License - see the LICENSE file for details. 
+This project is licensed under the GPL-3.0 License - see the LICENSE file for details.
