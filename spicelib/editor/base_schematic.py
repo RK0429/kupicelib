@@ -19,10 +19,11 @@
 
 import dataclasses
 import enum
-from typing import List, Callable, Union, Tuple
-from collections import OrderedDict
 import logging
-from .base_editor import BaseEditor, Component, ComponentNotFoundError, SUBCKT_DIVIDER
+from collections import OrderedDict
+from typing import Callable, List, Optional, Tuple, Union
+
+from .base_editor import SUBCKT_DIVIDER, BaseEditor, Component, ComponentNotFoundError
 
 __author__ = "Nuno Canto Brum <nuno.brum@gmail.com>"
 __copyright__ = "Copyright 2021, Fribourg Switzerland"
@@ -32,6 +33,7 @@ _logger = logging.getLogger("spicelib.BaseSchematic")
 
 class ERotation(enum.IntEnum):
     """Component Rotation Enum"""
+
     R0 = 0  # 0 Rotation
     R45 = 45  # 45 Rotation
     R90 = 90  # 90 Rotation
@@ -106,12 +108,13 @@ class ERotation(enum.IntEnum):
     # def mirror_x_axis(self):
     #     return ERotation((((self.value + 180) % 360) + 360) % 720)
 
-    def __add__(self, rotation: 'ERotation'):
-        return (self.value + rotation.value) % 360
+    def __add__(self, rotation: int) -> "ERotation":
+        return ERotation((self.value + rotation) % 360)
 
 
 class HorAlign(enum.Enum):
     """Horizontal Alignment Enum"""
+
     LEFT = "Left"
     RIGHT = "Right"
     CENTER = "Center"
@@ -119,6 +122,7 @@ class HorAlign(enum.Enum):
 
 class VerAlign(enum.Enum):
     """Vertical Alignment Enum"""
+
     TOP = "Top"
     CENTER = "Center"
     BOTTOM = "Bottom"
@@ -126,6 +130,7 @@ class VerAlign(enum.Enum):
 
 class TextTypeEnum(enum.IntEnum):
     """Text Type Enum"""
+
     NULL = enum.auto()
     COMMENT = enum.auto()
     DIRECTIVE = enum.auto()
@@ -135,7 +140,8 @@ class TextTypeEnum(enum.IntEnum):
 
 
 class LineStyle:
-    """Line style : width, color and pattern (dashed, dotted, etc...) """
+    """Line style : width, color and pattern (dashed, dotted, etc...)"""
+
     def __init__(self, width: str = "", color: str = "", pattern: str = ""):
         self.width: str = width
         self.color: str = color
@@ -144,6 +150,7 @@ class LineStyle:
 
 class Point:
     """X, Y coordinates"""
+
     def __init__(self, X: float, Y: float):
         self.X = X
         self.Y = Y
@@ -151,7 +158,10 @@ class Point:
 
 class Line:
     """X1, Y1, X2, Y2 coordinates"""
-    def __init__(self, v1: Point, v2: Point, style: LineStyle = None, net: str = ""):
+
+    def __init__(
+        self, v1: Point, v2: Point, style: Optional[LineStyle] = None, net: str = ""
+    ):
         self.V1 = v1
         self.V2 = v2
         if style is None:
@@ -185,7 +195,7 @@ class Line:
                     return True
         return False
 
-    def intercepts(self, line: 'Line') -> bool:
+    def intercepts(self, line: "Line") -> bool:
         """Returns True if the line intercepts the given line.
         The intercepts is calculated by checking if the line touches any of the line vertices
         """
@@ -201,8 +211,16 @@ class Line:
 class Shape:
     """Polygon object. The shape is defined by a list of points. It can define a closed or open shape.
     The closed shape is defined by the first and last points being the same. In this case, it can have a fill.
-    It is used to define polygons, arcs, circles or more complex shapes like the ones found in QSPICE"""
-    def __init__(self, name: str, points: List[Point], line_style: LineStyle = None, fill: str = ""):
+    It is used to define polygons, arcs, circles or more complex shapes like the ones found in QSPICE
+    """
+
+    def __init__(
+        self,
+        name: str,
+        points: List[Point],
+        line_style: Optional[LineStyle] = None,
+        fill: str = "",
+    ):
         self.name = name
         self.points = points
         if line_style is None:
@@ -210,6 +228,7 @@ class Shape:
         else:
             self.line_style = line_style
         self.fill = fill
+
 
 # Rectangle = Shape
 # Rectangle is a special case of a Shape. Rectangle is defined by two points that define the diagonal
@@ -240,6 +259,7 @@ class Shape:
 @dataclasses.dataclass
 class Text:
     """Text object"""
+
     coord: Point
     text: str
     size: int = 1
@@ -295,9 +315,10 @@ class BaseSchematic(BaseEditor):
         self.shapes.clear()
         self.updated = False
 
-    def copy_from(self, editor: 'BaseSchematic') -> None:
+    def copy_from(self, editor: "BaseSchematic") -> None:
         """Clones the contents of the given editor"""
         from copy import deepcopy
+
         self.components = deepcopy(editor.components)
         self.wires = deepcopy(editor.wires)
         self.labels = deepcopy(editor.labels)
@@ -311,7 +332,7 @@ class BaseSchematic(BaseEditor):
             sub_ref, sub_comp = reference.split(SUBCKT_DIVIDER, 1)
 
             subckt = self.get_component(sub_ref)
-            subcircuit = subckt.attributes['_SUBCKT']
+            subcircuit = subckt.attributes["_SUBCKT"]
             return subcircuit, sub_comp
         else:
             return self, reference
@@ -336,7 +357,9 @@ class BaseSchematic(BaseEditor):
         else:
             if ref not in sub_circuit.components:
                 _logger.error(f"Component {reference} not found")
-                raise ComponentNotFoundError(f"Component {reference} not found in Schematic file")
+                raise ComponentNotFoundError(
+                    f"Component {reference} not found in Schematic file"
+                )
             return sub_circuit.components[ref]
 
     def get_component_position(self, reference: str) -> Tuple[Point, ERotation]:
@@ -344,7 +367,9 @@ class BaseSchematic(BaseEditor):
         comp = self.get_component(reference)
         return comp.position, comp.rotation
 
-    def set_component_position(self, reference: str, position: Point, rotation: ERotation) -> None:
+    def set_component_position(
+        self, reference: str, position: Point, rotation: ERotation
+    ) -> None:
         """Sets the position and rotation of the component.
 
         :param reference: The reference of the component
@@ -359,7 +384,15 @@ class BaseSchematic(BaseEditor):
         comp.rotation = rotation
         self.set_updated(reference)
 
-    def add_component(self, component: SchematicComponent, **kwargs) -> None:
+    def add_component(self, component: Component, **kwargs) -> None:
+        if not isinstance(component, SchematicComponent):
+            schematic_component = SchematicComponent(self, component.line)
+            schematic_component.reference = component.reference
+            schematic_component.attributes = component.attributes
+            # Set value through the setter which is implemented correctly in the base class
+            schematic_component.value_str = component.value_str
+            component = schematic_component
+
         self.components[component.reference] = component
         component.parent = self
         if kwargs:
@@ -367,8 +400,14 @@ class BaseSchematic(BaseEditor):
             component.attributes.update(kwargs)
         self.updated = True
 
-    def scale(self, offset_x, offset_y, scale_x, scale_y: float,
-              round_fun: Callable[[float], Union[int, float]] = None) -> None:
+    def scale(
+        self,
+        offset_x,
+        offset_y,
+        scale_x,
+        scale_y: float,
+        round_fun: Optional[Callable[[float], Union[int, float]]] = None,
+    ) -> None:
         """Scales the schematic"""
         if round_fun is None:
             round_fun = int
