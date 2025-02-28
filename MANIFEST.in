@@ -5,3 +5,4 @@ prune tests
 prune \..*
 global-exclude *.py[cod]
 include kupicelib/scripts/asc_to_qsch_data.xml
+include kupicelib/py.typed

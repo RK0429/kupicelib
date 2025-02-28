@@ -4,12 +4,13 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry]
 name = "kupicelib"
-version = "1.0.0"
+version = "1.0.1"
 description = "A modified version of kupicelib for automating Spice simulations"
 authors = ["Ryota Kobayashi <s.woods.m.29@gmail.com>"]
 readme = "README.md"
 license = "GPL-3.0"
 keywords = ["spice", "ltspice", "qspice", "ngspice", "electronic simulator", "montecarlo", "worst-case"]
+include = ["kupicelib/py.typed"]
 
 [tool.poetry.dependencies]
 python = "^3.10"
