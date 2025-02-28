@@ -49,7 +49,7 @@ __copyright__ = "Copyright 2021, Fribourg Switzerland"
 
 __all__ = ("QschEditor", "QschTag", "QschReadingError")
 
-_logger = logging.getLogger("spicelib.QschEditor")
+_logger = logging.getLogger("kupicelib.QschEditor")
 
 QSCH_HEADER = (255, 216, 255, 219)
 
@@ -579,7 +579,7 @@ class QschEditor(BaseSchematic):
                 netlist_file.write(f".lib {library}\n")
             else:
                 if sys.platform.startswith("win"):
-                    from spicelib.utils.windows_short_names import get_short_path_name
+                    from kupicelib.utils.windows_short_names import get_short_path_name
 
                     netlist_file.write(
                         f".lib {get_short_path_name(os.path.abspath(library_path))}\n"

@@ -1,4 +1,4 @@
-* C:\sandbox\spicelib\examples\testfiles\DC op point - STEP.qsch
+* C:\sandbox\kupicelib\examples\testfiles\DC op point - STEP.qsch
 R1 in b4 {R}
 R2 b4 0 {2*R}
 Vin in 0 {Vin}

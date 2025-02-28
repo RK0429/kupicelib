@@ -37,7 +37,7 @@ from .base_schematic import (
 from .ltspice_utils import asc_text_align_set
 from .qsch_editor import QschTag
 
-_logger = logging.getLogger("spicelib.AsyReader")
+_logger = logging.getLogger("kupicelib.AsyReader")
 SCALE_X = 6.25
 SCALE_Y = -6.25
 

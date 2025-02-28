@@ -218,12 +218,12 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 from numpy import float32, float64, frombuffer
 from numpy.typing import NDArray
 
-from spicelib.log.logfile_data import try_convert_value
+from kupicelib.log.logfile_data import try_convert_value
 
 from ..utils.detect_encoding import EncodingDetectError, detect_encoding
 from .raw_classes import Axis, DummyTrace, SpiceReadException, TraceRead
 
-_logger = logging.getLogger("spicelib.RawRead")
+_logger = logging.getLogger("kupicelib.RawRead")
 
 
 def read_float64(f):

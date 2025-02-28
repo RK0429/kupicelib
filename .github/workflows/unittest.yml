@@ -35,9 +35,9 @@ jobs:
       - name: Test sweep_iterators.py
         run: |
           python ./unittests/sweep_iterators_unittest.py
-      - name: Test spicelib
+      - name: Test kupicelib
         run: |
-          python ./unittests/test_spicelib.py
+          python ./unittests/test_kupicelib.py
       - name: Test QSpice Raw Reader
         run: |
           python ./unittests/test_qspice_rawread.py

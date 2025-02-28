@@ -35,8 +35,8 @@ handled by this module.
       ltsteps.py can be used to retrieve both step and measurement information from log files.
 
     + txt files - Files exported from the Plot File -> Export data as text menu. This file is an text file where data is
-      saved in the text format. The reason to use spicelib instead of another popular lib as pandas, is because the data
-      format when .STEPS are used in the simulation is not not very practical. The spicelib ltsteps.py can be used to
+      saved in the text format. The reason to use kupicelib instead of another popular lib as pandas, is because the data
+      format when .STEPS are used in the simulation is not not very practical. The kupicelib ltsteps.py can be used to
       reformat the text, so that the run parameter is added to the data as an additional column instead of a table
       divider. Please Check LTSpiceExport class for more information.
 
@@ -96,7 +96,7 @@ from typing import Any, Dict, List, Optional, TypeVar, Union
 from ..utils.detect_encoding import detect_encoding
 from .logfile_data import LogfileData, try_convert_value
 
-_logger = logging.getLogger("spicelib.LTSteps")
+_logger = logging.getLogger("kupicelib.LTSteps")
 
 T = TypeVar("T")
 

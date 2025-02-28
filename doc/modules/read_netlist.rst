@@ -1,7 +1,7 @@
 Reading and Manipulating Netlists
 =================================
 
-spicelib has the ability to read and manipulate netlist files using the :doc:`../classes/spice_editor` class.
+kupicelib has the ability to read and manipulate netlist files using the :doc:`../classes/spice_editor` class.
 
 The SpiceEditor class inherits almost all functions from :doc:`/classes/spice_circuit` class. The SpiceCircuit
 class allows manipulation of circuit elements such as resistors, capacitors, transistors and so on, as well as
@@ -25,8 +25,8 @@ Example 1: Setting parameters inside a flat netlist.
 .. code-block::
     
     #read netlist
-    import spicelib
-    net = spicelib.SpiceEditor("Batch_Test.net")  # Loading the Netlist
+    import kupicelib
+    net = kupicelib.SpiceEditor("Batch_Test.net")  # Loading the Netlist
 
     net.set_parameters(res=0, cap=100e-6)  # Updating parameters res and cap
     net.set_component_value('R2', '2k')    # Updating the value of R2 to 2k
@@ -49,8 +49,8 @@ Example 2: Setting parameters inside a flat netlist.
 .. code-block::
 
     #read netlist
-    import spicelib
-    net = spicelib.SpiceEditor("Batch_Test.net")  # Loading the Netlist
+    import kupicelib
+    net = kupicelib.SpiceEditor("Batch_Test.net")  # Loading the Netlist
 
     net.set_parameters(res=0, cap=100e-6)  # Updating parameters res and cap
     net['R2'].value = '2k'    # Updating the value of R2 to 2k
@@ -73,8 +73,8 @@ Example 3: Updating components inside a subcircuit
 .. code-block::
     
     #read netlist
-    import spicelib
-    net = spicelib.SpiceEditor("Example2.net")
+    import kupicelib
+    net = kupicelib.SpiceEditor("Example2.net")
 
     net.set_component_value('R1', 1000)      # Sets the value of R1 to 1k
     net.set_component_value('XU1:Ra', '1k')  # Sets the value of Ra inside of XU1 to 1k
@@ -94,8 +94,8 @@ Example 4: Updating components inside a subcircuit
 .. code-block::
 
     #read netlist
-    import spicelib
-    net = spicelib.SpiceEditor("Example2.net")
+    import kupicelib
+    net = kupicelib.SpiceEditor("Example2.net")
 
     print(net.get_subcircuit_names())  # get the names of the subcircuits
     subcircuit = net.get_subcircuit_named('')  # get the subcircuit definition
@@ -106,6 +106,6 @@ Example 4: Updating components inside a subcircuit
 
 See the class documentation for more details :
 
-- :py:class:`spicelib.SpiceEditor`
-- :py:class:`spicelib.SpiceCircuit`
-- :py:class:`spicelib.SpiceComponent`
+- :py:class:`kupicelib.SpiceEditor`
+- :py:class:`kupicelib.SpiceCircuit`
+- :py:class:`kupicelib.SpiceComponent`

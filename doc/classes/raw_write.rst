@@ -1,7 +1,7 @@
 RawWrite
 ========
 
-.. autoclass:: spicelib.RawWrite
+.. autoclass:: kupicelib.RawWrite
    :members:
    :undoc-members:
    :show-inheritance:

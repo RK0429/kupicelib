@@ -1,4 +1,4 @@
-* C:\sandbox\spicelib\examples\testfiles\qsch_rotation.qsch
+* C:\sandbox\kupicelib\examples\testfiles\qsch_rotation.qsch
 R1 1 2 10k
 R2 2 3 10k
 R3 3 4 10k

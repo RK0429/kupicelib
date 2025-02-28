@@ -16,8 +16,8 @@ There are three types of files that are handled by this module.
       ltsteps can be used to retrieve both step and measurement information from log files.
 
     + txt files - Files exported from the Plot File -> Export data as text menu. This file is an text file where data is
-      saved in the text format. The reason to use spicelib instead of another popular lib as pandas, is because the data
-      format when .STEPS are used in the simulation is not not very practical. The spicelib ltsteps can be used to
+      saved in the text format. The reason to use kupicelib instead of another popular lib as pandas, is because the data
+      format when .STEPS are used in the simulation is not not very practical. The kupicelib ltsteps can be used to
       reformat the text, so that the run parameter is added to the data as an additional column instead of a table
       divider. Please Check LTSpiceExport class for more information.
 

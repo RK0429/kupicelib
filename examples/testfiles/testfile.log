@@ -1,4 +1,4 @@
-Circuit: * C:\sandbox\spicelib\examples\testfiles\testfile.asc
+Circuit: * C:\sandbox\kupicelib\examples\testfiles\testfile.asc
 
 WARNING: Specified period is not longer than the sum of Trise, Tfall, and Ton for v1.  Increasing period to 0.002
 Direct Newton iteration for .op point succeeded.

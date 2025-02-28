@@ -28,7 +28,7 @@ from typing import Any, List, Optional, Union
 
 from ..sim.simulator import Simulator, SpiceSimulatorError, run_function
 
-_logger = logging.getLogger("spicelib.NGSpiceSimulator")
+_logger = logging.getLogger("kupicelib.NGSpiceSimulator")
 
 
 class NGspiceSimulator(Simulator):
@@ -125,7 +125,7 @@ class NGspiceSimulator(Simulator):
         * `-s, --server`: run spice as a server process
         * `-t, --term=TERM`: set the terminal type
 
-        The following parameters will already be filled in by spicelib, and cannot be set:
+        The following parameters will already be filled in by kupicelib, and cannot be set:
 
         * `-a  --autorun`: run the loaded netlist
         * `-b, --batch`: process FILE in batch mode

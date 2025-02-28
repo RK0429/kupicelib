@@ -9,7 +9,7 @@ There are two possible usages of this module, either programmatically by running
 
 .. code-block:: python
 
-	from spicelib.log.ltsteps import LTSpiceLogReader
+	from kupicelib.log.ltsteps import LTSpiceLogReader
 
 	data = LTSpiceLogReader("Batch_Test_AD820_15.log")
 
@@ -30,4 +30,4 @@ There are two possible usages of this module, either programmatically by running
 
 	print("Total number of measurements found :", data.measure_count)
 
-For more information, see :py:class:`spicelib.log.ltsteps.LTSpiceLogReader`
+For more information, see :py:class:`kupicelib.log.ltsteps.LTSpiceLogReader`

@@ -25,7 +25,7 @@ from typing import Optional
 __author__ = "Nuno Canto Brum <nuno.brum@gmail.com>"
 __copyright__ = "Copyright 2021, Fribourg Switzerland"
 
-_logger = logging.getLogger("spicelib.Utils")
+_logger = logging.getLogger("kupicelib.Utils")
 
 
 def find_file_in_directory(directory: str, filename: str) -> Optional[str]:

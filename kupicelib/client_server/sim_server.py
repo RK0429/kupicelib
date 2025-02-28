@@ -29,9 +29,9 @@ from typing import Tuple
 from xmlrpc.client import Binary
 from xmlrpc.server import SimpleXMLRPCServer
 
-from spicelib.client_server.srv_sim_runner import ServerSimRunner
+from kupicelib.client_server.srv_sim_runner import ServerSimRunner
 
-_logger = logging.getLogger("spicelib.SimServer")
+_logger = logging.getLogger("kupicelib.SimServer")
 
 
 class SimServer(object):

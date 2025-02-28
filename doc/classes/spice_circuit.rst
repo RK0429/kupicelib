@@ -1,13 +1,13 @@
 SpiceCircuit
 ============
 
-.. autoclass:: spicelib.SpiceCircuit
+.. autoclass:: kupicelib.SpiceCircuit
    :members:
    :undoc-members:
    :show-inheritance:
    :inherited-members:
 
-.. autoclass:: spicelib.SpiceComponent
+.. autoclass:: kupicelib.SpiceComponent
    :members:
    :undoc-members:
    :show-inheritance:

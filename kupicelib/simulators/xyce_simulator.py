@@ -28,7 +28,7 @@ from typing import Optional, Union
 
 from ..sim.simulator import Simulator, SpiceSimulatorError, run_function
 
-_logger = logging.getLogger("spicelib.XYCESimulator")
+_logger = logging.getLogger("kupicelib.XYCESimulator")
 
 
 class XyceSimulator(Simulator):
@@ -188,7 +188,7 @@ class XyceSimulator(Simulator):
         * `-randseed <number>`: seed random number generator used by expressions and sampling methods
         * `-plugin <plugin list>`: load device plugin libraries (comma-separated list)
 
-        The following parameters will already be filled in by spicelib, and cannot be set:
+        The following parameters will already be filled in by kupicelib, and cannot be set:
 
         * `-l <path>`: place the log output into <path>, "cout" to log to stdout
         * `-r <file>`: generate a rawfile named <file> in binary format

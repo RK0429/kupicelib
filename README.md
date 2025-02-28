@@ -1,7 +1,7 @@
 # README <!-- omit in toc -->
 _current version: 1.4.1_
 
-*spicelib* is a toolchain of python utilities design to interact with spice simulators, as for example:
+*kupicelib* is a toolchain of python utilities design to interact with spice simulators, as for example:
 
 * LTspice
 * Ngspice
@@ -14,7 +14,7 @@ _current version: 1.4.1_
   - [Main Tools](#main-tools)
   - [Main Classes](#main-classes)
 - [How to Install](#how-to-install)
-  - [Updating spicelib](#updating-spicelib)
+  - [Updating kupicelib](#updating-kupicelib)
   - [Using GITHub](#using-github)
 - [How to use](#how-to-use)
 - [LICENSE](#license)
@@ -72,7 +72,7 @@ _current version: 1.4.1_
   without having to open the schematic in a GUI. The simulations can then be run in batch mode (see SimRunner). Examples of functions provided:
 
 ```python
-from spicelib.editor import SpiceEditor
+from kupicelib.editor import SpiceEditor
 netlist = SpiceEditor("example.net")
 netlist.set_element_model('D1', '1N4148')  # Replaces the Diode D1 with the model 1N4148
 netlist.set_component_value('R2', '33k')  # Replaces the value of R2 by 33k
@@ -115,26 +115,26 @@ subc['R1'].value = 1000  # Same as the above
 
 ## How to Install
 
-`pip install spicelib`
+`pip install kupicelib`
 
-### Updating spicelib
+### Updating kupicelib
 
-`pip install --upgrade spicelib`
+`pip install --upgrade kupicelib`
 
 ### Using GITHub
 
-`git clone https://github.com/nunobrum/spicelib.git`
+`git clone https://github.com/nunobrum/kupicelib.git`
 
 If using this method it would be good to add the path where you cloned the site to python path.
 
 `import sys`  
-`sys.path.append(<path to spicelib>)`
+`sys.path.append(<path to kupicelib>)`
 
 ## How to use
 
 Here follows a quick outlook on how to use each of the tools.
 
-More comprehensive documentation can be found in <https://spicelib.readthedocs.io/en/latest/>
+More comprehensive documentation can be found in <https://kupicelib.readthedocs.io/en/latest/>
 
 ## LICENSE
 
@@ -149,7 +149,7 @@ The example below reads the data from a Spice Simulation called
 "TRAN - STEP.raw" and displays all steps of the "I(R1)" trace in a matplotlib plot
 
  ```python
-from spicelib import RawRead
+from kupicelib import RawRead
 
 from matplotlib import pyplot as plt
 
@@ -178,7 +178,7 @@ The following example writes a RAW file with a 3 milliseconds transient simulati
 
  ```python
 import numpy as np
-from spicelib import Trace, RawWrite
+from kupicelib import Trace, RawWrite
 LW = RawWrite(fastacces=False)
 tx = Trace('time', np.arange(0.0, 3e-3, 997E-11))
 vy = Trace('N001', np.sin(2 * np.pi * tx.data * 10000))
@@ -200,10 +200,10 @@ The editors can be used change component values, parameters or simulation comman
 Here follows an example of operation.
 
 ```python
-from spicelib import SimRunner
-from spicelib import SpiceEditor
+from kupicelib import SimRunner
+from kupicelib import SpiceEditor
 
-from spicelib.simulators.ltspice_simulator import LTspice
+from kupicelib.simulators.ltspice_simulator import LTspice
 
 # select spice model
 runner = SimRunner(simulator=LTspice, output_folder='./temp')
@@ -286,8 +286,8 @@ For the other simulators, built-in Linux/MacOS support is coming, but you can al
 A large variety of standard paths are automatically detected. To see what paths are detected:
 
 ```python
-from spicelib.sim.sim_runner import SimRunner
-from spicelib.simulators.ltspice_simulator import LTspice
+from kupicelib.sim.sim_runner import SimRunner
+from kupicelib.simulators.ltspice_simulator import LTspice
 runner = SimRunner(output_folder='./tmp', simulator=LTspice)
 # Show the executable path
 print(runner.simulator.spice_exe)
@@ -316,9 +316,9 @@ If you want, you can also specify library and symbol search paths using `editor.
 
 ```python
 # ** Simulator executable paths
-from spicelib.simulators.ltspice_simulator import LTspice
-from spicelib.sim.sim_runner import SimRunner
-from spicelib.editor.asc_editor import AscEditor
+from kupicelib.simulators.ltspice_simulator import LTspice
+from kupicelib.sim.sim_runner import SimRunner
+from kupicelib.editor.asc_editor import AscEditor
 
 # OPTION 1: via subclassing
 class MySpiceInstallation(LTspice):
@@ -367,13 +367,13 @@ The runner client server function (see `SimClient`) does not (yet) support this,
 #### Adding search paths for symbols and library files
 
 LTspice allows users to add Search Paths for symbol and libraries. This is very helpful when sharing non-native 
-libraries and symbols between different projects. The `spicelib` supports this feature by using the 
+libraries and symbols between different projects. The `kupicelib` supports this feature by using the 
 set_custom_library_paths() class method as is exemplified in the code snippet below.
 
 ```python
-from spicelib import AscEditor
+from kupicelib import AscEditor
 
-AscEditor.set_custom_library_paths([r"C:\work\MyLTspiceSymbols", r"C:\work\MyLTspiceLibraries"])
+AscEditor.set_custom_library_paths([r"C:\work\MyLTspiceSymbols", r"C:\work\MyLTkupicelibraries"])
 ```
 
 The user can specify one or more search paths. Note that each call to this method will invalidate previously set search 
@@ -420,9 +420,9 @@ That subcircuit has a compoment 'L1'.
 The following is all possible:
 
 ```python
-import spicelib
-# my_edt = spicelib.AscEditor("top_circuit.asc")
-my_edt = spicelib.SpiceEditor("top_circuit.net") # or from a netlist...
+import kupicelib
+# my_edt = kupicelib.AscEditor("top_circuit.asc")
+my_edt = kupicelib.SpiceEditor("top_circuit.net") # or from a netlist...
 
 print(my_edt.get_subcircuit("X1").get_components())  # prints ['C1', 'X2', 'L1']
 
@@ -463,8 +463,8 @@ To update all instances of a subcircuit, the subcircuit needs to be be manipulat
  `{subcircuit_model_name}_{component_name}`, like `AD820_X1`, and sets the model of `X1` to `AD820_X1`.*
 
 ```python
-import spicelib
-my_edt = spicelib.SpiceEditor("top_circuit.net")
+import kupicelib
+my_edt = kupicelib.SpiceEditor("top_circuit.net")
 my_sub = my_edt.get_subcircuit_named("MYSUBCKT")
 
 print(my_sub.get_components())  # prints ['C1', 'X2', 'L1']
@@ -502,9 +502,9 @@ and then add the .step command for making several runs on the same circuit.
 To simplify this process, the AscEditor class can be used as exemplified below:
 
 ```python
-from spicelib import AscEditor, SimRunner  # Imports the class that manipulates the asc file
-from spicelib.sim.tookit.montecarlo import Montecarlo  # Imports the Montecarlo toolkit class
-from spicelib.simulators.ltspice_simulator import LTspice
+from kupicelib import AscEditor, SimRunner  # Imports the class that manipulates the asc file
+from kupicelib.sim.tookit.montecarlo import Montecarlo  # Imports the Montecarlo toolkit class
+from kupicelib.simulators.ltspice_simulator import LTspice
 
 sallenkey = AscEditor("./testfiles/sallenkey.asc")  # Reads the asc file into memory
 runner = SimRunner(simulator=LTspice, output_folder='./temp_mc',
@@ -553,12 +553,12 @@ Similarly, the worst case analysis can also be setup by using the class WorstCas
 ```python
 import logging
 
-import spicelib
-from spicelib import AscEditor, SimRunner  # Imports the class that manipulates the asc file
-from spicelib.sim.tookit.worst_case import WorstCaseAnalysis
-from spicelib.simulators.ltspice_simulator import LTspice
+import kupicelib
+from kupicelib import AscEditor, SimRunner  # Imports the class that manipulates the asc file
+from kupicelib.sim.tookit.worst_case import WorstCaseAnalysis
+from kupicelib.simulators.ltspice_simulator import LTspice
 
-spicelib.set_log_level(logging.INFO)
+kupicelib.set_log_level(logging.INFO)
 
 sallenkey = AscEditor("./testfiles/sallenkey.asc")  # Reads the asc file into memory
 runner = SimRunner(simulator=LTspice, output_folder='./temp_wca', verbose=True)  # Instantiates the runner with a temp folder set
@@ -612,7 +612,7 @@ accessing data through the class as exemplified here:
 #!/usr/bin/env python
 # coding=utf-8
 
-from spicelib.log.ltsteps import LTSpiceLogReader
+from kupicelib.log.ltsteps import LTSpiceLogReader
 
 data = LTSpiceLogReader("./testfiles/Batch_Test_Simple_1.log")
 
@@ -722,12 +722,12 @@ import zipfile
 import logging
 
 # In order for this, to work, you need to have a server running. To start a server, run the following command:
-# python -m spicelib.run_server --port 9000 --parallel 4 --output ./temp
+# python -m kupicelib.run_server --port 9000 --parallel 4 --output ./temp
 
-_logger = logging.getLogger("spicelib.SimClient")
+_logger = logging.getLogger("kupicelib.SimClient")
 _logger.setLevel(logging.DEBUG)
 
-from spicelib.client_server.sim_client import SimClient
+from kupicelib.client_server.sim_client import SimClient
 
 server = SimClient('http://localhost', 9000)
 print(server.session_id)
@@ -788,15 +788,15 @@ documentation is directly included in the Python Modules documentation under "Se
 ## Debug Logging
 
 The library uses the standard `logging` module. Three convenience functions have been added for easily changing logging
-settings across the entire library. `spicelib.all_loggers()` returns a list of all the logger's
-names, `spicelib.set_log_level(logging.DEBUG)`
-would set the library's logging level to debug, and `spicelib.add_log_handler(my_handler)` would add `my_handler` as a
+settings across the entire library. `kupicelib.all_loggers()` returns a list of all the logger's
+names, `kupicelib.set_log_level(logging.DEBUG)`
+would set the library's logging level to debug, and `kupicelib.add_log_handler(my_handler)` would add `my_handler` as a
 handler for all loggers.
 
 ### Single Module Logging
 
 It is also possible to set the logging settings for a single module by using its name acquired from
-the `spicelib.all_loggers()`
+the `kupicelib.all_loggers()`
 function. For example:
 
 ```python
@@ -804,18 +804,18 @@ import logging
 
 logging.basicConfig(level=logging.INFO)  # Set up the root logger first
 
-import spicelib  # Import spicelib to set the logging levels
+import kupicelib  # Import kupicelib to set the logging levels
 
-spicelib.set_log_level(logging.DEBUG)  # Set spicelib's global log level
-logging.getLogger("spicelib.RawRead").level = logging.WARNING  # Set the log level for only RawRead to warning
+kupicelib.set_log_level(logging.DEBUG)  # Set kupicelib's global log level
+logging.getLogger("kupicelib.RawRead").level = logging.WARNING  # Set the log level for only RawRead to warning
 ```
 
-Would set only `spicelib.RawRead` file's logging level to warning while the other modules would remain at debug level.
+Would set only `kupicelib.RawRead` file's logging level to warning while the other modules would remain at debug level.
 _Make sure to initialize the root logger before importing the library to be able to see the logs._
 
 ## To whom do I talk?
 
-For support and improvement requests please open an Issue in [GitHub spicelib issues](https://github.com/nunobrum/spicelib/issues)
+For support and improvement requests please open an Issue in [GitHub kupicelib issues](https://github.com/nunobrum/kupicelib/issues)
 
 ## History
 
@@ -884,7 +884,7 @@ For support and improvement requests please open an Issue in [GitHub spicelib is
   The old methods are still available for backward compatibility.
   * Improvements on the documentation.
   * Added testbench for the regular expressions used on the SpiceEditor. Improvements on the regular expressions.
-  * Improvements on the usage of spicelib in Linux and MacOS using wine.
+  * Improvements on the usage of kupicelib in Linux and MacOS using wine.
 * Version 1.1.4
   * Fix on line patterns on the AsyEditor (#PR 65)
   * Fix on the X (.SUBCKT) components regex (#PR 66)
@@ -966,4 +966,4 @@ For support and improvement requests please open an Issue in [GitHub spicelib is
   * Moved simulator classes into a separate package.
 * Version 0.3
   * Cloning and renaming from PyLTSpice 4.1.2
-  * Starting at 0.3 to align with the spicelib in PyPi
+  * Starting at 0.3 to align with the kupicelib in PyPi

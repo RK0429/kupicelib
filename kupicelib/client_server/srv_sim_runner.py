@@ -29,7 +29,7 @@ from typing import Any, Dict, List, Optional, Union
 from ..editor.base_editor import BaseEditor
 from ..sim.sim_runner import SimRunner
 
-_logger = logging.getLogger("spicelib.ServerSimRunner")
+_logger = logging.getLogger("kupicelib.ServerSimRunner")
 
 
 def zip_files(raw_filename: Path, log_filename: Path):

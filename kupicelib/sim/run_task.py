@@ -36,7 +36,7 @@ from typing import Any, Callable, Optional, Tuple, Type, Union
 from .process_callback import ProcessCallback
 from .simulator import Simulator
 
-_logger = logging.getLogger("spicelib.RunTask")
+_logger = logging.getLogger("kupicelib.RunTask")
 
 END_LINE_TERM = "\n"
 

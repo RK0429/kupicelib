@@ -4,4 +4,4 @@ prune doc
 prune tests
 prune \..*
 global-exclude *.py[cod]
-include spicelib/scripts/asc_to_qsch_data.xml
+include kupicelib/scripts/asc_to_qsch_data.xml

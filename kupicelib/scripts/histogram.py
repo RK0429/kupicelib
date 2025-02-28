@@ -26,7 +26,7 @@ this module.
 
 .. code-block:: text
 
-    python -m spicelib.Histogram [options] [data_file] TRACE
+    python -m kupicelib.Histogram [options] [data_file] TRACE
 
 The help can be obtained by calling the script without arguments
 
@@ -62,8 +62,8 @@ The help can be obtained by calling the script without arguments
 __author__ = "Nuno Canto Brum <me@nunobrum.com>"
 __copyright__ = "Copyright 2017, Fribourg Switzerland"
 
-from spicelib.log.logfile_data import try_convert_value
-from spicelib.utils.detect_encoding import EncodingDetectError, detect_encoding
+from kupicelib.log.logfile_data import try_convert_value
+from kupicelib.utils.detect_encoding import EncodingDetectError, detect_encoding
 
 
 def main():
@@ -196,7 +196,7 @@ def main():
 
         if logfile.endswith(".log"):
             # Maybe it is a LTSpice log file
-            from spicelib.log.ltsteps import LTSpiceLogReader
+            from kupicelib.log.ltsteps import LTSpiceLogReader
 
             try:
                 log = LTSpiceLogReader(logfile)

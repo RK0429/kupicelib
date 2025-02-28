@@ -31,7 +31,7 @@ from ...log.qspice_log_reader import QspiceLogReader
 from ...utils.detect_encoding import EncodingDetectError
 from ..sim_runner import AnyRunner, ProcessCallback, RunTask
 
-_logger = logging.getLogger("spicelib.SimAnalysis")
+_logger = logging.getLogger("kupicelib.SimAnalysis")
 
 
 class SimAnalysis(object):

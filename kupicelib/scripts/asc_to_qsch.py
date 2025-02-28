@@ -21,12 +21,12 @@ import logging
 import os
 import xml.etree.ElementTree as ET
 
-from spicelib.editor.asc_editor import AscEditor
-from spicelib.editor.asy_reader import AsyReader
-from spicelib.editor.qsch_editor import QschEditor
-from spicelib.utils.file_search import find_file_in_directory
+from kupicelib.editor.asc_editor import AscEditor
+from kupicelib.editor.asy_reader import AsyReader
+from kupicelib.editor.qsch_editor import QschEditor
+from kupicelib.utils.file_search import find_file_in_directory
 
-_logger = logging.getLogger("spicelib.AscToQsch")
+_logger = logging.getLogger("kupicelib.AscToQsch")
 
 
 def main():

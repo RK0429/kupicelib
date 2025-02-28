@@ -19,9 +19,9 @@ on:
       - "[0-9]+.[0-9]+.[0-9]+"
 
 env:
-  PACKAGE_NAME: "spicelib"
+  PACKAGE_NAME: "kupicelib"
   OWNER: "nuno.brum"
-  TAP_NAME: "spicelib"
+  TAP_NAME: "kupicelib"
 
 jobs:
   details:

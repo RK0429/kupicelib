@@ -1,32 +1,28 @@
-from spicelib import SimRunner
-from spicelib import AscEditor
-from spicelib.simulators.ltspice_simulator import LTspice
+from kupicelib import AscEditor, SimRunner
+from kupicelib.simulators.ltspice_simulator import LTspice
 
 # Force another simulatior
 simulator = r"C:\Users\nunob\AppData\Local\Programs\ADI\LTspice\LTspice.exe"
 
 # select spice model
-runner = SimRunner(output_folder='./temp', simulator=LTspice.create_from(simulator))
+runner = SimRunner(output_folder="./temp", simulator=LTspice.create_from(simulator))
 
-netlist = AscEditor('./testfiles/Batch_Test.asc')
+netlist = AscEditor("./testfiles/Batch_Test.asc")
 # set default arguments
 netlist.set_parameters(res=0, cap=100e-6)
-netlist['R2'].value = '2k'  # Modifying the value of a resistor
-netlist['R1'].value = '4k'
-netlist['V3'].value = "SINE(0 1 3k 0 0 0)"
+netlist["R2"].value = "2k"  # Modifying the value of a resistor
+netlist["R1"].value = "4k"
+netlist["V3"].value = "SINE(0 1 3k 0 0 0)"
 # netlist.set_component_value('U1:C2', 20e-12)  # modifying a component in a subcircuit
 # define simulation
-netlist.add_instructions(
-    "; Simulation settings",
-    ";.param run = 0"
-)
-netlist.set_parameter('run', 0)
+netlist.add_instructions("; Simulation settings", ";.param run = 0")
+netlist.set_parameter("run", 0)
 
-for opamp in ('AD712', 'AD820_ALT'):
-    netlist['U1'].model = opamp
+for opamp in ("AD712", "AD820_ALT"):
+    netlist["U1"].model = opamp
     for supply_voltage in (5, 10, 15):
-        netlist['V1'].value = supply_voltage
-        netlist['V2'].value = -supply_voltage
+        netlist["V1"].value = supply_voltage
+        netlist["V2"].value = -supply_voltage
         print("simulating OpAmp", opamp, "Voltage", supply_voltage)
         runner.run(netlist)
 
@@ -38,8 +34,8 @@ for raw, log in runner:
     # ...
 
 # Sim Statistics
-print('Successful/Total Simulations: ' + str(runner.okSim) + '/' + str(runner.runno))
+print("Successful/Total Simulations: " + str(runner.okSim) + "/" + str(runner.runno))
 
 enter = input("Press enter to delete created files")
-if enter == '':
+if enter == "":
     runner.cleanup_files()

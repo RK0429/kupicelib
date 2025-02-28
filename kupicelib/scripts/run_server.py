@@ -25,7 +25,7 @@ import time
 
 import keyboard
 
-from spicelib.client_server.sim_server import SimServer
+from kupicelib.client_server.sim_server import SimServer
 
 
 def main():
@@ -79,15 +79,15 @@ def main():
         args.parallel = 1
 
     if args.simulator == "LTSpice":
-        from spicelib.simulators.ltspice_simulator import LTspice
+        from kupicelib.simulators.ltspice_simulator import LTspice
 
         simulator = LTspice
     elif args.simulator == "NGSpice":
-        from spicelib.simulators.ngspice_simulator import NGspiceSimulator
+        from kupicelib.simulators.ngspice_simulator import NGspiceSimulator
 
         simulator = NGspiceSimulator
     elif args.simulator == "XYCE":
-        from spicelib.simulators.xyce_simulator import XyceSimulator
+        from kupicelib.simulators.xyce_simulator import XyceSimulator
 
         simulator = XyceSimulator
     else:
@@ -114,10 +114,10 @@ def main():
 if __name__ == "__main__":
     import logging
 
-    log1 = logging.getLogger("spicelib.ServerSimRunner")
-    log2 = logging.getLogger("spicelib.SimServer")
-    log3 = logging.getLogger("spicelib.SimRunner")
-    log4 = logging.getLogger("spicelib.RunTask")
+    log1 = logging.getLogger("kupicelib.ServerSimRunner")
+    log2 = logging.getLogger("kupicelib.SimServer")
+    log3 = logging.getLogger("kupicelib.SimRunner")
+    log4 = logging.getLogger("kupicelib.RunTask")
     log1.setLevel(logging.INFO)
     log2.setLevel(logging.INFO)
     log3.setLevel(logging.INFO)

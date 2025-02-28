@@ -26,14 +26,15 @@
 @maintainer:    Nuno Brum
 @email:         me@nunobrum.com
 
-@file:          test_spicelib.py
+@file:          test_kupicelib.py
 @date:          2022-09-19
 
-@note           spicelib ltsteps + sim_commander + raw_read unit test
-                  run ./test/unittests/test_spicelib
+@note           kupicelib ltsteps + sim_commander + raw_read unit test
+                  run ./test/unittests/test_kupicelib
 """
 
 import os  # platform independent paths
+
 # ------------------------------------------------------------------------------
 # Python Libs
 import sys  # python path handling
@@ -43,15 +44,17 @@ import unittest  # performs test
 # Module libs
 
 sys.path.append(
-    os.path.abspath((os.path.dirname(os.path.abspath(__file__)) + "/../")))  # add project root to lib search path
-from spicelib.log.qspice_log_reader import QspiceLogReader
-from spicelib.raw.raw_read import RawRead
-from spicelib.editor.spice_editor import SpiceEditor
-from spicelib.sim.sim_runner import SimRunner
+    os.path.abspath((os.path.dirname(os.path.abspath(__file__)) + "/../"))
+)  # add project root to lib search path
+from kupicelib.editor.spice_editor import SpiceEditor
+from kupicelib.log.qspice_log_reader import QspiceLogReader
+from kupicelib.raw.raw_read import RawRead
+from kupicelib.sim.sim_runner import SimRunner
 
 
 def has_qspice_detect():
-    from spicelib.simulators.qspice_simulator import Qspice
+    from kupicelib.simulators.qspice_simulator import Qspice
+
     global qspice_simulator
     qspice_simulator = Qspice
     return qspice_simulator.is_available()
@@ -61,14 +64,19 @@ def has_qspice_detect():
 has_qspice = has_qspice_detect()
 skip_qspice_editor_tests = not has_qspice
 # print("skip_ltspice_tests", skip_ltspice_tests)
-test_dir = '../examples/testfiles/' if os.path.abspath(os.curdir).endswith('unittests') else './examples/testfiles/'
+test_dir = (
+    "../examples/testfiles/"
+    if os.path.abspath(os.curdir).endswith("unittests")
+    else "./examples/testfiles/"
+)
 # test_dir = os.path.abspath(test_dir)
 print("test_dir", test_dir)
 # ------------------------------------------------------------------------------
 
 
-class test_spicelib(unittest.TestCase):
-    """Unnittesting spicelib"""
+class test_kupicelib(unittest.TestCase):
+    """Unnittesting kupicelib"""
+
     # *****************************
     @unittest.skipIf(skip_qspice_editor_tests, "Skip if not in windows environment")
     def test_batch_test(self):
@@ -76,73 +84,87 @@ class test_spicelib(unittest.TestCase):
         @note   inits class
         """
         print("Starting test_batch_test")
-        from spicelib.simulators.qspice_simulator import Qspice
+        from kupicelib.simulators.qspice_simulator import Qspice
+
         # prepare
         self.sim_files = []
         self.measures = {}
 
         def processing_data(raw_file, log_file):
-            print("Handling the simulation data of %s, log file %s" % (raw_file, log_file))
+            print(
+                "Handling the simulation data of %s, log file %s" % (raw_file, log_file)
+            )
             self.sim_files.append((raw_file, log_file))
 
         # select spice model
         editor = SpiceEditor(test_dir + "QSPICE_Batch_Test.net")
         runner = SimRunner(parallel_sims=4, output_folder="./output", simulator=Qspice)
         editor.set_parameters(res=0, cap=100e-6)
-        editor.set_component_value('R2', '2k')  # Modifying the value of a resistor
-        editor.set_component_value('R1', '4k')
-        editor.set_element_model('V3', "SINE(0 1 3k 0 0 0)")  # Modifying the
+        editor.set_component_value("R2", "2k")  # Modifying the value of a resistor
+        editor.set_component_value("R1", "4k")
+        editor.set_element_model("V3", "SINE(0 1 3k 0 0 0)")  # Modifying the
 
         editor.set_parameter("run", "0")
 
         for supply_voltage in (5, 10, 15):
-            editor.set_component_value('V1', supply_voltage)
-            editor.set_component_value('V2', -supply_voltage)
+            editor.set_component_value("V1", supply_voltage)
+            editor.set_component_value("V2", -supply_voltage)
             # overriding the automatic netlist naming
-            run_netlist_file = "{}_{}.net".format(editor.circuit_file.name, supply_voltage)
+            run_netlist_file = "{}_{}.net".format(
+                editor.circuit_file.name, supply_voltage
+            )
             runner.run(editor, run_filename=run_netlist_file, callback=processing_data)
 
         runner.wait_completion()
         self.assertEqual(runner.okSim, 3)  # Simulation done with success
         # Sim Statistics
-        print('Successful/Total Simulations: ' + str(runner.okSim) + '/' + str(runner.runno))
+        print(
+            "Successful/Total Simulations: "
+            + str(runner.okSim)
+            + "/"
+            + str(runner.runno)
+        )
         self.assertEqual(runner.okSim, 3)
         self.assertEqual(runner.runno, 3)
 
         # check
         editor.reset_netlist()
-        editor.set_element_model('V3', "AC 1 0")
+        editor.set_element_model("V3", "AC 1 0")
         editor.add_instructions(
-                "; Simulation settings",
-                ".ac dec 30 1 10Meg",
-                ".meas AC GainAC MAX mag(V(out)) ; find the peak response and call it ""Gain""",
-                ".meas AC FcutAC TRIG mag(V(out))=GainAC/sqrt(2) FALL=last",
-                # ".step param run 0 2 1"
+            "; Simulation settings",
+            ".ac dec 30 1 10Meg",
+            ".meas AC GainAC MAX mag(V(out)) ; find the peak response and call it "
+            "Gain"
+            "",
+            ".meas AC FcutAC TRIG mag(V(out))=GainAC/sqrt(2) FALL=last",
+            # ".step param run 0 2 1"
         )
 
-        raw_file, log_file = runner.run_now(editor, run_filename="qspice_no_callback.net")
+        raw_file, log_file = runner.run_now(
+            editor, run_filename="qspice_no_callback.net"
+        )
         print("no_callback", raw_file, log_file)
         log = QspiceLogReader(log_file)
         for measure in log.get_measure_names():
-            print(measure, '=', log.get_measure_value(measure))
-        self.assertEqual(6.16683e+06, log.get_measure_value('fcutac')[0])
-        self.assertEqual(1.99999, log.get_measure_value('gainac')[0])
+            print(measure, "=", log.get_measure_value(measure))
+        self.assertEqual(6.16683e06, log.get_measure_value("fcutac")[0])
+        self.assertEqual(1.99999, log.get_measure_value("gainac")[0])
 
     @unittest.skipIf(skip_qspice_editor_tests, "Skip if not in windows environment")
     def test_run_from_spice_editor(self):
         """Run command on SpiceEditor"""
         print("Starting test_run_from_spice_editor")
-        runner = SimRunner(output_folder='temp' + "temp/", simulator=qspice_simulator)
+        runner = SimRunner(output_folder="temp" + "temp/", simulator=qspice_simulator)
         # select spice model
         netlist = SpiceEditor(test_dir + "testfile.net")
         # set default arguments
         netlist.set_parameters(res=0.001, cap=100e-6)
         # define simulation
         netlist.add_instructions(
-                "; Simulation settings",
-                # [".STEP PARAM Rmotor LIST 21 28"],
-                ".TRAN 3m",
-                # ".step param run 1 2 1"
+            "; Simulation settings",
+            # [".STEP PARAM Rmotor LIST 21 28"],
+            ".TRAN 3m",
+            # ".step param run 1 2 1"
         )
         # do parameter sweep
         for res in range(5):
@@ -152,37 +174,49 @@ class test_spicelib(unittest.TestCase):
             print("Raw file '%s' | Log File '%s'" % (raw, log))
         # Sim Statistics
         runner.wait_completion()
-        print('Successful/Total Simulations: ' + str(runner.okSim) + '/' + str(runner.runno))
+        print(
+            "Successful/Total Simulations: "
+            + str(runner.okSim)
+            + "/"
+            + str(runner.runno)
+        )
         self.assertEqual(runner.okSim, 5)  # Simulation done with success
 
     @unittest.skipIf(skip_qspice_editor_tests, "Skip if not in windows environment")
     def test_sim_runner(self):
         """SimRunner and SpiceEditor singletons"""
         print("Starting test_sim_runner")
+
         # Old legacy class that merged SpiceEditor and SimRunner
         def callback_function(raw_file, log_file):
-            print("Handling the simulation data of %s, log file %s" % (raw_file, log_file))
+            print(
+                "Handling the simulation data of %s, log file %s" % (raw_file, log_file)
+            )
 
-        runner = SimRunner(output_folder='temp' + "temp/", simulator=qspice_simulator)
+        runner = SimRunner(output_folder="temp" + "temp/", simulator=qspice_simulator)
         SE = SpiceEditor(test_dir + "testfile.net")
-        #, parallel_sims=1)
+        # , parallel_sims=1)
         tstart = 0
         bias_file = ""
         for tstop in (2, 5, 8, 10):
             tduration = tstop - tstart
-            SE.add_instruction(".tran {}".format(tduration), )
+            SE.add_instruction(
+                ".tran {}".format(tduration),
+            )
             if tstart != 0:
                 SE.add_instruction(".loadbias {}".format(bias_file))
                 # Put here your parameter modifications
                 # runner.set_parameters(param1=1, param2=2, param3=3)
             bias_file = test_dir + "sim_loadbias_%d.txt" % tstop
-            SE.add_instruction(".savebias {} internal time={}".format(bias_file, tduration))
+            SE.add_instruction(
+                ".savebias {} internal time={}".format(bias_file, tduration)
+            )
             tstart = tstop
             runner.run(SE, callback=callback_function)
 
         SE.reset_netlist()
-        SE.add_instruction('.ac dec 40 1m 1G')
-        SE.set_component_value('V1', 'AC 1 0')
+        SE.add_instruction(".ac dec 40 1m 1G")
+        SE.set_component_value("V1", "AC 1 0")
         runner.run(SE, callback=callback_function)
         runner.wait_completion()
         self.assertEqual(runner.okSim, 5)  # Simulation done with success
@@ -192,7 +226,7 @@ class test_spicelib(unittest.TestCase):
         """QspiceLogReader Measures from Batch_Test.asc"""
         print("Starting test_ltsteps_measures")
         assert_data = {
-            'vout1m'   : [
+            "vout1m": [
                 -0.0186257,
                 -1.04378,
                 -1.64283,
@@ -215,7 +249,7 @@ class test_spicelib(unittest.TestCase):
                 0.614292,
                 -0.878185,
             ],
-            'vin_rms'  : [
+            "vin_rms": [
                 0.706221,
                 0.704738,
                 0.708225,
@@ -238,7 +272,7 @@ class test_spicelib(unittest.TestCase):
                 0.703701,
                 0.703436,
             ],
-            'vout_rms' : [
+            "vout_rms": [
                 1.41109,
                 1.40729,
                 1.41292,
@@ -260,9 +294,8 @@ class test_spicelib(unittest.TestCase):
                 0.875919,
                 0.703003,
                 0.557131,
-
             ],
-            'gain'     : [
+            "gain": [
                 1.99809,
                 1.99689,
                 1.99502,
@@ -285,7 +318,7 @@ class test_spicelib(unittest.TestCase):
                 0.999007,
                 0.792014,
             ],
-            'period'   : [
+            "period": [
                 0.000100148,
                 7.95811e-005,
                 6.32441e-005,
@@ -307,9 +340,8 @@ class test_spicelib(unittest.TestCase):
                 1.85367e-006,
                 1.50318e-006,
                 1.20858e-006,
-
             ],
-            'period_at': [
+            "period_at": [
                 0.000100148,
                 7.95811e-005,
                 6.32441e-005,
@@ -331,10 +363,10 @@ class test_spicelib(unittest.TestCase):
                 1.85367e-006,
                 1.50318e-006,
                 1.20858e-006,
-            ]
+            ],
         }
         if has_qspice:
-            runner = SimRunner(output_folder='temp', simulator=qspice_simulator)
+            runner = SimRunner(output_folder="temp", simulator=qspice_simulator)
             raw_file, log_file = runner.run_now(test_dir + "QSPICE_Batch_Test.net")
             print(raw_file, log_file)
         else:
@@ -344,7 +376,9 @@ class test_spicelib(unittest.TestCase):
         for measure in assert_data:
             print("measure", measure)
             for step in range(log.step_count):
-                self.assertEqual(log.get_measure_value(measure, step), assert_data[measure][step])
+                self.assertEqual(
+                    log.get_measure_value(measure, step), assert_data[measure][step]
+                )
 
                 print(log.get_measure_value(measure, step), assert_data[measure][step])
 
@@ -353,7 +387,7 @@ class test_spicelib(unittest.TestCase):
         """Operating Point Simulation Test"""
         print("Starting test_operating_point")
         if has_qspice:
-            runner = SimRunner(output_folder='temp', simulator=qspice_simulator)
+            runner = SimRunner(output_folder="temp", simulator=qspice_simulator)
             raw_file, log_file = runner.run_now(test_dir + "DC op point.net")
             self.assertEqual(runner.okSim, 1)  # Simulation done with success
         else:
@@ -361,56 +395,77 @@ class test_spicelib(unittest.TestCase):
             # log_file = test_dir + "DC op point_1.log"
         raw = RawRead(raw_file)
 
-        for trace, value_expected  in zip(
-                ('V(in)', 'V(out)', 'I(R1)', 'I(R2)', 'I(Vin)'),
-                (1.0, 0.5, 5e-05, 5e-05, 5e-05)):
+        for trace, value_expected in zip(
+            ("V(in)", "V(out)", "I(R1)", "I(R2)", "I(Vin)"),
+            (1.0, 0.5, 5e-05, 5e-05, 5e-05),
+        ):
             value_read = raw.get_trace(trace)[0]
-            self.assertAlmostEqual(abs(value_read), value_expected, 5, f"mismatch in node {trace}")
+            self.assertAlmostEqual(
+                abs(value_read), value_expected, 5, f"mismatch in node {trace}"
+            )
 
     @unittest.skipIf(False, "Execute All")
     def test_operating_point_step(self):
-        """Operating Point Simulation with Steps """
+        """Operating Point Simulation with Steps"""
         print("Starting test_operating_point_step")
         if has_qspice:
-            runner = SimRunner(output_folder='temp', simulator=qspice_simulator)
+            runner = SimRunner(output_folder="temp", simulator=qspice_simulator)
             raw_file, log_file = runner.run_now(test_dir + "DC op point - STEP.net")
         else:
             raw_file = test_dir + "DC op point - STEP_1.qraw"
         raw = RawRead(raw_file)
-        vin = raw.get_trace('V(in)')
+        vin = raw.get_trace("V(in)")
 
-        for i, b in enumerate(('V(in)', 'V(b4)', 'V(b3)', 'V(b2)', 'V(b1)', 'V(b0)'),):
+        for i, b in enumerate(
+            ("V(in)", "V(b4)", "V(b3)", "V(b2)", "V(b1)", "V(b0)"),
+        ):
             meas = raw.get_trace(b)
             for step in range(raw.nPoints):
-                self.assertAlmostEqual(meas[step], vin[step] * 2**-i, 7, f"mismatch in node {b}")
+                self.assertAlmostEqual(
+                    meas[step], vin[step] * 2**-i, 7, f"mismatch in node {b}"
+                )
 
     @unittest.skipIf(skip_qspice_editor_tests, "Execute All")
     def test_transient(self):
-        """Transient Simulation test """
+        """Transient Simulation test"""
         print("Starting test_transient")
         if has_qspice:
-            runner = SimRunner(output_folder='temp', simulator=qspice_simulator)
+            runner = SimRunner(output_folder="temp", simulator=qspice_simulator)
             raw_file, log_file = runner.run_now(test_dir + "TRAN.net")
         else:
             raw_file = test_dir + "TRAN_1.raw"
             log_file = test_dir + "TRAN_1.log"
         raw = RawRead(raw_file)
         log = QspiceLogReader(log_file)
-        vout = raw.get_trace('V(out)')
-        meas = ('t1', 't2', 't3', 't4', 't5',)
-        time = (1e-3, 2e-3, 3e-3, 4e-3, 5e-3,)
+        vout = raw.get_trace("V(out)")
+        meas = (
+            "t1",
+            "t2",
+            "t3",
+            "t4",
+            "t5",
+        )
+        time = (
+            1e-3,
+            2e-3,
+            3e-3,
+            4e-3,
+            5e-3,
+        )
         for m, t in zip(meas, time):
             log_value = log.get_measure_value(m)
             raw_value = vout.get_point_at(t)
             print(log_value, raw_value, log_value - raw_value)
-            self.assertAlmostEqual(log_value, raw_value, 2, "Mismatch between log file and raw file")
+            self.assertAlmostEqual(
+                log_value, raw_value, 2, "Mismatch between log file and raw file"
+            )
 
     @unittest.skipIf(skip_qspice_editor_tests, "Execute All")
     def test_transient_steps(self):
         """Transient simulation with stepped data."""
         print("Starting test_transient_steps")
         if has_qspice:
-            runner = SimRunner(output_folder='temp', simulator=qspice_simulator)
+            runner = SimRunner(output_folder="temp", simulator=qspice_simulator)
             raw_file, log_file = runner.run_now(test_dir + "QSPICE_TRAN - STEP.net")
         else:
             raw_file = test_dir + "QSPICE_TRAN - STEP_1.qraw"
@@ -418,36 +473,54 @@ class test_spicelib(unittest.TestCase):
 
         raw = RawRead(raw_file)
         log = QspiceLogReader(log_file)
-        vout = raw.get_trace('V(out)')
-        meas = ('t1', 't2', 't3', 't4', 't5',)
-        time = (1e-3, 2e-3, 3e-3, 4e-3, 5e-3,)
+        vout = raw.get_trace("V(out)")
+        meas = (
+            "t1",
+            "t2",
+            "t3",
+            "t4",
+            "t5",
+        )
+        time = (
+            1e-3,
+            2e-3,
+            3e-3,
+            4e-3,
+            5e-3,
+        )
         for m, t in zip(meas, time):
             for step, step_dict in enumerate(raw.steps):
                 log_value = log.get_measure_value(m, step)
                 raw_value = vout.get_point_at(t, step)
-                self.assertAlmostEqual(log_value, raw_value, 5, f"Mismatch between log file and raw file in step :{step_dict} measure: {m} ")
+                self.assertAlmostEqual(
+                    log_value,
+                    raw_value,
+                    5,
+                    f"Mismatch between log file and raw file in step :{step_dict} measure: {m} ",
+                )
 
     @unittest.skipIf(False, "Execute All")
     def test_ac_analysis(self):
         """AC Analysis Test"""
         print("Starting test_ac_analysis")
-        from numpy import pi, angle
+        from numpy import angle, pi
+
         if has_qspice:
             editor = SpiceEditor(test_dir + "AC.net")
-            runner = SimRunner(output_folder='temp', simulator=qspice_simulator)
+            runner = SimRunner(output_folder="temp", simulator=qspice_simulator)
             raw_file, log_file = runner.run_now(editor)
 
-            R1 = editor.get_component_floatvalue('R1')
-            C1 = editor.get_component_floatvalue('C1')
+            R1 = editor.get_component_floatvalue("R1")
+            C1 = editor.get_component_floatvalue("C1")
         else:
             raw_file = test_dir + "AC_1.raw"
             log_file = test_dir + "AC_1.log"
             R1 = 100
-            C1 = 10E-6
+            C1 = 10e-6
         # Compute the RC AC response with the resistor and capacitor values from the netlist.
         raw = RawRead(raw_file)
-        vout_trace = raw.get_trace('V(out)')
-        vin_trace = raw.get_trace('V(in)')
+        vout_trace = raw.get_trace("V(out)")
+        vin_trace = raw.get_trace("V(in)")
         for point, freq in enumerate(raw.axis):
             vout1 = vout_trace.get_point_at(freq)
             vout2 = vout_trace.get_point(point)
@@ -456,44 +529,63 @@ class test_spicelib(unittest.TestCase):
             self.assertEqual(abs(vin), 1)
             # Calculate the magnitude of the answer Vout = Vin/(1+jwRC)
             h = vin / (1 + 2j * pi * freq * R1 * C1)
-            self.assertAlmostEqual(abs(vout1), abs(h), 5, f"Difference between theoretical value and simulation at point {point}")
-            self.assertAlmostEqual(angle(vout1), angle(h), 5, f"Difference between theoretical value and simulation at point {point}")
+            self.assertAlmostEqual(
+                abs(vout1),
+                abs(h),
+                5,
+                f"Difference between theoretical value and simulation at point {point}",
+            )
+            self.assertAlmostEqual(
+                angle(vout1),
+                angle(h),
+                5,
+                f"Difference between theoretical value and simulation at point {point}",
+            )
 
     @unittest.skipIf(False, "Execute All")
     def test_ac_analysis_steps(self):
         """AC Analysis Test with steps"""
         print("Starting test_ac_analysis_steps")
-        from numpy import pi, angle
+        from numpy import angle, pi
+
         if has_qspice:
             editor = SpiceEditor(test_dir + "AC - STEP.net")
-            runner = SimRunner(output_folder='temp', simulator=qspice_simulator)
+            runner = SimRunner(output_folder="temp", simulator=qspice_simulator)
             raw_file, log_file = runner.run_now(editor)
-            C1 = editor.get_component_floatvalue('C1')
+            C1 = editor.get_component_floatvalue("C1")
         else:
             raw_file = test_dir + "AC - STEP_1.raw"
             log_file = test_dir + "AC - STEP_1.log"
             C1 = 159.1549e-6  # 159.1549uF
         # Compute the RC AC response with the resistor and capacitor values from the netlist.
         raw = RawRead(raw_file)
-        vin_trace = raw.get_trace('V(in)')
-        vout_trace = raw.get_trace('V(out)')
+        vin_trace = raw.get_trace("V(in)")
+        vout_trace = raw.get_trace("V(out)")
         for step, step_dict in enumerate(raw.steps):
-            R1 = step_dict['r1']
+            R1 = step_dict["r1"]
             # print(step, step_dict)
             for point in range(0, raw.get_len(step), 10):  # 10 times less points
-                print(point, end=' - ')
+                print(point, end=" - ")
                 vout = vout_trace.get_point(point, step)
                 vin = vin_trace.get_point(point, step)
                 freq = raw.axis.get_point(point, step)
                 # Calculate the magnitude of the answer Vout = Vin/(1+jwRC)
-                h = vin/(1 + 2j * pi * freq * R1 * C1)
+                h = vin / (1 + 2j * pi * freq * R1 * C1)
                 # print(freq, vout, h, vout - h)
-                self.assertAlmostEqual(abs(vout), abs(h), 5,
-                                       f"Difference between theoretical value ans simulation at point {point}:")
-                self.assertAlmostEqual(angle(vout), angle(h), 5,
-                                       f"Difference between theoretical value ans simulation at point {point}")
+                self.assertAlmostEqual(
+                    abs(vout),
+                    abs(h),
+                    5,
+                    f"Difference between theoretical value ans simulation at point {point}:",
+                )
+                self.assertAlmostEqual(
+                    angle(vout),
+                    angle(h),
+                    5,
+                    f"Difference between theoretical value ans simulation at point {point}",
+                )
 
-    # 
+    #
     # def test_pathlib(self):
     #     """pathlib support"""
     #     import pathlib
@@ -503,8 +595,8 @@ class test_spicelib(unittest.TestCase):
 
 
 # ------------------------------------------------------------------------------
-if __name__ == '__main__':
-    print("Starting tests on spicelib")
+if __name__ == "__main__":
+    print("Starting tests on kupicelib")
     unittest.main()
-    print("Tests completed on spicelib")
+    print("Tests completed on kupicelib")
 # ------------------------------------------------------------------------------

@@ -18,7 +18,7 @@ from typing import Any, Dict, Iterable, List, Optional, Protocol, TypeVar, Union
 # -------------------------------------------------------------------------------
 
 
-_logger = logging.getLogger("spicelib.LTSteps")
+_logger = logging.getLogger("kupicelib.LTSteps")
 
 
 class LTComplex(complex):

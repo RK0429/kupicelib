@@ -2,7 +2,7 @@
 
 _current version: 1.0.0_
 
-_kupicelib_ is a modified version of [spicelib](https://github.com/nunobrum/spicelib), a toolchain of python utilities designed to interact with spice simulators, including:
+_kupicelib_ is a modified version of [kupicelib](https://github.com/nunobrum/kupicelib), a toolchain of python utilities designed to interact with spice simulators, including:
 
 * LTspice
 * Ngspice
@@ -19,7 +19,7 @@ _kupicelib_ is a modified version of [spicelib](https://github.com/nunobrum/spic
 
 ## What is kupicelib
 
-kupicelib is a fork of the spicelib project with the following modifications:
+kupicelib is a fork of the kupicelib project with the following modifications:
 
 * [List your modifications/enhancements here]
 * [For example: Added support for XYZ simulator]
@@ -27,7 +27,7 @@ kupicelib is a fork of the spicelib project with the following modifications:
 
 ## Original Project
 
-This package is based on [spicelib](https://github.com/nunobrum/spicelib) originally created by Nuno Brum. All credit for the core functionality goes to the original author and contributors. This modified version is distributed in accordance with the original GPL-3.0 license.
+This package is based on [kupicelib](https://github.com/nunobrum/kupicelib) originally created by Nuno Brum. All credit for the core functionality goes to the original author and contributors. This modified version is distributed in accordance with the original GPL-3.0 license.
 
 ## How to Install
 
@@ -37,7 +37,7 @@ pip install kupicelib
 
 ## How to use
 
-kupicelib maintains the same API as spicelib, with a few enhancements. Simply import from kupicelib instead of spicelib:
+kupicelib maintains the same API as kupicelib, with a few enhancements. Simply import from kupicelib instead of kupicelib:
 
 ```python
 from kupicelib import RawRead

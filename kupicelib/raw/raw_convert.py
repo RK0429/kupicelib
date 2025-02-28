@@ -45,7 +45,7 @@ from optparse import OptionParser
 
 import clipboard  # type: ignore
 
-from spicelib.raw.raw_read import RawRead
+from kupicelib.raw.raw_read import RawRead
 
 
 def main():

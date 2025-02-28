@@ -30,7 +30,7 @@ from typing import List, Union
 
 from ..sim.simulator import Simulator
 
-_logger = logging.getLogger("spicelib.BaseEditor")
+_logger = logging.getLogger("kupicelib.BaseEditor")
 
 SUBCKT_DIVIDER = ":"  #: This controls the sub-circuit divider when setting component values inside sub-circuits.
 # Ex: Editor.set_component_value('XU1:R1', '1k')
@@ -584,7 +584,7 @@ class BaseEditor(ABC):
             NotImplementedError - In case the circuit element is defined in a format which is not supported by this
             version.
 
-            If this is the case, use GitHub to start a ticket.  https://github.com/nunobrum/spicelib
+            If this is the case, use GitHub to start a ticket.  https://github.com/nunobrum/kupicelib
         """
         ...
 
@@ -608,7 +608,7 @@ class BaseEditor(ABC):
 
             NotImplementedError - In case the circuit element is defined in a format which is not supported by this version.
 
-            If this is the case, use GitHub to start a ticket.  https://github.com/nunobrum/spicelib
+            If this is the case, use GitHub to start a ticket.  https://github.com/nunobrum/kupicelib
         """
         ...
 

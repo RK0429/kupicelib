@@ -3,7 +3,7 @@ QschEditor
 
 Class used for manipulating QSPICE qsch files.
 
-.. autoclass:: spicelib.QschEditor
+.. autoclass:: kupicelib.QschEditor
    :members:
    :undoc-members:
    :show-inheritance:

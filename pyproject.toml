@@ -5,7 +5,7 @@ build-backend = "poetry.core.masonry.api"
 [tool.poetry]
 name = "kupicelib"
 version = "1.0.0"
-description = "A modified version of Spicelib for automating Spice simulations"
+description = "A modified version of kupicelib for automating Spice simulations"
 authors = ["Ryota Kobayashi <s.woods.m.29@gmail.com>"]
 readme = "README.md"
 license = "GPL-3.0"

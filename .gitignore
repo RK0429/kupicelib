@@ -169,7 +169,7 @@ cython_debug/
 .vscode/
 
 # Pip Installer 
-spicelib.egg-info
+kupicelib.egg-info
 
 # MacOS
 .DS_Store

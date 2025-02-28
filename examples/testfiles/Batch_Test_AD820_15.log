@@ -1,4 +1,4 @@
-Circuit: * C:\sandbox\spicelib\examples\testfiles\Batch_Test.asc
+Circuit: * C:\sandbox\kupicelib\examples\testfiles\Batch_Test.asc
 
 Direct Newton iteration failed to find .op point.  (Use ".option noopiter" to skip.)
 Starting Gmin stepping

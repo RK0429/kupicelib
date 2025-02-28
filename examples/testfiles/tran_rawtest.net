@@ -1,4 +1,4 @@
-* C:\sandbox\spicelib\examples\testfiles\TRAN_rawtest.asc
+* C:\sandbox\kupicelib\examples\testfiles\TRAN_rawtest.asc
 Vin in 0 PWL(0 0 10n 1)
 R1 in out 1k
 C1 out 0 1u

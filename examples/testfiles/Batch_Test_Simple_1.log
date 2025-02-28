@@ -1,5 +1,5 @@
 LTspice 24.1.1 for Windows
-Circuit: C:\sandbox\spicelib\examples\testfiles\temp\Batch_Test_Simple_1.net
+Circuit: C:\sandbox\kupicelib\examples\testfiles\temp\Batch_Test_Simple_1.net
 Start Time: Thu Feb  6 00:22:25 2025
 solver = Normal
 Maximum thread count: 12
@@ -31,7 +31,7 @@ Direct Newton iteration for .op point succeeded.
 Total elapsed time: 2.110 seconds.
 
 Files loaded:
-Z:\Users\me\Documents\workspace\spicelib\examples\testfiles\temp\Batch_Test_Simple_1.net
+Z:\Users\me\Documents\workspace\kupicelib\examples\testfiles\temp\Batch_Test_Simple_1.net
 C:\users\me\AppData\Local\LTspice\lib\sub\ADI1.lib
 
 

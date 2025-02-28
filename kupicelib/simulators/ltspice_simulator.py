@@ -28,7 +28,7 @@ from typing import Union
 
 from ..sim.simulator import Simulator, SpiceSimulatorError, run_function
 
-_logger = logging.getLogger("spicelib.LTSpiceSimulator")
+_logger = logging.getLogger("kupicelib.LTSpiceSimulator")
 
 
 class LTspice(Simulator):
@@ -216,7 +216,7 @@ class LTspice(Simulator):
         * `-SOI`: Allow MOSFET's to have up to 7 nodes even in subcircuit expansion.
         * `-sync`: Update component libraries
 
-        The following parameters will already be filled in by spicelib, and cannot be set:
+        The following parameters will already be filled in by kupicelib, and cannot be set:
 
         * `-Run`: Start simulating the schematic opened on the command line without pressing the Run button.
         * `-b`: Run in batch mode.

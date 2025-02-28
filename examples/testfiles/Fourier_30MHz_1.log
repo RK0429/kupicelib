@@ -1,4 +1,4 @@
-Circuit: * C:\sandbox\spicelib\examples\testfiles\temp\Fourier_30MHz_1.asc
+Circuit: * C:\sandbox\kupicelib\examples\testfiles\temp\Fourier_30MHz_1.asc
 
 WARNING: Less than two connections to node a.  This node is used by v1.
 .OP point found by inspection.
@@ -8,15 +8,15 @@ DC component:0.0322249
 
 Harmonic	Frequency	 Fourier 	Normalized	 Phase  	Normalized
  Number 	  [Hz]   	Component	 Component	[degree]	Phase [deg]
-    1   	 3.000e+7	 4.977e+0	 1.000e+0	   89.76°	    0.00°
-    2   	 6.000e+7	 4.060e-2	 8.157e-3	 -141.11°	 -230.87°
-    3   	 9.000e+7	 1.844e-2	 3.705e-3	  144.37°	   54.61°
-    4   	 1.200e+8	 8.752e-3	 1.758e-3	   12.00°	  -77.77°
-    5   	 1.500e+8	 7.332e-3	 1.473e-3	 -122.34°	 -212.10°
-    6   	 1.800e+8	 8.706e-3	 1.749e-3	  149.75°	   59.98°
-    7   	 2.100e+8	 4.362e-3	 8.765e-4	   13.92°	  -75.84°
-    8   	 2.400e+8	 5.564e-3	 1.118e-3	  -87.29°	 -177.05°
-    9   	 2.700e+8	 5.833e-3	 1.172e-3	  152.08°	   62.32°
+    1   	 3.000e+7	 4.977e+0	 1.000e+0	   89.76ï¿½	    0.00ï¿½
+    2   	 6.000e+7	 4.060e-2	 8.157e-3	 -141.11ï¿½	 -230.87ï¿½
+    3   	 9.000e+7	 1.844e-2	 3.705e-3	  144.37ï¿½	   54.61ï¿½
+    4   	 1.200e+8	 8.752e-3	 1.758e-3	   12.00ï¿½	  -77.77ï¿½
+    5   	 1.500e+8	 7.332e-3	 1.473e-3	 -122.34ï¿½	 -212.10ï¿½
+    6   	 1.800e+8	 8.706e-3	 1.749e-3	  149.75ï¿½	   59.98ï¿½
+    7   	 2.100e+8	 4.362e-3	 8.765e-4	   13.92ï¿½	  -75.84ï¿½
+    8   	 2.400e+8	 5.564e-3	 1.118e-3	  -87.29ï¿½	 -177.05ï¿½
+    9   	 2.700e+8	 5.833e-3	 1.172e-3	  152.08ï¿½	   62.32ï¿½
 Partial Harmonic Distortion: 0.959049%
 Total Harmonic Distortion:   4.110027%
 

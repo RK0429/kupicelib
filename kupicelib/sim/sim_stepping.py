@@ -27,12 +27,12 @@ import logging
 from functools import wraps
 from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, Type, Union
 
-from spicelib.sim.process_callback import ProcessCallback
+from kupicelib.sim.process_callback import ProcessCallback
 
 from ..editor.base_editor import BaseEditor
 from .sim_runner import AnyRunner
 
-_logger = logging.getLogger("spicelib.SimStepper")
+_logger = logging.getLogger("kupicelib.SimStepper")
 
 
 class StepInfo(object):
@@ -228,9 +228,9 @@ class SimStepper(object):
 
 
 if __name__ == "__main__":
-    from spicelib.editor.spice_editor import SpiceEditor
-    from spicelib.sim.sim_runner import SimRunner
-    from spicelib.utils.sweep_iterators import sweep_log
+    from kupicelib.editor.spice_editor import SpiceEditor
+    from kupicelib.sim.sim_runner import SimRunner
+    from kupicelib.utils.sweep_iterators import sweep_log
 
     # Correct example for demonstration purposes
     netlist = SpiceEditor("../../tests/DC sweep.asc")

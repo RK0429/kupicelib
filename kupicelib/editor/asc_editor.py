@@ -62,7 +62,7 @@ from .ltspice_utils import (
 )
 from .spice_editor import SpiceCircuit, SpiceEditor
 
-_logger = logging.getLogger("spicelib.AscEditor")
+_logger = logging.getLogger("kupicelib.AscEditor")
 
 
 LTSPICE_PARAMETERS = ("Value", "Value2", "SpiceModel", "SpiceLine", "SpiceLine2")

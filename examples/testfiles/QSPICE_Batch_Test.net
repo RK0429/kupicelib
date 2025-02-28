@@ -1,8 +1,8 @@
-* C:\sandbox\spicelib\examples\testfiles\QSPICE_Batch_Test.qsch
+* C:\sandbox\kupicelib\examples\testfiles\QSPICE_Batch_Test.qsch
 V1 +V 0 15
 V2 -V 0 -15
 V3 IN 0 SINE 0 1 {freq}
-Ã†U1 +V -V OUT N01 IN ¥ ¥ ¥ ¥ ¥ ¥ ¥ ¥ ¥ ¥ ¥ RRopAmp Avol=100K GBW=5Meg Slew=5Meg Rload=2K Phi=60
+Ã†U1 +V -V OUT N01 IN ï¿½ ï¿½ ï¿½ ï¿½ ï¿½ ï¿½ ï¿½ ï¿½ ï¿½ ï¿½ ï¿½ RRopAmp Avol=100K GBW=5Meg Slew=5Meg Rload=2K Phi=60
 R1 0 N01 10K
 R2 N01 OUT 10K
 .meas TRAN Vin_rms RMS V(IN)

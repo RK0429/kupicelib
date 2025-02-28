@@ -28,7 +28,7 @@ from .base_editor import SUBCKT_DIVIDER, BaseEditor, Component, ComponentNotFoun
 __author__ = "Nuno Canto Brum <nuno.brum@gmail.com>"
 __copyright__ = "Copyright 2021, Fribourg Switzerland"
 
-_logger = logging.getLogger("spicelib.BaseSchematic")
+_logger = logging.getLogger("kupicelib.BaseSchematic")
 
 
 class ERotation(enum.IntEnum):

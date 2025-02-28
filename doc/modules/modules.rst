@@ -2,7 +2,7 @@
 Python Modules
 ==============
 
-spicelib contains several modules for working with netlists, simulations and simulation data.
+kupicelib contains several modules for working with netlists, simulations and simulation data.
 
 .. toctree::
    :maxdepth: 1

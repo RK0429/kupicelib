@@ -1,4 +1,4 @@
-* C:\sandbox\spicelib\examples\testfiles\top_circuit.asc
+* C:\sandbox\kupicelib\examples\testfiles\top_circuit.asc
 V1 N001 0 PULSE(0 1 1n 1n 1n 1u 1u 1)
 R1 N002 N001 10
 XX1 N002 N003 sub_circuit
@@ -8,7 +8,7 @@ R2 N003 0 1k
 .subckt sub_circuit IN OUT
 C1 OUT 0 1n
 C2 IN 0 1n
-L1 IN OUT 1µ
+L1 IN OUT 1ï¿½
 .ends sub_circuit
 
 .tran 2u

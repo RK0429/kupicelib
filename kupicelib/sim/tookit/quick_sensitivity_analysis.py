@@ -25,7 +25,7 @@ from ...log.logfile_data import LogfileData
 from ..sim_runner import AnyRunner, ProcessCallback
 from .tolerance_deviations import DeviationType, ToleranceDeviations
 
-_logger = logging.getLogger("spicelib.SimAnalysis")
+_logger = logging.getLogger("kupicelib.SimAnalysis")
 
 
 class QuickSensitivityAnalysis(ToleranceDeviations):

@@ -38,7 +38,7 @@ from .base_editor import (
     format_eng,
 )
 
-_logger = logging.getLogger("spicelib.SpiceEditor")
+_logger = logging.getLogger("kupicelib.SpiceEditor")
 
 __author__ = "Nuno Canto Brum <nuno.brum@gmail.com>"
 __copyright__ = "Copyright 2021, Fribourg Switzerland"
@@ -497,7 +497,7 @@ class SpiceCircuit(BaseEditor):
         :type instance_name: str
         :returns: SpiceCircuit instance
         :rtype: SpiceCircuit
-        :raises UnrecognizedSyntaxError: when an spice command is not recognized by spicelib
+        :raises UnrecognizedSyntaxError: when an spice command is not recognized by kupicelib
         :raises ComponentNotFoundError: When the reference was not found
         """
         if SUBCKT_DIVIDER in instance_name:
@@ -651,7 +651,7 @@ class SpiceCircuit(BaseEditor):
         self.modified_subcircuits.clear()
 
         if create_blank:
-            lines = ["* netlist generated from spicelib", ".end"]
+            lines = ["* netlist generated from kupicelib", ".end"]
             finished = self._add_lines(iter(lines))
             if not finished:
                 raise SyntaxError("Netlist with missing .END or .ENDS statements")
@@ -971,7 +971,7 @@ class SpiceCircuit(BaseEditor):
             NotImplementedError - In case the circuit element is defined in a format which is not supported by this
             version.
 
-            If this is the case, use GitHub to start a ticket.  https://github.com/nunobrum/spicelib
+            If this is the case, use GitHub to start a ticket.  https://github.com/nunobrum/kupicelib
         """
         if self.is_read_only():
             raise ValueError("Editor is read-only")
@@ -997,7 +997,7 @@ class SpiceCircuit(BaseEditor):
             NotImplementedError - In case the circuit element is defined in a format which is not supported by this
             version.
 
-            If this is the case, use GitHub to start a ticket.  https://github.com/nunobrum/spicelib
+            If this is the case, use GitHub to start a ticket.  https://github.com/nunobrum/kupicelib
         """
         if self.is_read_only():
             raise ValueError("Editor is read-only")
@@ -1494,7 +1494,7 @@ class SpiceEditor(SpiceCircuit):
         self.modified_subcircuits.clear()
 
         if create_blank:
-            lines = ["* netlist generated from spicelib", ".end"]
+            lines = ["* netlist generated from kupicelib", ".end"]
             finished = self._add_lines(iter(lines))
             if not finished:
                 raise SyntaxError("Netlist with missing .END or .ENDS statements")

@@ -16,7 +16,7 @@ containing a 10kHz sine and a 9.997kHz cosine wave.
 .. code-block::
 
 	import numpy as np
-	from spicelib import Trace, RawWrite
+	from kupicelib import Trace, RawWrite
 
 	LW = RawWrite()
 
@@ -34,5 +34,5 @@ containing a 10kHz sine and a 9.997kHz cosine wave.
 For more information, see :
 
 - :doc:`../varia/raw_file`
-- :py:class:`spicelib.RawWrite`
-- :py:class:`spicelib.Trace`
+- :py:class:`kupicelib.RawWrite`
+- :py:class:`kupicelib.Trace`

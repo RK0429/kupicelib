@@ -1,4 +1,4 @@
-* C:\sandbox\spicelib\examples\testfiles\DC sweep.asc
+* C:\sandbox\kupicelib\examples\testfiles\DC sweep.asc
 Vin in 0 1
 R1 in out 10k tol=1% pwr=0.1
 R2 out 0 {res}

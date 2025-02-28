@@ -1,20 +1,20 @@
 Running Simulations
 ===================
 
-The class :py:class:`spicelib.SimRunner` allows launching LTSpice simulations from a Python script, thus allowing to
+The class :py:class:`kupicelib.SimRunner` allows launching LTSpice simulations from a Python script, thus allowing to
 overcome the 3 dimensions STEP limitation on LTSpice, update resistor values, or component models.
 It also allows to simulate several simulations in parallel, thus speeding up the time
 a set of simulations would take.
 
-The class :py:class:`spicelib.SpiceEditor` described in :doc:`read_netlist` allows to modify the netlist.
+The class :py:class:`kupicelib.SpiceEditor` described in :doc:`read_netlist` allows to modify the netlist.
 
 The code snipped below will simulate a circuit with two different diode models, set the simulation
 temperature to 80 degrees, and update the values of R1 and R2 to 3.3k.
 
 .. code-block:: python
 
-    from spicelib import SimRunner, SpiceEditor
-    from spicelib.simulators.ltspice_simulator import LTspice
+    from kupicelib import SimRunner, SpiceEditor
+    from kupicelib.simulators.ltspice_simulator import LTspice
 
     runner = SimRunner(output_folder='./temp_batch3', simulator=LTspice)  # Configures the simulator to use and output 
     # folder 
@@ -69,8 +69,8 @@ each executing in parallel a simulation. This is exemplified in the modified exa
 
 .. code-block:: python
 
-    from spicelib import SimRunner, SpiceEditor
-    from spicelib.simulators.ltspice_simulator import LTspice
+    from kupicelib import SimRunner, SpiceEditor
+    from kupicelib.simulators.ltspice_simulator import LTspice
 
     def processing_data(raw_file, log_file):
         """This is the function that will process the data from simulations"""
@@ -215,7 +215,7 @@ previous code using processes looks like this.
 
 .. code-block:: python
 
-    from spicelib.sim.process_callback import ProcessCallback  # Importing the ProcessCallback class type
+    from kupicelib.sim.process_callback import ProcessCallback  # Importing the ProcessCallback class type
 
     class CallbackProc(ProcessCallback):
         """Class encapsulating the callback function. It can have whatever name."""
@@ -241,7 +241,7 @@ previous code using processes looks like this.
         for rise, measures in runner:
             print("The return of the callback function is ", rise, measures)
 
-The ProcessCallback class which is imported from spicelib.sim.process_callback already defines the __init__ function
+The ProcessCallback class which is imported from kupicelib.sim.process_callback already defines the __init__ function
 and creates all the environment for the calling and callback function, and creates the Queue used to pipe the result
 back to the main process.
 
@@ -252,4 +252,4 @@ Processing of simulation outputs
 The previous sections described the way to launch simulations. The way to parse the
 simulation results contained in the RAW files are described in :doc:`read_rawfiles`.
 For parsing information contained in the LOG files, which contain information about
-measurements done with .MEAS primitives, is implemented by the class :py:class:`spicelib.SpiceEditor`
+measurements done with .MEAS primitives, is implemented by the class :py:class:`kupicelib.SpiceEditor`

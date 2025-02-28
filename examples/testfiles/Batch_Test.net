@@ -1,4 +1,4 @@
-* C:\Users\ryota\Documents\spicelib\examples\testfiles\Batch_Test.asc
+* C:\Users\ryota\Documents\kupicelib\examples\testfiles\Batch_Test.asc
 V1 +V 0 15
 R1 N001 0 10K
 R2 OUT N001 10K

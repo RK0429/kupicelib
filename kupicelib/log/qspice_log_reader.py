@@ -28,7 +28,7 @@ from ..sim.simulator import run_function
 from ..simulators.qspice_simulator import Qspice
 from .logfile_data import LogfileData, split_line_into_values, try_convert_value
 
-_logger = logging.getLogger("spicelib.qspice_log_reader")
+_logger = logging.getLogger("kupicelib.qspice_log_reader")
 
 
 class QspiceLogReader(LogfileData):
