@@ -3,10 +3,10 @@ requires = ["poetry-core>=1.0.0"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.poetry]
-name = "spicelib"
-version = "1.4.1"
-description = "A set of tools to Automate Spice simulations"
-authors = ["Nuno Brum <me@nunobrum.com>"]
+name = "kupicelib"
+version = "1.0.0"
+description = "A modified version of Spicelib for automating Spice simulations"
+authors = ["Ryota Kobayashi <s.woods.m.29@gmail.com>"]
 readme = "README.md"
 license = "GPL-3.0"
 keywords = ["spice", "ltspice", "qspice", "ngspice", "electronic simulator", "montecarlo", "worst-case"]
@@ -25,16 +25,16 @@ pandas = "^2.2.3"
 pandas-stubs = "^2.2.3.241126"
 
 [tool.poetry.scripts]
-ltsteps = "spicelib.scripts.ltsteps:main"
-histogram = "spicelib.scripts.histogram:main"
-rawplot = "spicelib.scripts.rawplot:main"
-run_server = "spicelib.scripts.run_server:main"
-asc_to_qsch = "spicelib.scripts.asc_to_qsch:main"
-rawconvert = "spicelib.raw.raw_convert:main"
-readme_update = "spicelib.scripts.readme_update:main"
+ltsteps = "kupicelib.scripts.ltsteps:main"
+histogram = "kupicelib.scripts.histogram:main"
+rawplot = "kupicelib.scripts.rawplot:main"
+run_server = "kupicelib.scripts.run_server:main"
+asc_to_qsch = "kupicelib.scripts.asc_to_qsch:main"
+rawconvert = "kupicelib.raw.raw_convert:main"
+readme_update = "kupicelib.scripts.readme_update:main"
 
 [tool.poetry.urls]
-homepage = "https://github.com/nunobrum/spicelib"
-repository = "https://github.com/nunobrum/spicelib.git"
-bug-tracker = "https://github.com/nunobrum/spicelib/issues"
-author = "https://www.nunobrum.com/"
+homepage = "https://github.com/RK0429/kupicelib"
+repository = "https://github.com/RK0429/kupicelib.git"
+bug-tracker = "https://github.com/RK0429/kupicelib/issues"
+author = "https://github.com/RK0429"
