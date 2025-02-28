@@ -454,7 +454,7 @@ class AscEditor(BaseSchematic):
                         return match, directive
         return None, None
 
-    def get_all_parameter_names(self, param: str = "") -> str:
+    def get_all_parameter_names(self, param: str = "") -> list:
         # docstring inherited from BaseEditor
         param_names = []
         search_expression = re.compile(PARAM_REGEX(r"\w+"), re.IGNORECASE)
@@ -464,7 +464,7 @@ class AscEditor(BaseSchematic):
                 for match in matches:
                     param_name = match.group("name")
                     param_names.append(param_name.upper())
-        return ",".join(sorted(param_names))
+        return sorted(param_names)
 
     def get_parameter(self, param: str) -> str:
         match, directive = self._get_param_named(param)
