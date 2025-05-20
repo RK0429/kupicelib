@@ -103,6 +103,8 @@ class AscEditor(BaseSchematic):
                 raise err
         else:
             self.encoding = encoding
+        # initialize include directives list
+        self.includes: List[str] = []
         # read the file into memory
         self.reset_netlist()
 
@@ -117,6 +119,9 @@ class AscEditor(BaseSchematic):
         with open(run_netlist_file, "w", encoding=self.encoding) as asc:
             _logger.info(f"Writing ASC file {run_netlist_file}")
 
+            # write include directives
+            for inc in self.includes:
+                asc.write(inc + END_LINE_TERM)
             asc.write(f"Version {self.version}" + END_LINE_TERM)
             asc.write(f"SHEET {self.sheet}" + END_LINE_TERM)
             for wire in self.wires:
@@ -195,6 +200,12 @@ class AscEditor(BaseSchematic):
             _logger.info(f"Parsing ASC file {self.asc_file_path}")
             component = None
             for line in asc_file:
+                # skip blank lines and include directives
+                if line.strip() == "":
+                    continue
+                if line.lstrip().lower().startswith(".include"):
+                    self.includes.append(line.strip())
+                    continue
                 if line.startswith("SYMBOL"):
                     tag, symbol, posX, posY, rotation = line.split()
                     if component is not None:
