@@ -21,7 +21,7 @@ import logging
 import re
 from collections import OrderedDict
 from pathlib import Path
-from typing import Dict, Union
+from typing import Dict, Union, Optional
 
 from ..utils.detect_encoding import EncodingDetectError, detect_encoding
 from .base_schematic import (
@@ -327,7 +327,7 @@ class AsyReader(object):
         # Prefix is guaranteed to be uppercase
         return self.symbol_type == "BLOCK" or self.attributes.get("Prefix") == "X"
 
-    def get_library(self) -> str:
+    def get_library(self) -> Optional[str]:
         """Returns the library name of the model. If not found, returns None."""
         # Searching in this exact order
         suffixes = (".lib", ".sub", ".cir", ".txt")  # must be lowercase here
@@ -344,9 +344,8 @@ class AsyReader(object):
                 self.attributes[attr].lower().endswith(suffixes)
             ):
                 return self.attributes[attr]
-        return self.attributes.get(
-            "SpiceModel", ""
-        )  # Return empty string instead of None
+        # Default to None if there is no library file attribute
+        return self.attributes.get("SpiceModel")
 
     def get_model(self) -> str:
         """Returns the model name of the component. If not found, returns None."""
