@@ -203,7 +203,7 @@ class AscEditor(BaseSchematic):
                         ), "Component InstName was not given"
                         self.components[component.reference] = component
                     component = SchematicComponent(self, line)
-                    component.symbol = symbol
+                    component.symbol = symbol  # type: ignore[assignment]
                     component.position.X = int(posX)
                     component.position.Y = int(posY)
                     if rotation in ASC_ROTATION_DICT:
@@ -235,6 +235,7 @@ class AscEditor(BaseSchematic):
                     txt_str = txt.strip()  # Gets rid of the \n terminator
                     if ref == "InstName":
                         component.reference = txt_str
+                        assert component.symbol is not None, "Symbol must be set before lookup"
                         symbol_obj = self._get_symbol(component.symbol)
                         if (
                             component.reference.startswith("X")
@@ -480,6 +481,7 @@ class AscEditor(BaseSchematic):
         else:
             value_str = value
         if match:
+            assert directive is not None, "Directive should not be None when match is found"
             _logger.debug(f"Parameter {param} found in ASC file, updating it")
             start, stop = match.span("value")
             directive.text = (
@@ -533,7 +535,7 @@ class AscEditor(BaseSchematic):
 
     def set_element_model(self, element: str, model: str) -> None:
         component = self.get_component(element)
-        component.symbol = model
+        component.symbol = model  # type: ignore[assignment]
         _logger.info(f"Component {element} updated to {model}")
         self.set_updated(element)
 
