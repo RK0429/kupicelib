@@ -29,15 +29,16 @@ author = "Nuno Brum"
 release = "1.4.1"
 
 try:
-    # Read the version from the .toml file
-    from toml import load
+    # Read the version from the pyproject.toml file using stdlib tomllib
+    import tomllib
 
-    with open("../pyproject.toml") as f:
-        pyproject = load(f)
+    with open("../pyproject.toml", "rb") as f:
+        pyproject = tomllib.load(f)
         project = pyproject["project"]["name"]
         release = pyproject["project"]["version"]
         author = pyproject["project"]["authors"][0]["name"]
-except:
+except (ImportError, FileNotFoundError, KeyError):
+    # Fallback to default metadata if parsing fails
     pass
 
 
