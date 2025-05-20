@@ -35,8 +35,6 @@ class EncodingDetectError(Exception):
     Exception raised when the encoding of a file cannot be detected
     """
 
-    pass
-
 
 def detect_encoding(
     file_path: Union[str, Path],
