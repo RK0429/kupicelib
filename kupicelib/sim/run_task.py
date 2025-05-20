@@ -111,6 +111,10 @@ class RunTask(threading.Thread):
             _logger.info,
             ": Starting simulation %d: %s" % (self.runno, self.netlist_file),
         )
+        # Ensure simulator executable is configured if missing
+        if hasattr(self.simulator, 'spice_exe') and not self.simulator.spice_exe and hasattr(self.simulator, 'get_default_executable'):
+            # Initialize default LTspice executable
+            self.simulator = self.simulator.create_from(None)
         # start execution
         self.retcode = self.simulator.run(
             self.netlist_file.absolute().as_posix(),
