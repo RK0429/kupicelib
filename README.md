@@ -1,7 +1,8 @@
 # README <!-- omit in toc -->
+
 _current version: 1.4.1_
 
-*kupicelib* is a toolchain of python utilities design to interact with spice simulators, as for example:
+_kupicelib_ is a toolchain of python utilities design to interact with spice simulators, as for example:
 
 * LTspice
 * Ngspice
@@ -10,59 +11,58 @@ _current version: 1.4.1_
 
 **Table of Contents**
 
-- [What is contained in this repository](#what-is-contained-in-this-repository)
-  - [Main Tools](#main-tools)
-  - [Main Classes](#main-classes)
-- [How to Install](#how-to-install)
-  - [Updating kupicelib](#updating-kupicelib)
-  - [Using GITHub](#using-github)
-- [How to use](#how-to-use)
-- [LICENSE](#license)
-- [Main modules](#main-modules)
-  - [RawRead](#rawread)
-  - [RawWrite](#rawwrite)
-  - [SpiceEditor, AscEditor, QschEditor and SimRunner](#spiceeditor-asceditor-qscheditor-and-simrunner)
-    - [Simulators and Windows, Linux and MacOS compatibility](#simulators-and-windows-linux-and-macos-compatibility)
-    - [Executable and Library paths](#executable-and-library-paths)
-    - [Runner log redirection](#runner-log-redirection)
-    - [Adding search paths for symbols and library files](#adding-search-paths-for-symbols-and-library-files)
-    - [Limitations and specifics of AscEditor](#limitations-and-specifics-of-asceditor)
-    - [Hierarchial circuits: reading and editing](#hierarchial-circuits-reading-and-editing)
-  - [Simulation Analysis Toolkit](#simulation-analysis-toolkit)
-  - [ltsteps](#ltsteps)
-- [Command Line Interface](#command-line-interface)
-  - [ltsteps.exe](#ltstepsexe)
-  - [histogram.exe](#histogramexe)
-  - [raw\_convert.exe](#raw_convertexe)
-  - [rawplot.exe](#rawplotexe)
-  - [run\_server.exe](#run_serverexe)
-  - [asc\_to\_qsch.exe](#asc_to_qschexe)
-- [Other functions](#other-functions)
-  - [log\\semi\_dev\_op\_reader.opLogReader](#logsemi_dev_op_readeroplogreader)
-- [Debug Logging](#debug-logging)
-  - [Single Module Logging](#single-module-logging)
-- [To whom do I talk?](#to-whom-do-i-talk)
-- [History](#history)
-
+* [What is contained in this repository](#what-is-contained-in-this-repository)
+  * [Main Tools](#main-tools)
+  * [Main Classes](#main-classes)
+* [How to Install](#how-to-install)
+  * [Updating kupicelib](#updating-kupicelib)
+  * [Using GITHub](#using-github)
+* [How to use](#how-to-use)
+* [LICENSE](#license)
+* [Main modules](#main-modules)
+  * [RawRead](#rawread)
+  * [RawWrite](#rawwrite)
+  * [SpiceEditor, AscEditor, QschEditor and SimRunner](#spiceeditor-asceditor-qscheditor-and-simrunner)
+    * [Simulators and Windows, Linux and MacOS compatibility](#simulators-and-windows-linux-and-macos-compatibility)
+    * [Executable and Library paths](#executable-and-library-paths)
+    * [Runner log redirection](#runner-log-redirection)
+    * [Adding search paths for symbols and library files](#adding-search-paths-for-symbols-and-library-files)
+    * [Limitations and specifics of AscEditor](#limitations-and-specifics-of-asceditor)
+    * [Hierarchial circuits: reading and editing](#hierarchial-circuits-reading-and-editing)
+  * [Simulation Analysis Toolkit](#simulation-analysis-toolkit)
+  * [ltsteps](#ltsteps)
+* [Command Line Interface](#command-line-interface)
+  * [ltsteps.exe](#ltstepsexe)
+  * [histogram.exe](#histogramexe)
+  * [raw\_convert.exe](#raw_convertexe)
+  * [rawplot.exe](#rawplotexe)
+  * [run\_server.exe](#run_serverexe)
+  * [asc\_to\_qsch.exe](#asc_to_qschexe)
+* [Other functions](#other-functions)
+  * [log\\semi\_dev\_op\_reader.opLogReader](#logsemi_dev_op_readeroplogreader)
+* [Debug Logging](#debug-logging)
+  * [Single Module Logging](#single-module-logging)
+* [To whom do I talk?](#to-whom-do-i-talk)
+* [History](#history)
 
 ## What is contained in this repository
 
 ### Main Tools
 
-* __Analysis Toolkit__
+* **Analysis Toolkit**
   A set of tools that prepare an LTspice netlist for a Montecarlo or Worst Case Analysis. The device tolerances are set by the user and the netlist is updated accordingly. The netlist can then be used with the SimRunner to run a batch of simulations or with the LTspice GUI.
 
-* __ltsteps.exe__
+* **ltsteps.exe**
   An utility that extracts from LTspice output files data, and formats it for import in a spreadsheet, such like Excel or Calc.
 
-* __histogram.exe__
+* **histogram.exe**
   A python script that uses numpy and matplotlib to create a histogram and calculate the sigma deviations. This is useful for Monte-Carlo analysis.
 
 (Note that the extension '.exe' is only available on Windows. On MacOS or Linux, the commands will have the same name, but without '.exe')
 
 ### Main Classes
 
-* __AscEditor/QschEditor/SpiceEditor__
+* **AscEditor/QschEditor/SpiceEditor**
   Classes for the manipulation of respectively:
 
   * LTspice `.asc` files
@@ -97,7 +97,7 @@ subc.set_component_value('R1', 1000)
 subc['R1'].value = 1000  # Same as the above
 ```
 
-* __SimRunner__
+* **SimRunner**
   A class that can be used to run LTspice/QSPICE/Ngspice/Xyce simulations in batch mode without having to open the corresponding GUI.
   This, in cooperation with the above mentioned xxxEditor classes, is useful because:
 
@@ -107,10 +107,10 @@ subc['R1'].value = 1000  # Same as the above
   * When used with RawRead and ltsteps, validation of the circuit can be done automatically
   * Different models can be simulated in a single batch
 
-* __RawRead__
+* **RawRead**
   A class that serves to read raw files into a python class.
 
-* __RawWrite__
+* **RawWrite**
   A class to write RAW files that can be read by the LTspice Wave Application.
 
 ## How to Install
@@ -123,7 +123,7 @@ subc['R1'].value = 1000  # Same as the above
 
 ### Using GITHub
 
-`git clone https://github.com/nunobrum/kupicelib.git`
+`git clone https://github.com/RK0429/kupicelib.git`
 
 If using this method it would be good to add the path where you cloned the site to python path.
 
@@ -363,11 +363,10 @@ runner.run(netlist, exe_log=True)
 This is supported on both the SimRunner and directly on the various simulators (LTspice,..).
 The runner client server function (see `SimClient`) does not (yet) support this, but it is less bothersome there.
 
-
 #### Adding search paths for symbols and library files
 
-LTspice allows users to add Search Paths for symbol and libraries. This is very helpful when sharing non-native 
-libraries and symbols between different projects. The `kupicelib` supports this feature by using the 
+LTspice allows users to add Search Paths for symbol and libraries. This is very helpful when sharing non-native
+libraries and symbols between different projects. The `kupicelib` supports this feature by using the
 set_custom_library_paths() class method as is exemplified in the code snippet below.
 
 ```python
@@ -376,8 +375,8 @@ from kupicelib import AscEditor
 AscEditor.set_custom_library_paths([r"C:\work\MyLTspiceSymbols", r"C:\work\MyLTkupicelibraries"])
 ```
 
-The user can specify one or more search paths. Note that each call to this method will invalidate previously set search 
-paths. Also, note that this is a class method in all available editors, [SpiceEditor, AscEditor and QschEditor], this 
+The user can specify one or more search paths. Note that each call to this method will invalidate previously set search
+paths. Also, note that this is a class method in all available editors, [SpiceEditor, AscEditor and QschEditor], this
 means that updating one instantiation, will update all other instances of the same class.
 
 #### Limitations and specifics of AscEditor
@@ -395,7 +394,7 @@ AscEditor has some limitations and differences in regard to SpiceEditor.
     * `AscEditor.set_component_parameters(..,'Value2','')`, as `set_component_value()` will only affect 'Value'
     * `SpiceEditor.set_component_value(..,'2')`
   * with both editors, you can use `...set_component_parameters(.., Rser=5)`
-* When adressing components, SpiceEditor requires you to include the prefix in the component name, like `XU1` for an 
+* When adressing components, SpiceEditor requires you to include the prefix in the component name, like `XU1` for an
   OpAmp. AscEditor will require `U1`.
 * AscEditor and SpiceEditor only work with the information in their respective schema/circuit files. The problem is that LTspice does not store any of the underlying symbol's default parameter values in the .asc files. SpiceEditor works on netlists, and netlists do contain all parameters.
 
@@ -449,18 +448,18 @@ my_edt["X1:C1"].params = dict(Rser=1)
 # The same goes for SpiceEditor, only that you should use 'XX1' instead of 'X1'
 ```
 
-*NOTE 1: The code above sets only the instance of a subcircuit. A copy of it is done prior to making edits.
-To update all instances of a subcircuit, the subcircuit needs to be be manipulated directly, as is done below.*
+_NOTE 1: The code above sets only the instance of a subcircuit. A copy of it is done prior to making edits.
+To update all instances of a subcircuit, the subcircuit needs to be be manipulated directly, as is done below._
 
-*NOTE 2: This implementation changes on the AscEditor and QschEditor.*
+_NOTE 2: This implementation changes on the AscEditor and QschEditor._
 
-*NOTE 3: You cannot modify values or parameters of components/subcircuits from a library. An exception will
+_NOTE 3: You cannot modify values or parameters of components/subcircuits from a library. An exception will
  occur in that case. If you want to modify, you should therefore include the component/subcircuit in your file.
  It may be best to rename that subcircuit, since ltspice 24+ will not allow a 'local' subcircuit and a lib to
  refer to the same subcircuit name. You can only avoid renaming it if you no longer use the subcircuit under
  its original name.
  Know that executing any of the 'write' commands creates a new subcircuit under a new name, called
- `{subcircuit_model_name}_{component_name}`, like `AD820_X1`, and sets the model of `X1` to `AD820_X1`.*
+ `{subcircuit_model_name}_{component_name}`, like `AD820_X1`, and sets the model of `X1` to `AD820_X1`._
 
 ```python
 import kupicelib
@@ -853,7 +852,7 @@ For support and improvement requests please open an Issue in [GitHub kupicelib i
   * AscEditor: Adding support to DATAFLAG
   * LTSteps: Supporting new LTspice data export format
   * Fix Issue #116: PosixPath as no lower attribute
-  * Toolkit: 
+  * Toolkit:
     * Correction on the WCA min max formula and adding the run < 0 condition
     * run_testbench can be called without having to call first save_netlist
 * Version 1.3.1
@@ -873,7 +872,7 @@ For support and improvement requests please open an Issue in [GitHub kupicelib i
   * Bugfix: Prefix were case sensitive in SpiceEditor
   * Bugfix: Parsing netlists with extensions other than .net didn't work properly
 * Version 1.2.1
-  * Fix on the generation of netlists from QSPICE Schematic files. 
+  * Fix on the generation of netlists from QSPICE Schematic files.
     * Floating pins are now correctly handled. (Issue #88)
     * Support for all known QSpice components.
     * Improving testbench for the QschEditor.
