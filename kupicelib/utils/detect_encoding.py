@@ -24,6 +24,7 @@ International Support functions
 Not using other known unicode detection libraries because we don't need something so complicated. LTSpice only supports
 for the time being a reduced set of encodings.
 """
+
 import re
 from pathlib import Path
 from typing import Union
