@@ -36,10 +36,10 @@ _logger = logging.getLogger("kupicelib.RunTask")
 
 # Configure structured logging formatter if python-json-logger is installed
 try:
-    from pythonjsonlogger import jsonlogger
+    from pythonjsonlogger import jsonlogger  # type: ignore[attr-defined]
 
     handler = logging.StreamHandler()
-    json_formatter = jsonlogger.JsonFormatter(
+    json_formatter = jsonlogger.JsonFormatter(  # type: ignore[attr-defined]
         '%(asctime)s %(name)s %(levelname)s '
         '[runno=%(runno)s netlist=%(netlist)s] %(message)s'
     )
