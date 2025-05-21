@@ -33,11 +33,13 @@ _logger = logging.getLogger("kupicelib.LTSpiceSimulator")
 
 class LTspice(Simulator):
     """Stores the simulator location and command line options and is responsible for
-    generating netlists and running simulations."""
+    generating netlists and running simulations.
 
-    """Searches on the any usual locations for a simulator"""
+    Searches on the any usual locations for a simulator.
+    """
     # windows paths (that are also valid for wine)
-    # Please note that os.path.expanduser and os.path.join are sensitive to the style of slash.
+    # Please note that os.path.expanduser and os.path.join are sensitive to the style
+    # of slash.
     # Placed in order of preference. The first to be found will be used.
     _spice_exe_win_paths = [
         "~/AppData/Local/Programs/ADI/LTspice/LTspice.exe",
@@ -88,16 +90,21 @@ class LTspice(Simulator):
             for exe in _spice_exe_win_paths:
                 # make the file path wine compatible
                 # Note that wine also accepts paths like 'C:\users\myuser\...'.
-                # BUT, if I do that, I would not be able to check for the presence of the exe.
+                # BUT, if I do that, I would not be able to check for the presence of
+                # the exe.
                 # So: expand everything.
                 # Linux would use this:
-                #    '/home/myuser/.wine/drive_c/users/myuser/AppData/...'  for _spice_exe_win_paths[0]
-                # or '/home/myuser/.wine/drive_c/Program Files/...'         for _spice_exe_win_paths[2]
+                # '/home/myuser/.wine/drive_c/users/myuser/AppData/...'
+                # for _spice_exe_win_paths[0]
+                # '/home/myuser/.wine/drive_c/Program Files/...'
+                # for _spice_exe_win_paths[2]
                 # MacOS would use this:
-                #    '/Users/myuser/.wine/drive_c/users/myuser/AppData/...' for _spice_exe_win_paths[0]
-                # or '/Users/myuser/.wine/drive_c/Program Files/...'        for _spice_exe_win_paths[2]
-                # Note that in the user path versions (_spice_exe_win_paths[0] and [1]),
-                # I have 2 expansions of the user name.
+                # '/Users/myuser/.wine/drive_c/users/myuser/AppData/...'
+                # for _spice_exe_win_paths[0]
+                # '/Users/myuser/.wine/drive_c/Program Files/...'
+                # for _spice_exe_win_paths[2]
+                # Note: _spice_exe_win_paths[0] and [1] have two
+                # expansions of the user name.
                 if exe.startswith("~"):
                     exe = "C:/users/" + os.path.expandvars("${USER}" + exe[1:])
                 # Now I have a "windows" path (but with forward slashes). Make it into a
@@ -106,14 +113,14 @@ class LTspice(Simulator):
 
                 if os.path.exists(exe):
                     spice_exe = ["wine", exe]
-                    # Note that one easy method of killing a wine process is to run "wineserver -k",
-                    # but we kill via psutil....kill(), as that would also fit non-wine
-                    # executions.
+                    # Note that one easy method of killing a wine process is to
+                    # run "wineserver -k".
+                    # We kill via psutil.kill(), so it works for non-wine as well.
 
                     break
             else:
-                # The else block will not be executed if the loop is stopped by a break statement.
-                # in case of MacOS, try the native LTspice as last resort
+                # The else block only runs if the loop completes without a break.
+                # For MacOS, try the native LTspice as last resort
                 if sys.platform == "darwin":
                     exe = "/Applications/LTspice.app/Contents/MacOS/LTspice"
                     if os.path.exists(exe):
@@ -149,19 +156,22 @@ class LTspice(Simulator):
         "-ascii": [
             "-ascii"
         ],  # Use ASCII.raw files. Seriously degrades program performance.
-        # 'batch'            : ['-b <path>'], # Used by run command: Run in batch mode.E.g. "ltspice.exe-b deck.cir" will leave the data infile deck.raw
+        # 'batch': ['-b <path>'],  # Used for batch mode.
+        # E.g. "ltspice.exe -b deck.cir" leaves the .raw file.
         "-big": ["-big"],  # Start as a maximized window.
         "-encrypt": ["-encrypt"],
-        # Encrypt a model library.For 3rd parties wishing to allow people to use libraries without
-        # revealing implementation details. Not used by AnalogDevices models.
+        # Encrypt a model library. For 3rd parties wishing to allow use
+        # of libraries without revealing implementation details.
+        # Not used by AnalogDevices models.
         "-fastaccess": [
             "-FastAccess"
         ],  # Batch conversion of a binary.rawfile to Fast Access format.
         "-FixUpSchematicFonts": ["-FixUpSchematicFonts"],
-        # Convert the font size field of very old user - authored schematic text to the modern default.
+        # Convert font size of very old user-authored schematic text
+        # to the modern default.
         "-FixUpSymbolFonts": ["-FixUpSymbolFonts"],
-        # Convert the font size field of very old user - authored symbols to the modern default.
-        # See Changelog.txt for application hints.
+        # Convert font size of very old user-authored symbols to
+        # the modern default.
         "-ini": [
             "- ini",
             "<path>",
@@ -177,13 +187,14 @@ class LTspice(Simulator):
         "-PCBnetlist": [
             "-PCBnetlist"
         ],  # Batch conversion of a schematic to a PCB format netlist.
-        # 'run'              : ['-Run', '-b', '{path}'],  # Start simulating the schematic opened on the command line without
-        # pressing the Run button.
+        # 'run': ['-Run', '-b', '{path}'],  # Start simulating the schematic
+        # opened on the command line without pressing the Run button.
         "-SOI": [
             "-SOI"
         ],  # Allow MOSFET's to have up to 7 nodes even in subcircuit expansion.
         "-sync": ["-sync"],  # Update component libraries
-        # '-uninstall'          : ['-uninstall'],  # Please don't. Executes one step of the uninstallation process. >> Not used in this implementation.
+        # '-uninstall': ['-uninstall'],  # Executes one uninstallation step.
+        # Not used in this implementation.
     }
     """:meta private:"""
 
@@ -199,7 +210,7 @@ class LTspice(Simulator):
         """
         return (
             sys.platform == "darwin"
-            and cls.spice_exe
+            and bool(cls.spice_exe)
             and "wine" not in cls.spice_exe[0].lower()
         )
 
@@ -242,10 +253,10 @@ class LTspice(Simulator):
 
         # See if the MacOS simulator is used. If so, check if I use the native simulator
         if cls.using_macos_native_sim():
-            # this is the native LTspice. It has no useful command line switches
-            # (except '-b').
+            # native LTspice has no command line switches (except '-b').
             raise ValueError(
-                "MacOS native LTspice does not support command line switches. Use it under wine for full support."
+                "MacOS native LTspice does not support command line switches. "
+                "Use it under wine for full support."
             )
 
         # format check
@@ -334,7 +345,8 @@ class LTspice(Simulator):
                 # native MacOS simulator, which has its limitations
                 if netlist_file.suffix.lower().endswith(".asc"):
                     raise NotImplementedError(
-                        "MacOS native LTspice cannot run simulations on '.asc' files. Simulate '.net' or '.cir' files or use LTspice under wine."
+                        "MacOS native LTspice cannot run simulations on '.asc' files. "
+                        "Simulate '.net' or '.cir' files or use LTspice under wine."
                     )
 
                 cmd_run = (
@@ -345,7 +357,8 @@ class LTspice(Simulator):
                 )
             else:
                 # wine
-                # Drive letter 'Z' is the link from wine to the host platform's root directory.
+                # Drive letter 'Z' is the link from wine to the host platform's root
+                # directory.
                 # Z: is needed for netlists with absolute paths, but will also work with
                 # relative paths.
                 cmd_run = (
@@ -415,7 +428,8 @@ class LTspice(Simulator):
         :return: path to the netlist produced
         :rtype: Path
         """
-        # prepare instructions, two stages used to enable edits on the netlist w/o open GUI
+        # prepare instructions, two stages used to enable edits on the netlist w/o open
+        # GUI
         # see: https://www.mikrocontroller.net/topic/480647?goto=5965300#5965300
         if cmd_line_switches is None:
             cmd_line_switches = []
@@ -426,7 +440,8 @@ class LTspice(Simulator):
         if cls.using_macos_native_sim():
             # native MacOS simulator
             raise NotImplementedError(
-                "MacOS native LTspice does not have netlist generation capabilities. Use LTspice under wine."
+                "MacOS native LTspice does not have netlist generation "
+                "capabilities. Use LTspice under wine."
             )
 
         cmd_netlist = (
