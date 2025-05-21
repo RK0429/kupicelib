@@ -126,8 +126,6 @@ END_LINE_TERM = "\n"
 class SimRunnerTimeoutError(TimeoutError):
     """Timeout Error class."""
 
-    ...
-
 
 class AnyRunner(Protocol):
     def run(
