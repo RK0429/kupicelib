@@ -18,9 +18,7 @@
 # Created:     23-04-2023
 # Licence:     refer to the LICENSE file
 # -------------------------------------------------------------------------------
-"""
-
-"""
+""""""
 from __future__ import annotations
 
 from multiprocessing import Process, Queue
@@ -28,9 +26,7 @@ from typing import Any
 
 
 class ProcessCallback(Process):
-    """
-    Wrapper for the callback function
-    """
+    """Wrapper for the callback function."""
 
     def __init__(
         self, raw, log, group=None, name=None, *, daemon: bool | None = None, **kwargs
@@ -49,5 +45,5 @@ class ProcessCallback(Process):
 
     @staticmethod
     def callback(raw_file, log_file, **kwargs) -> Any:
-        """This function needs to be overriden"""
+        """This function needs to be overriden."""
         ...
