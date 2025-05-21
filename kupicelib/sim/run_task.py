@@ -24,7 +24,6 @@ __copyright__ = "Copyright 2023, Fribourg Switzerland"
 
 import logging
 import sys
-import threading
 import time
 import traceback
 from pathlib import Path
@@ -63,7 +62,7 @@ def format_time_difference(time_diff):
         )
 
 
-class RunTask(threading.Thread):
+class RunTask:
     """This is an internal Class and should not be used directly by the User."""
 
     def __init__(
@@ -78,8 +77,6 @@ class RunTask(threading.Thread):
         verbose: bool = False,
         exe_log: bool = False,
     ):
-
-        super().__init__(name=f"RunTask#{runno}")
         self.start_time = None
         self.stop_time = None
         self.verbose = verbose
@@ -215,7 +212,8 @@ class RunTask(threading.Thread):
         callback function is defined, it returns whatever the callback function is
         returning.
         """
-        if self.is_alive():
+        # simulation not started or still running if retcode unset
+        if self.retcode == -1:
             return None
 
         if self.retcode == 0:  # All finished OK
@@ -236,6 +234,12 @@ class RunTask(threading.Thread):
         :returns: Tuple with the path to the raw file and the path to the log file
         :rtype: tuple(str, str)
         """
-        while self.is_alive() or self.retcode == -1:
+        # wait until simulation run() has been executed
+        while self.retcode == -1:
             sleep(0.1)
         return self.get_results()
+
+    def __call__(self) -> "RunTask":
+        """Allow this object to be submitted to an Executor."""
+        self.run()
+        return self
