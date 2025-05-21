@@ -228,6 +228,9 @@ class SimRunner(AnyRunner):
             raise SimRunnerConfigError(
                 "Invalid simulator type; expected subclass of Simulator")
         _logger.info("SimRunner initialized")
+        if self.verbose:
+            _logger.setLevel(logging.DEBUG)
+            _logger.debug("Verbose mode enabled: logger level set to DEBUG")
 
     def __del__(self):
         """Class Destructor : Closes Everything."""
@@ -451,6 +454,11 @@ class SimRunner(AnyRunner):
         :type exe_log: bool, optional
         :returns: The task object of type RunTask
         """
+        _logger.debug(
+            "run called: netlist=%s, wait_resource=%s, switches=%s,"
+            " timeout=%s, run_filename=%s, exe_log=%s",
+            netlist, wait_resource, switches, timeout, run_filename, exe_log,
+        )
         callback_kwargs = self.validate_callback_args(callback, callback_args)
         if switches is None:
             switches = []
@@ -486,6 +494,10 @@ class SimRunner(AnyRunner):
         )
         self.active_tasks.append(t)
         t.start()
+        _logger.debug(
+            "RunTask started: runno=%d, netlist_file=%s",
+            t.runno,
+            t.netlist_file)
         sleep(0.01)  # Give slack for the thread to start
         return t
 
@@ -520,6 +532,11 @@ class SimRunner(AnyRunner):
         """
         if switches is None:
             switches = []
+        _logger.debug(
+            "run_now called: netlist=%s, switches=%s,"
+            " run_filename=%s, timeout=%s, exe_log=%s",
+            netlist, switches, run_filename, timeout, exe_log,
+        )
         run_netlist_file = self._prepare_sim(netlist, run_filename)
 
         cmdline_switches = (
@@ -548,7 +565,12 @@ class SimRunner(AnyRunner):
         t.start()
         sleep(0.01)  # Give slack for the thread to start
         # Give one second slack in relation to the task timeout
+        assert timeout is not None, "timeout must not be None"
         t.join(timeout + 1)
+        _logger.debug(
+            "RunTask (run_now) completed: retcode=%d, raw_file=%s, log_file=%s",
+            t.retcode, t.raw_file, t.log_file,
+        )
         self.completed_tasks.append(t)
         if t.retcode == 0:
             self.okSim += 1
@@ -569,6 +591,10 @@ class SimRunner(AnyRunner):
 
         :returns: Nothing
         """
+        _logger.debug(
+            "update_completed: active=%d, completed=%d", len(
+                self.active_tasks), len(
+                self.completed_tasks))
         i = 0
         while i < len(self.active_tasks):
             if self.active_tasks[i].is_alive():
@@ -581,6 +607,10 @@ class SimRunner(AnyRunner):
                     self.failSim += 1
                 task = self.active_tasks.pop(i)
                 self.completed_tasks.append(task)
+                _logger.debug(
+                    "Task %d moved from active to completed (retcode=%d)",
+                    task.runno,
+                    task.retcode)
 
     def kill_all_ltspice(self) -> None:
         """.. deprecated:: 1.0 Use `kill_all_spice()` instead.
@@ -644,6 +674,10 @@ class SimRunner(AnyRunner):
         :returns: True if all simulations were executed successfully
         :rtype: bool
         """
+        _logger.debug(
+            "wait_completion called: timeout=%s, abort_all_on_timeout=%s",
+            timeout,
+            abort_all_on_timeout)
         self.update_completed()
         stop_time: Optional[float] = None
         if timeout is not None:
@@ -661,6 +695,7 @@ class SimRunner(AnyRunner):
                         self.kill_all_spice()
                     return False
 
+        _logger.debug("wait_completion returning %s", self.failSim == 0)
         return self.failSim == 0
 
     @staticmethod
