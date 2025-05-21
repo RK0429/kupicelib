@@ -100,6 +100,7 @@ __copyright__ = "Copyright 2020, Fribourg Switzerland"
 __all__ = [
     "SimRunner",
     "SimRunnerTimeoutError",
+    "SimRunnerConfigError",
     "AnyRunner",
     "ProcessCallback",
     "RunTask",
@@ -112,7 +113,19 @@ import shutil
 from pathlib import Path
 from time import sleep
 from time import thread_time as clock
-from typing import Any, Callable, Dict, List, Optional, Protocol, Tuple, Type, Union
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    Iterator,
+    List,
+    Optional,
+    Protocol,
+    Tuple,
+    Type,
+    Union,
+    cast,
+)
 
 from ..editor.base_editor import BaseEditor
 from ..sim.run_task import RunTask, clock_function
@@ -125,6 +138,10 @@ END_LINE_TERM = "\n"
 
 class SimRunnerTimeoutError(TimeoutError):
     """Timeout Error class."""
+
+
+class SimRunnerConfigError(Exception):
+    """Configuration error for SimRunner."""
 
 
 class AnyRunner(Protocol):
@@ -203,11 +220,13 @@ class SimRunner(AnyRunner):
 
         # Gets a simulator.
         if simulator is None:
-            raise ValueError("No default simulator defined, please specify a simulator")
+            raise SimRunnerConfigError(
+                "No default simulator defined; please specify a simulator")
         elif issubclass(simulator, Simulator):
             self.simulator = simulator
         else:
-            raise TypeError("Invalid simulator type.")
+            raise SimRunnerConfigError(
+                "Invalid simulator type; expected subclass of Simulator")
         _logger.info("SimRunner initialized")
 
     def __del__(self):
@@ -230,11 +249,11 @@ class SimRunner(AnyRunner):
         else:
             raise TypeError("Expecting str or Simulator objects")
 
-    def clear_command_line_switches(self):
+    def clear_command_line_switches(self) -> None:
         """Clear all the command line switches added previously."""
         self.cmdline_switches.clear()
 
-    def add_command_line_switch(self, switch, path=""):
+    def add_command_line_switch(self, switch: str, path: str = "") -> None:
         """Used to add an extra command line argument such as -I<path> to add symbol
         search path or -FastAccess to convert the raw file into Fast Access. The
         argument is a string as is defined in the LTSpice command line documentation.
@@ -251,13 +270,13 @@ class SimRunner(AnyRunner):
         if path is not None:
             self.cmdline_switches.append(path)
 
-    def _on_output_folder(self, afile):
+    def _on_output_folder(self, afile: Union[str, Path]) -> Path:
         if self.output_folder:
             return self.output_folder / Path(afile).name
         else:
             return Path(afile)
 
-    def _to_output_folder(self, afile: Path, *, copy: bool, new_name: str = ""):
+    def _to_output_folder(self, afile: Path, *, copy: bool, new_name: str = "") -> Path:
         if self.output_folder:
             if new_name:
                 ddst = self.output_folder / new_name
@@ -276,7 +295,7 @@ class SimRunner(AnyRunner):
             else:
                 return afile
 
-    def _run_file_name(self, netlist):
+    def _run_file_name(self, netlist: Union[str, Path]) -> str:
         if not isinstance(netlist, Path):
             netlist = Path(netlist)
         if netlist.suffix == ".qsch":
@@ -287,7 +306,7 @@ class SimRunner(AnyRunner):
 
     def _prepare_sim(
         self, netlist: Union[str, Path, BaseEditor], run_filename: Optional[str]
-    ):
+    ) -> Path:
         """Internal function."""
         # update number of simulation
         self.runno += 1  # Incrementing internal simulation number
@@ -364,6 +383,16 @@ class SimRunner(AnyRunner):
                 return callback_args
         return {}  # Return empty dict for functions with exactly 2 arguments
 
+    def _wait_for_resources(self, wait_resource: bool, timeout: float) -> bool:
+        """Internal: blocks until a slot is free or timeout expires."""
+        t0 = clock()
+        while clock() - t0 < timeout + 1:
+            if not wait_resource or (self.active_threads() < self.parallel_sims):
+                return True
+            sleep(0.1)
+        _logger.error(f"Timeout waiting for resources for simulation {self.runno}")
+        return False
+
     def run(
         self,
         netlist: Union[str, Path, BaseEditor],
@@ -430,43 +459,35 @@ class SimRunner(AnyRunner):
         if timeout is None:
             timeout = self.timeout
 
-        t0 = clock()  # Store the time for timeout calculation
-        while (
-            clock() - t0 < timeout + 1
-        ):  # Give one second slack in relation to the task timeout
-            cmdline_switches = (
-                switches or self.cmdline_switches
-            )  # If switches are passed, they override the ones
-            # inside the class.
-
-            if (wait_resource is False) or (self.active_threads() < self.parallel_sims):
-                # Use a dummy callback if None is provided, as RunTask expects a
-                # non-None callback
-                actual_callback = (
-                    callback if callback is not None else (lambda raw, log: None)
-                )
-
-                t = RunTask(
-                    simulator=self.simulator,
-                    runno=self.runno,
-                    netlist_file=run_netlist_file,
-                    callback=actual_callback,
-                    callback_args=callback_kwargs,
-                    switches=cmdline_switches,
-                    timeout=timeout,
-                    verbose=self.verbose,
-                    exe_log=exe_log,
-                )
-                self.active_tasks.append(t)
-                t.start()
-                sleep(0.01)  # Give slack for the thread to start
-                return t  # Returns the task object
-            sleep(0.1)  # Give Time for other simulations to end
-        else:
-            _logger.error(f"Timeout waiting for resources for simulation {self.runno}")
+        # Wait for an available resource slot or timeout
+        if not self._wait_for_resources(wait_resource, timeout):
             if self.verbose:
                 _logger.warning(f"Timeout on launching simulation {self.runno}.")
             return None
+
+        # Prepare command-line switches
+        cmdline_switches = switches or self.cmdline_switches
+
+        # Use a dummy callback if None is provided, as RunTask expects a non-None
+        # callback
+        actual_callback = callback if callback is not None else (lambda raw, log: None)
+
+        # Launch the simulation task
+        t = RunTask(
+            simulator=self.simulator,
+            runno=self.runno,
+            netlist_file=run_netlist_file,
+            callback=actual_callback,
+            callback_args=callback_kwargs,
+            switches=cmdline_switches,
+            timeout=timeout,
+            verbose=self.verbose,
+            exe_log=exe_log,
+        )
+        self.active_tasks.append(t)
+        t.start()
+        sleep(0.01)  # Give slack for the thread to start
+        return t
 
     def run_now(
         self,
@@ -536,12 +557,12 @@ class SimRunner(AnyRunner):
             self.failSim += 1
         return t.raw_file, t.log_file  # Returns the raw and log file
 
-    def active_threads(self):
+    def active_threads(self) -> int:
         """Returns the number of active sim_tasks."""
         self.update_completed()
         return len(self.active_tasks)
 
-    def update_completed(self):
+    def update_completed(self) -> None:
         """This function updates the active_tasks and completed_tasks lists. It moves
         the finished task from the active_tasks list to the completed_tasks list. It
         should be called periodically to update the status of the simulations.
@@ -561,7 +582,7 @@ class SimRunner(AnyRunner):
                 task = self.active_tasks.pop(i)
                 self.completed_tasks.append(task)
 
-    def kill_all_ltspice(self):
+    def kill_all_ltspice(self) -> None:
         """.. deprecated:: 1.0 Use `kill_all_spice()` instead.
 
         This is only here for compatibility with previous code.
@@ -570,7 +591,7 @@ class SimRunner(AnyRunner):
         """
         self.kill_all_spice()
 
-    def kill_all_spice(self):
+    def kill_all_spice(self) -> None:
         """Function to terminate xxSpice processes."""
         simulator = Simulator
         process_name = simulator.process_name
@@ -594,12 +615,12 @@ class SimRunner(AnyRunner):
         """
         alarm: Optional[float] = None
         for task in self.active_tasks:
-            if task.timeout is not None:
-                candidate = task.start_time + task.timeout  # type: ignore
-            elif self.timeout is not None:
-                candidate = task.start_time + self.timeout  # type: ignore
-            else:
+            # Determine appropriate timeout value for this task
+            timeout_val = task.timeout if task.timeout is not None else self.timeout
+            if timeout_val is None:
                 continue
+            # Cast to float now that timeout_val is guaranteed
+            candidate = task.start_time + cast(float, timeout_val)  # type: ignore
             if alarm is None or candidate > alarm:
                 alarm = candidate
         return alarm
@@ -667,7 +688,7 @@ class SimRunner(AnyRunner):
         sim_file = workfile.with_suffix(ext)
         SimRunner._del_file_if_exists(sim_file)
 
-    def cleanup_files(self):
+    def cleanup_files(self) -> None:
         """Will delete all log and raw files that were created by the script.
 
         This should only be executed at the end of data processing.
@@ -700,20 +721,20 @@ class SimRunner(AnyRunner):
                     # Then needs to delete the .net as well
                     self._del_file_ext_if_exists(netlistfile, ".net")
 
-    def file_cleanup(self):
+    def file_cleanup(self) -> None:
         """..
 
         deprecated:: 1.0 Use `cleanup_files()` instead.
         """
         self.cleanup_files()  # alias for backward compatibility
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator:
         self._iterator_counter = (
             0  # Reset the iterator counter. Note: nested iterators are not supported
         )
         return self
 
-    def __next__(self):
+    def __next__(self) -> Any:
         while True:
             self.update_completed()  # update active and completed tasks
             # First go through the completed tasks
