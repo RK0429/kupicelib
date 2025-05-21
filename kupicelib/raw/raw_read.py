@@ -18,66 +18,64 @@
 # Licence:     refer to the LICENSE file
 # -------------------------------------------------------------------------------
 
-"""
-This module reads data from an Spice RAW file.
-The main class object is the RawRead which is initialized with the filename of the RAW file to be processed.
-The object wil read the file and construct a structure of objects which can be used to access the data inside the
-RAW file.
-To understand why this is done so, in the next section follows a brief explanation of what is contained inside a RAW
-file.
-In case RAW file contains stepped data detected, i.e. when the .STEP command is used, then it will also try to open the
-simulation LOG file and read the stepping information.
+"""This module reads data from an Spice RAW file. The main class object is the RawRead
+which is initialized with the filename of the RAW file to be processed. The object wil
+read the file and construct a structure of objects which can be used to access the data
+inside the RAW file. To understand why this is done so, in the next section follows a
+brief explanation of what is contained inside a RAW file. In case RAW file contains
+stepped data detected, i.e. when the .STEP command is used, then it will also try to
+open the simulation LOG file and read the stepping information.
 
-RAW File Structure
-==================
+RAW File Structure ==================
 
-This section is written to help understand the why the structure of classes is defined as it is. You can gladly skip
-this section and get right down to business by seeing the examples section below.
+This section is written to help understand the why the structure of classes is defined
+as it is. You can gladly skip this section and get right down to business by seeing the
+examples section below.
 
-The RAW file starts with a text preamble that contains information about the names of the traces the order they
-appear on the binary part and some extra information.
-In the preamble, the lines are always started by one of the following identifiers:
+The RAW file starts with a text preamble that contains information about the names of
+the traces the order they appear on the binary part and some extra information. In the
+preamble, the lines are always started by one of the following identifiers:
 
-   + Title:          => Contains the path of the source .asc file used to make the simulation preceded by *
++ Title:          => Contains the path of the source .asc file used to make the
+simulation preceded by *
 
-   + Date:           => Date when the simulation started
++ Date:           => Date when the simulation started
 
-   + Plotname:       => Name of the simulation. The known Simulation Types are:
-                       * Operation Point
-                       * DC transfer characteristic
-                       * AC Analysis
-                       * Transient Analysis
-                       * Noise Spectral Density - (V/Hz½ or A/Hz½)
-                       * Transfer Function
++ Plotname:       => Name of the simulation. The known Simulation Types are: * Operation
+Point                     * DC transfer characteristic                     * AC Analysis
+* Transient Analysis                     * Noise Spectral Density - (V/Hz½ or A/Hz½)
+* Transfer Function
 
-   + Flags:          => Flags that are used in this plot. The simulation can have any combination of these flags.
-                      * "real" -> The traces in the raw file contain real values. As for example on a TRAN simulation.
-                      * "complex" -> Traces in the raw file contain complex values. As for example on an AC simulation.
-                      * "forward" -> Tells whether the simulation has more than one point. DC transfer
-                        characteristic, AC Analysis, Transient Analysis or Noise Spectral Density have the forward flag.
-                        Operating Point and Transfer Function don't have this flag activated.
-                      * "log" -> The preferred plot view of this data is logarithmic.
-                      * "stepped" -> The simulation had .STEP primitives.
-                      * "FastAccess" -> Order of the data is changed to speed up access. See Binary section for details.
++ Flags:          => Flags that are used in this plot. The simulation can have any
+combination of these flags.                    * "real" -> The traces in the raw file
+contain real values. As for example on a TRAN simulation.                    * "complex"
+-> Traces in the raw file contain complex values. As for example on an AC simulation. *
+"forward" -> Tells whether the simulation has more than one point. DC transfer
+characteristic, AC Analysis, Transient Analysis or Noise Spectral Density have the
+forward flag.                      Operating Point and Transfer Function don't have this
+flag activated.                    * "log" -> The preferred plot view of this data is
+logarithmic.                    * "stepped" -> The simulation had .STEP primitives. *
+"FastAccess" -> Order of the data is changed to speed up access. See Binary section for
+details.
 
-   + No. Variables:  => number of variables contained in this dataset. See section below for details.
++ No. Variables:  => number of variables contained in this dataset. See section below
+for details.
 
-   + No. Points:     => number of points per each variable in
++ No. Points:     => number of points per each variable in
 
-   + Offset:         => when the saving of data started
++ Offset:         => when the saving of data started
 
-   + Command:        => Name of the simulator executable generating this file.
++ Command:        => Name of the simulator executable generating this file.
 
-   + Backannotation: => Backannotation alerts that occurred during simulation
++ Backannotation: => Backannotation alerts that occurred during simulation
 
-   + Variables:      => a list of variable, one per line as described below
++ Variables:      => a list of variable, one per line as described below
 
-   + Binary:         => Start of the binary section. See section below for details.
++ Binary:         => Start of the binary section. See section below for details.
 
-Variables List
---------------
-The variable list contains the list of measurements saved in the raw file. The order of the variables defines how they
-are stored in the binary section. The format is one variable per line, using the following format:
+Variables List -------------- The variable list contains the list of measurements saved
+in the raw file. The order of the variables defines how they are stored in the binary
+section. The format is one variable per line, using the following format:
 
 <tab><ordinal number><tab><measurement><tab><type of measurement>
 
@@ -85,123 +83,110 @@ Here is an example:
 
 .. code-block:: text
 
-    0	time	time
-    1	V(n001)	   voltage
-    2	V(n004)	   voltage
-    3	V(n003)	   voltage
-    4	V(n006)	   voltage
-    5	V(adcc)    voltage
-    6	V(n002)	   voltage
-    7	V(3v3_m)   voltage
-    8	V(n005)	   voltage
-    9	V(n007)	   voltage
-    10	V(24v_dsp) voltage
-    11	I(C3)	   device_current
-    12	I(C2)	   device_current
-    13	I(C1)	   device_current
-    14	I(I1)	   device_current
-    15	I(R4)	   device_current
-    16	I(R3)	   device_current
-    17	I(V2)	   device_current
-    18	I(V1)	   device_current
-    19	Ix(u1:+)   subckt_current
-    20	Ix(u1:-)   subckt_current
+0   time    time 1   V(n001)    voltage 2   V(n004)    voltage 3   V(n003)    voltage 4
+V(n006)    voltage 5   V(adcc)    voltage 6   V(n002)    voltage 7   V(3v3_m)   voltage
+8   V(n005)    voltage 9   V(n007)    voltage 10  V(24v_dsp) voltage 11  I(C3)
+device_current 12  I(C2)      device_current 13  I(C1)      device_current 14  I(I1)
+device_current 15  I(R4)      device_current 16  I(R3)      device_current 17  I(V2)
+device_current 18  I(V1)      device_current 19  Ix(u1:+)   subckt_current 20  Ix(u1:-)
+subckt_current
 
-Binary Section
---------------
-The binary section of .RAW file is where the data is usually written, unless the user had explicitly specified an ASCII
-representation. In this case this section is replaced with a "Values" section.
-Spice stores data directly onto the disk during simulation, writing per each time or frequency step the list of
+Binary Section -------------- The binary section of .RAW file is where the data is
+usually written, unless the user had explicitly specified an ASCII representation. In
+this case this section is replaced with a "Values" section. Spice stores data directly
+onto the disk during simulation, writing per each time or frequency step the list of
 values, as exemplified below for a .TRAN simulation.
 
-     <timestamp 0><trace1 0><trace2 0><trace3 0>...<traceN 0>
+<timestamp 0><trace1 0><trace2 0><trace3 0>...<traceN 0>
 
-     <timestamp 1><trace1 1><trace2 1><trace3 1>...<traceN 1>
+<timestamp 1><trace1 1><trace2 1><trace3 1>...<traceN 1>
 
-     <timestamp 2><trace1 2><trace2 2><trace3 2>...<traceN 2>
+<timestamp 2><trace1 2><trace2 2><trace3 2>...<traceN 2>
 
-     ...
+...
 
-     <timestamp T><trace1 T><trace2 T><trace3 T>...<traceN T>
+<timestamp T><trace1 T><trace2 T><trace3 T>...<traceN T>
 
-Depending on the type of simulation the type of data changes.
-On TRAN simulations the timestamp is always stored as 8 bytes float (double) and trace values as 4 bytes (single).
-On AC simulations the data is stored in complex format, which includes a real part and an imaginary part, each with 8
-bytes.
-The way we determine the size of the data is dividing the total block size by the number of points, then taking only
-the integer part.
+Depending on the type of simulation the type of data changes. On TRAN simulations the
+timestamp is always stored as 8 bytes float (double) and trace values as 4 bytes
+(single). On AC simulations the data is stored in complex format, which includes a real
+part and an imaginary part, each with 8 bytes. The way we determine the size of the data
+is dividing the total block size by the number of points, then taking only the integer
+part.
 
-Fast Access
------------
+Fast Access -----------
 
-Once a simulation is done, the user can ask LTSpice to optimize the data structure in such that variables are stored
-contiguously as illustrated below.
+Once a simulation is done, the user can ask LTSpice to optimize the data structure in
+such that variables are stored contiguously as illustrated below.
 
-     <timestamp 0><timestamp 1>...<timestamp T>
+<timestamp 0><timestamp 1>...<timestamp T>
 
-     <trace1 0><trace1 1>...<trace1 T>
+<trace1 0><trace1 1>...<trace1 T>
 
-     <trace2 0><trace2 1>...<trace2 T>
+<trace2 0><trace2 1>...<trace2 T>
 
-     <trace3 0><trace3 1>...<trace3 T>
+<trace3 0><trace3 1>...<trace3 T>
 
-     ...
+...
 
-     <traceN T><traceN T>...<tranceN T>
+<traceN T><traceN T>...<tranceN T>
 
-This can speed up the data reading. Note that this transformation is not done automatically. Transforming data to Fast
-Access must be requested by the user. If the transformation is done, it is registered in the Flags: line in the
-header. RawReader supports both Normal and Fast Access formats
+This can speed up the data reading. Note that this transformation is not done
+automatically. Transforming data to Fast Access must be requested by the user. If the
+transformation is done, it is registered in the Flags: line in the header. RawReader
+supports both Normal and Fast Access formats
 
-Classes Defined
-===============
+Classes Defined ===============
 
-The .RAW file is read during the construction (constructor method) of an `RawRead` object. All traces on the RAW
-file are uploaded into memory.
+The .RAW file is read during the construction (constructor method) of an `RawRead`
+object. All traces on the RAW file are uploaded into memory.
 
-The RawRead class then has all the methods that allow the user to access the Axis and Trace Values. If there is
-any stepped data (.STEP primitives), the RawRead class will try to load the log information from the same
-directory as the raw file in order to obtain the STEP information.
+The RawRead class then has all the methods that allow the user to access the Axis and
+Trace Values. If there is any stepped data (.STEP primitives), the RawRead class will
+try to load the log information from the same directory as the raw file in order to
+obtain the STEP information.
 
-Follows an example of the RawRead class usage. Information on the RawRead methods can be found here.
+Follows an example of the RawRead class usage. Information on the RawRead methods can be
+found here.
 
-Examples
-========
+Examples ========
 
-The example below demonstrates the usage of the RawRead class. It reads a .RAW file and uses the matplotlib
-library to plot the results of three traces in two subplots. ::
+The example below demonstrates the usage of the RawRead class. It reads a .RAW file and
+uses the matplotlib library to plot the results of three traces in two subplots. ::
 
-    import matplotlib.pyplot as plt  # Imports the matplotlib library for plotting the results
+import matplotlib.pyplot as plt  # Imports the matplotlib library for plotting the
+results
 
-    LTR = RawRead("some_random_file.raw")  # Reads the RAW file contents from file
+LTR = RawRead("some_random_file.raw")  # Reads the RAW file contents from file
 
-    print(LTR.get_trace_names())  # Prints the contents of the RAW file. The result is a list, and print formats it.
-    print(LTR.get_raw_property())  # Prints all the properties found in the Header section.
+print(LTR.get_trace_names())  # Prints the contents of the RAW file. The result is a
+list, and print formats it. print(LTR.get_raw_property())  # Prints all the properties
+found in the Header section.
 
-    plt.figure()  # Creates the canvas for plotting
+plt.figure()  # Creates the canvas for plotting
 
-    vin = LTR.get_trace('V(in)')  # Gets the trace data. If Numpy is installed, then it comes in numpy array format.
-    vout = LTR.get_trace('V(out)') # Gets the second trace.
+vin = LTR.get_trace('V(in)')  # Gets the trace data. If Numpy is installed, then it
+comes in numpy array format. vout = LTR.get_trace('V(out)') # Gets the second trace.
 
-    steps = LTR.get_steps()  # Gets the step information. Returns a list of step numbers, ex: [0,1,2...]. If no steps
-                             # are present on the RAW file, returns only one step : [0] .
+steps = LTR.get_steps()  # Gets the step information. Returns a list of step numbers,
+ex: [0,1,2...]. If no steps                          # are present on the RAW file,
+returns only one step : [0] .
 
-    fig, (ax1, ax2) = plt.subplots(2, 1, sharex=True)  # Creates the two subplots. One on top of the other.
+fig, (ax1, ax2) = plt.subplots(2, 1, sharex=True)  # Creates the two subplots. One on
+top of the other.
 
-    for ax in (ax1, ax2):  # Crates a grid on all the plots.
-        ax.grid(True)
+for ax in (ax1, ax2):  # Crates a grid on all the plots.     ax.grid(True)
 
-    plt.xlim([0.9e-3, 1.2e-3])  # Optionally, limits the X axis to just a subrange.
+plt.xlim([0.9e-3, 1.2e-3])  # Optionally, limits the X axis to just a subrange.
 
-    x = LTR.get_axis(0)  # Retrieves the time vector that will be used as X axis. Uses STEP 0
-    ax1.plot(x, vin.get_wave(0)) # On first plot plots the first STEP (=0) of Vin
+x = LTR.get_axis(0)  # Retrieves the time vector that will be used as X axis. Uses STEP
+0 ax1.plot(x, vin.get_wave(0)) # On first plot plots the first STEP (=0) of Vin
 
-    for step in steps:  # On the second plot prints all the STEPS of the Vout
-        x = LTR.get_axis(step)  # Retrieves the time vector that will be used as X axis.
-        ax2.plot(x, vout.get_wave(step))
+for step in steps:  # On the second plot prints all the STEPS of the Vout     x =
+LTR.get_axis(step)  # Retrieves the time vector that will be used as X axis. ax2.plot(x,
+vout.get_wave(step))
 
-    plt.show()  # Creates the matplotlib's interactive window with the plots.
-
+plt.show()  # Creates the matplotlib's interactive window with the plots.
 """
 
 __author__ = "Nuno Canto Brum <nuno.brum@gmail.com>"
@@ -227,22 +212,15 @@ _logger = logging.getLogger("kupicelib.RawRead")
 
 
 def read_float64(f):
-    """
-    Reads a 64-bit float value, normally associated with the plot X axis.
-    The codification is done as follows:
+    """Reads a 64-bit float value, normally associated with the plot X axis. The
+    codification is done as follows:
 
-    =====  === === === ===   === === === ===
-    bit#   7   6   5   4     3   2   1   0
-    =====  === === === ===   === === === ===
-    Byte7  SGM SGE E9  E8    E7  E6  E5  E4
-    Byte6  E3  E2  E1  E0    M51 M50 M49 M48
-    Byte5  M47 M46 M45 M44   M43 M42 M41 M40
-    Byte4  M39 M38 M37 M36   M35 M34 M33 M32
-    Byte3  M31 M30 M29 M28   M27 M26 M25 M24
-    Byte2  M23 M22 M21 M20   M19 M18 M17 M16
-    Byte1  M15 M14 M13 M12   M11 M10 M9  M8
-    Byte0  M7  M6  M5  M4    M3  M2  M1  M0
-    =====  === === === ===   === === === ===
+    =====  === === === ===   === === === === bit#   7   6   5   4     3   2   1   0
+    =====  === === === ===   === === === === Byte7  SGM SGE E9  E8    E7  E6  E5  E4
+    Byte6  E3  E2  E1  E0    M51 M50 M49 M48 Byte5  M47 M46 M45 M44   M43 M42 M41 M40
+    Byte4  M39 M38 M37 M36   M35 M34 M33 M32 Byte3  M31 M30 M29 M28   M27 M26 M25 M24
+    Byte2  M23 M22 M21 M20   M19 M18 M17 M16 Byte1  M15 M14 M13 M12   M11 M10 M9  M8
+    Byte0  M7  M6  M5  M4    M3  M2  M1  M0 =====  === === === ===   === === === ===
 
     Legend:
 
@@ -264,10 +242,9 @@ def read_float64(f):
 
 
 def read_complex(f):
-    """
-    Used to convert a 16 byte stream into a complex data point. Usually used for the .AC simulations.
-    The encoding is the same as for the set_pointB8() but two values are encoded. First one is the real part and
-    the second is the complex part.
+    """Used to convert a 16 byte stream into a complex data point. Usually used for the
+    .AC simulations. The encoding is the same as for the set_pointB8() but two values
+    are encoded. First one is the real part and the second is the complex part.
 
     :param f: data stream
     :type f: file
@@ -280,18 +257,13 @@ def read_complex(f):
 
 
 def read_float32(f):
-    """
-    Reads a 32bit float (single precision) from a stream. This is how most real values are stored in the RAW file.
-    This codification uses 4 bytes as follows:
+    """Reads a 32bit float (single precision) from a stream. This is how most real
+    values are stored in the RAW file. This codification uses 4 bytes as follows:
 
-    =====  === === === ===   === === === ===
-    bit#   7   6   5   4     3   2   1   0
-    =====  === === === ===   === === === ===
-    Byte3  SGM SGE E6  E5    E4  E3  E2  E1
-    Byte2  E0  M22 M21 M20   M19 M18 M17 M16
-    Byte1  M15 M14 M13 M12   M11 M10 M9  M8
-    Byte0  M7  M6  M5  M4    M3  M2  M1  M0
-    =====  === === === ===   === === === ===
+    =====  === === === ===   === === === === bit#   7   6   5   4     3   2   1   0
+    =====  === === === ===   === === === === Byte3  SGM SGE E6  E5    E4  E3  E2  E1
+    Byte2  E0  M22 M21 M20   M19 M18 M17 M16 Byte1  M15 M14 M13 M12   M11 M10 M9  M8
+    Byte0  M7  M6  M5  M4    M3  M2  M1  M0 =====  === === === ===   === === === ===
 
     Legend:
 
@@ -313,17 +285,17 @@ def read_float32(f):
 
 
 def consume4bytes(f):
-    """Used to advance the file pointer 4 bytes"""
+    """Used to advance the file pointer 4 bytes."""
     f.read(4)
 
 
 def consume8bytes(f):
-    """Used to advance the file pointer 8 bytes"""
+    """Used to advance the file pointer 8 bytes."""
     f.read(8)
 
 
 def consume16bytes(f):
-    """Used to advance the file pointer 16 bytes"""
+    """Used to advance the file pointer 16 bytes."""
     f.read(16)
 
 
@@ -337,21 +309,23 @@ def namify(spice_ref: str):
 
 
 class RawRead(object):
-    """Class for reading Spice wave Files. It can read all types of Files. If stepped data is detected,
-    it will also try to read the corresponding LOG file so to retrieve the stepped data.
+    """Class for reading Spice wave Files. It can read all types of Files. If stepped
+    data is detected, it will also try to read the corresponding LOG file so to retrieve
+    the stepped data.
 
     :param raw_filename: The file containing the RAW data to be read
     :type raw_filename: str | pahtlib.Path
-    :param traces_to_read:
-        A string or a list containing the list of traces to be read. If None is provided, only the header is read and
-        all trace data is discarded. If a '*' wildcard is given or no parameter at all then all traces are read.
+    :param traces_to_read: A string or a list containing the list of traces to be read.
+        If None is provided, only the header is read and all trace data is discarded. If
+        a '*' wildcard is given or no parameter at all then all traces are read.
     :type traces_to_read: str, list or tuple
-    :param dialect: The simulator used.
-        Please use from ["ltspice","qspice","ngspice","xyce"]. If not specified, dialect will be auto detected.
-        This is likely only needed for older versions of ngspice and xyce. ltspice and qspice can reliably be auto detected.
+    :param dialect: The simulator used. Please use from
+        ["ltspice","qspice","ngspice","xyce"]. If not specified, dialect will be auto
+        detected. This is likely only needed for older versions of ngspice and xyce.
+        ltspice and qspice can reliably be auto detected.
     :type dialect: str
-    :key headeronly:
-        Used to only load the header information and skip the trace data entirely. Use `headeronly=True`.
+    :key headeronly: Used to only load the header information and skip the trace data
+        entirely. Use `headeronly=True`.
     """
 
     header_lines = (
@@ -386,7 +360,10 @@ class RawRead(object):
         **kwargs,
     ):
         self.dialect: Optional[str] = None
-        """The dialect of the spice file read. This is either set on init, or detected """
+        """The dialect of the spice file read.
+
+        This is either set on init, or detected
+        """
 
         self.verbose = kwargs.get("verbose", True)
 
@@ -436,22 +413,24 @@ class RawRead(object):
                 line = ""
             else:
                 line += ch_str
-        self.aliases: Dict[str, str] = (
-            {}
-        )  # QSpice defines aliases for some of the traces that can be computed from other traces.
-        self.spice_params: Dict[str, str] = (
-            {}
-        )  # QSpice stores param values in the .raw file. They may have some usage later for
+        # QSpice defines aliases for some of the traces that can be computed from
+        # other traces.
+        self.aliases: Dict[str, str] = ({})
+        # QSpice stores param values in the .raw file. They may have some usage
+        # later for
+        self.spice_params: Dict[str, str] = ({})
         # computing the aliases.
         for line in header:
             if line.startswith("."):  # This is either a .param or a .alias
                 if line.startswith(".param"):
-                    # This is a .param line which format as the following pattern ".param temp=27"
+                    # This is a .param line which format as the following pattern
+                    # ".param temp=27"
                     _, _, line = line.partition(".param")
                     k, _, v = line.partition("=")
                     self.spice_params[k.strip()] = v.strip()
                 elif line.startswith(".alias"):
-                    # This is a .param line which format as the following pattern ".alias I(R2) (0.0001mho*V(n01,out))"
+                    # This is a .param line which format as the following pattern
+                    # ".alias I(R2) (0.0001mho*V(n01,out))"
                     _, alias, formula = line.split(" ", 3)
                     self.aliases[alias.strip()] = formula.strip()
             else:
@@ -541,9 +520,9 @@ class RawRead(object):
         self.dialect = dialect
 
         # set the specifics per dialect
-        check_raw_size = (
-            dialect != "xyce"
-        )  # Older xyce files can have a text section that follows the data section (be it ascii or binary). We need to ignore it.
+        # Older xyce files can have a text section that follows the data section
+        # (be it ascii or binary). We need to ignore it.
+        check_raw_size = (dialect != "xyce")
         always_double = (
             dialect != "ltspice"
         )  # qspice, ngspice and xyce use doubles for everything outside of AC files
@@ -574,7 +553,7 @@ class RawRead(object):
                 numerical_type = "real"
         i = header.index("Variables:")
         ivar = 0
-        for line in header[i + 1 : -1]:  # Parse the variable names
+        for line in header[i + 1: -1]:  # Parse the variable names
             line_elmts = line.lstrip().split("\t")
             if len(line_elmts) < 3:
                 raise RuntimeError(f"Invalid line in the Variables section: {line}")
@@ -602,7 +581,8 @@ class RawRead(object):
                         name, var_type, self.nPoints, self.axis, numerical_type
                     )
                 else:
-                    # If an Operation Point or Transfer Function, only one point per step
+                    # If an Operation Point or Transfer Function, only one point per
+                    # step
                     trace = TraceRead(
                         name, var_type, self.nPoints, None, numerical_type
                     )
@@ -691,7 +671,8 @@ class RawRead(object):
             else:
                 if self.verbose:
                     _logger.debug("Binary RAW file with Normal access")
-                # This is the default save after a simulation where the traces are scattered
+                # This is the default save after a simulation where the traces are
+                # scattered
                 for point in range(self.nPoints):
                     for i, var in enumerate(self._traces):
                         value = scan_functions[i](raw_file)
@@ -721,7 +702,7 @@ class RawRead(object):
                             raise RuntimeError(
                                 f"Invalid data: point is not in sequence ({point} != {int(s_point)})"
                             )
-                        value = line[len(s_point) : -1]
+                        value = line[len(s_point): -1]
                     else:
                         value = line[:-1]
 
@@ -773,12 +754,13 @@ class RawRead(object):
                 self.steps = [{"run": i + 1} for i in range(number_of_steps)]
 
             if self.steps is not None and has_axis and self.axis is not None:
-                # Individual access to the Trace Classes, this information is stored in the Axis
+                # Individual access to the Trace Classes, this information is stored in
+                # the Axis
                 self.axis._set_steps(self.steps)
 
     def get_raw_property(self, property_name=None):
-        """
-        Get a property. By default, it returns all properties defined in the RAW file.
+        """Get a property. By default, it returns all properties defined in the RAW
+        file.
 
         :param property_name: name of the property to retrieve.
         :type property_name: str
@@ -794,8 +776,7 @@ class RawRead(object):
             raise ValueError("Invalid property. Use %s" % str(self.raw_params.keys()))
 
     def get_trace_names(self):
-        """
-        Returns a list of exiting trace names of the RAW file.
+        """Returns a list of exiting trace names of the RAW file.
 
         :return: trace names
         :rtype: list[str]
@@ -804,10 +785,9 @@ class RawRead(object):
         return [trace.name for trace in self._traces] + list(self.aliases.keys())
 
     def _compute_alias(self, alias: str):
-        """
-        Constants like mho need to be replaced and  V(ref1,ref2) need to be replaced by (V(ref1)-V(ref2)) and after
-        that the aliases can be computed, using the eval() function.
-        """
+        """Constants like mho need to be replaced and  V(ref1,ref2) need to be replaced
+        by (V(ref1)-V(ref2)) and after that the aliases can be computed, using the
+        eval() function."""
         formula = self.aliases[alias]
         # converting V(ref1, ref2) to (V(ref1)-V(ref2))
         formula = re.sub(r"V\((\w+),0\)", r"V(\1)", formula)
@@ -816,7 +796,8 @@ class RawRead(object):
         # converting V(ref1) to V__ref1__ and I(ref1) to I__ref1__
         formula = re.sub(r"(V|I|P)\((\w+)\)", r"\1__\2__", formula)
 
-        # removing the mho or other constants ex:  (0.0001mho*V(0,n01)) -> (0.0001*V(0,n01))
+        # removing the mho or other constants ex:  (0.0001mho*V(0,n01)) ->
+        # (0.0001*V(0,n01))
         formula = re.sub(r"(\d+)((mho)|(ohm))", r"\1", formula)
         if alias.startswith("I("):
             whattype = "current"
@@ -848,8 +829,7 @@ class RawRead(object):
         return trace
 
     def get_trace(self, trace_ref: Union[str, int]):
-        """
-        Retrieves the trace with the requested name (trace_ref).
+        """Retrieves the trace with the requested name (trace_ref).
 
         :param trace_ref: Name of the trace or the index of the trace
         :type trace_ref: str or int
@@ -875,8 +855,8 @@ class RawRead(object):
             return self._traces[trace_ref]
 
     def get_wave(self, trace_ref: Union[str, int], step: int = 0):
-        """
-        Retrieves the trace data with the requested name (trace_ref), optionally providing the step number.
+        """Retrieves the trace data with the requested name (trace_ref), optionally
+        providing the step number.
 
         :param trace_ref: Name of the trace or the index of the trace
         :type trace_ref: str or int
@@ -889,19 +869,18 @@ class RawRead(object):
         return self.get_trace(trace_ref).get_wave(step)
 
     def get_time_axis(self, step: int = 0):
-        """
-        .. deprecated:: 1.0 Use `get_axis()` method instead.
+        """.. deprecated:: 1.0 Use `get_axis()` method instead.
 
-        This function is equivalent to get_trace('time').get_time_axis(step) instruction.
-        It's workaround on a LTSpice issue when using 2nd Order compression, where some values on
-        the time trace have a negative value."""
+        This function is equivalent to get_trace('time').get_time_axis(step)
+        instruction. It's workaround on a LTSpice issue when using 2nd Order
+        compression, where some values on the time trace have a negative value.
+        """
         return self.get_trace("time").get_time_axis(step)
 
     def get_axis(self, step: int = 0) -> Union[NDArray, List[float]]:
-        """
-        This function is equivalent to get_trace(0).get_wave(step) instruction.
-        It also implements a workaround on a LTSpice issue when using 2nd Order compression, where some values on
-        the time trace have a negative value.
+        """This function is equivalent to get_trace(0).get_wave(step) instruction. It
+        also implements a workaround on a LTSpice issue when using 2nd Order
+        compression, where some values on the time trace have a negative value.
 
         :param step: Step number, defaults to 0
         :type step: int, optional
@@ -917,8 +896,7 @@ class RawRead(object):
             raise RuntimeError("This RAW file does not have an axis.")
 
     def get_len(self, step: int = 0) -> int:
-        """
-        Returns the length of the data at the give step index.
+        """Returns the length of the data at the give step index.
 
         :param step: the step index, defaults to 0
         :type step: int, optional
@@ -932,7 +910,8 @@ class RawRead(object):
     def _load_step_information(self, filename: Path):
         if "Command" not in self.raw_params:
             # probably ngspice before v44 or xyce. And anyway, ngspice does not support the '.step' directive
-            # FYI: ngspice can do something like .step via a control section with while loop.
+            # FYI: ngspice can do something like .step via a control section with
+            # while loop.
             raise SpiceReadException(
                 "Unsupported simulator. Only LTspice and QSPICE are supported."
             )
@@ -1015,19 +994,19 @@ class RawRead(object):
         return self.get_trace(item)
 
     def get_steps(self, **kwargs):
-        """Returns the steps that correspond to the query set in the `**kwargs` parameters.
-        Example: ::
+        """Returns the steps that correspond to the query set in the `**kwargs`
+        parameters. Example: ::
 
-            raw_read.get_steps(V5=1.2, TEMP=25)
+        raw_read.get_steps(V5=1.2, TEMP=25)
 
-        This will return all steps in which the voltage source V5 was set to 1.2V and the TEMP parameter is 24 degrees.
-        This feature is only possible if a .log file with the same name as the .raw file exists in the same directory.
-        Note: the correspondence between step numbers and .STEP information is stored on the .log file.
+        This will return all steps in which the voltage source V5 was set to 1.2V and
+        the TEMP parameter is 24 degrees. This feature is only possible if a .log file
+        with the same name as the .raw file exists in the same directory. Note: the
+        correspondence between step numbers and .STEP information is stored on the .log
+        file.
 
-        :key kwargs:
-         key-value arguments in which the key correspond to a stepped parameter or source name, and the value is the
-         stepped value.
-
+        :key kwargs: key-value arguments in which the key correspond to a stepped
+            parameter or source name, and the value is the stepped value.
         :return: The steps that match the query
         :rtype: list[int]
         """
@@ -1057,9 +1036,9 @@ class RawRead(object):
         step: Union[int, List[int]] = -1,
         **kwargs,
     ) -> Dict[str, list]:
-        """
-        Returns a native python class structure with the requested trace data and steps.
-        It consists of an ordered dictionary where the columns are the keys and the values are lists with the data.
+        """Returns a native python class structure with the requested trace data and
+        steps. It consists of an ordered dictionary where the columns are the keys and
+        the values are lists with the data.
 
         This function is used by the export functions.
 
@@ -1068,7 +1047,7 @@ class RawRead(object):
         :param columns: List of traces to use as columns. Default is all traces
         :type columns: list
         :param kwargs: Additional arguments to pass to the pandas.DataFrame constructor
-        :type kwargs: ``**dict``
+        :type kwargs:``**dict``
         :return: A pandas DataFrame
         :rtype: pandas.DataFrame
         """
@@ -1117,15 +1096,14 @@ class RawRead(object):
         step: Union[int, List[int]] = -1,
         **kwargs,
     ):
-        """
-        Returns a pandas DataFrame with the requested data.
+        """Returns a pandas DataFrame with the requested data.
 
         :param step: Step number to retrieve. If not given, it
         :type step: int
         :param columns: List of traces to use as columns. Default is all traces
         :type columns: list
         :param kwargs: Additional arguments to pass to the pandas.DataFrame constructor
-        :type kwargs: ``**dict``
+        :type kwargs:``**dict``
         :return: A pandas DataFrame
         :rtype: pandas.DataFrame
         """
@@ -1147,8 +1125,7 @@ class RawRead(object):
         separator=",",
         **kwargs,
     ):
-        """
-        Saves the data to a CSV file.
+        """Saves the data to a CSV file.
 
         :param filename: Name of the file to save the data to
         :type filename: str
@@ -1158,8 +1135,9 @@ class RawRead(object):
         :type step: int
         :param separator: separator to use in the CSV file
         :type separator: str
-        :param kwargs: Additional arguments to pass to the pandas.DataFrame.to_csv function
-        :type kwargs: ``**dict``
+        :param kwargs: Additional arguments to pass to the pandas.DataFrame.to_csv
+            function
+        :type kwargs:``**dict``
         """
         try:
             # Import pandas with alias to make usage explicit for linters
@@ -1187,17 +1165,18 @@ class RawRead(object):
         step: Union[int, List[int]] = -1,
         **kwargs,
     ):
-        """
-        Saves the data to an Excel file.
+        """Saves the data to an Excel file.
 
         :param filename: Name of the file to save the data to
         :type filename: Union[str, Path]
-        :param columns: List of traces to use as columns. Default is None, meaning all traces
+        :param columns: List of traces to use as columns. Default is None, meaning all
+            traces
         :type columns: list, optional
         :param step: Step number to retrieve, defaults to -1
         :type step: Union[int, List[int]], optional
-        :param kwargs: Additional arguments to pass to the pandas.DataFrame.to_excel function
-        :type kwargs: ``**dict``
+        :param kwargs: Additional arguments to pass to the pandas.DataFrame.to_excel
+            function
+        :type kwargs:``**dict``
         :raises ImportError: when the 'pandas' module is not installed
         """
         try:

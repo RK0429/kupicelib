@@ -18,46 +18,35 @@
 # Created:     17-01-2017
 # Licence:     refer to the LICENSE file
 # -------------------------------------------------------------------------------
-"""
-This module uses matplotlib to plot a histogram of a gaussian distribution and calculates the project n-sigma interval.
+"""This module uses matplotlib to plot a histogram of a gaussian distribution and
+calculates the project n-sigma interval.
 
-The data can either be retrieved from the clipboard or from a text file. Use the following command line text to call
-this module.
+The data can either be retrieved from the clipboard or from a text file. Use the
+following command line text to call this module.
 
 .. code-block:: text
 
-    python -m kupicelib.Histogram [options] [data_file] TRACE
+python -m kupicelib.Histogram [options] [data_file] TRACE
 
 The help can be obtained by calling the script without arguments
 
 .. code-block:: text
 
-    Usage: histogram.py [options] LOG_FILE TRACE
+Usage: histogram.py [options] LOG_FILE TRACE
 
-    Options:
-      --version             show program's version number and exit
-      -h, --help            show this help message and exit
-      -s SIGMA, --sigma=SIGMA
-                            Sigma to be used in the distribution fit. Default=3
-      -n NBINS, --nbins=NBINS
-                            Number of bins to be used in the histogram. Default=20
-      -c FILTERS, --condition=FILTERS
-                            Filter condition writen in python. More than one
-                            expression can be added but each expression should be
-                            preceded by -c. EXAMPLE: -c V(N001)>4 -c parameter==1
-                            -c  I(V1)<0.5
-      -f FORMAT, --format=FORMAT
-                            Format string for the X axis. Example: -f %3.4f
-      -t TITLE, --title=TITLE
-                            Title to appear on the top of the histogram.
-      -r RANGE, --range=RANGE
-                            Range of the X axis to use for the histogram in the
-                            form min:max. Example: -r -1:1
-      -C, --clipboard       If the data from the clipboard is to be used.
-      -i IMAGEFILE, --image=IMAGEFILE
-                            Name of the image File. extension 'png'
-
-
+Options:   --version             show program's version number and exit   -h, --help
+show this help message and exit   -s SIGMA, --sigma=SIGMA                         Sigma
+to be used in the distribution fit. Default=3   -n NBINS, --nbins=NBINS Number of bins
+to be used in the histogram. Default=20   -c FILTERS, --condition=FILTERS Filter
+condition writen in python. More than one                         expression can be
+added but each expression should be                         preceded by -c. EXAMPLE: -c
+V(N001)>4 -c parameter==1                         -c  I(V1)<0.5   -f FORMAT,
+--format=FORMAT                         Format string for the X axis. Example: -f %3.4f
+-t TITLE, --title=TITLE                         Title to appear on the top of the
+histogram.   -r RANGE, --range=RANGE                         Range of the X axis to use
+for the histogram in the                         form min:max. Example: -r -1:1   -C,
+--clipboard       If the data from the clipboard is to be used.   -i IMAGEFILE,
+--image=IMAGEFILE                         Name of the image File. extension 'png'
 """
 __author__ = "Nuno Canto Brum <me@nunobrum.com>"
 __copyright__ = "Copyright 2017, Fribourg Switzerland"
@@ -101,8 +90,8 @@ def main():
         type="string",
         dest="filters",
         help="Filter condition writen in python. More than one expression can be added but each expression "
-        "should be preceded by -c.\n"
-        + "EXAMPLE: -c V(N001)>4 -c parameter==1 -c I(V1)<0.5"
+        "should be preceded by -c.\n" +
+        "EXAMPLE: -c V(N001)>4 -c parameter==1 -c I(V1)<0.5"
         "Note: whe parsing log files, the > and < operators are not supported.",
     )
     opts.add_option(
@@ -202,9 +191,8 @@ def main():
                 log = LTSpiceLogReader(logfile)
             except EncodingDetectError:
                 print(
-                    "Failed to load file '%s'. Use ltsteps first to convert to tlog format"
-                    % logfile
-                )
+                    "Failed to load file '%s'. Use ltsteps first to convert to tlog format" %
+                    logfile)
                 exit(-1)
             else:
                 if options.filters is None:
@@ -273,8 +261,7 @@ def main():
     elif len(values) < options.nbins:
         print(
             "Not enough elements for an histogram."
-            f"Only found {len(values)} elements. Histogram is specified for {options.nbins} bins"
-        )
+            f"Only found {len(values)} elements. Histogram is specified for {options.nbins} bins")
     else:
         x = np.array(values, dtype=float)
         mu = x.mean()

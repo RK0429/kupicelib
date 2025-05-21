@@ -21,7 +21,7 @@
 
 
 def main():
-    """Uses matplotlib to plot the data in the raw file"""
+    """Uses matplotlib to plot the data in the raw file."""
     import sys
 
     import matplotlib
@@ -33,7 +33,7 @@ def main():
     from kupicelib import RawRead
 
     def what_to_units(whattype):
-        """Determines the unit to display on the plot Y axis"""
+        """Determines the unit to display on the plot Y axis."""
         if "voltage" in whattype:
             return "V"
         if "current" in whattype:

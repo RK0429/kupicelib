@@ -20,7 +20,8 @@ wca = WorstCaseAnalysis(sallenkey, runner)  # Instantiates the Worst Case Analys
 # The following lines set the default tolerances for the components
 wca.set_tolerance("R", 0.01)  # 1% tolerance
 wca.set_tolerance("C", 0.1)  # 10% tolerance
-# wca.set_tolerance('V', 0.1)  # 10% tolerance. For Worst Case analysis, the distribution is irrelevant
+# wca.set_tolerance('V', 0.1)  # 10% tolerance. For Worst Case analysis,
+# the distribution is irrelevant
 wca.set_tolerance(
     "I", 0.1
 )  # 10% tolerance. For Worst Case analysis, the distribution is irrelevant

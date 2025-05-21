@@ -1,16 +1,19 @@
 # coding=utf-8
 
-import sys
-
-sys.path.insert(0, "..")  # This is to allow the import from the kupicelib folder
-from kupicelib import SimRunner, SpiceEditor
 from kupicelib.sim.process_callback import (
     ProcessCallback,  # Importing the ProcessCallback class type
 )
+from kupicelib import SimRunner, SpiceEditor
+import sys
+
+sys.path.insert(0, "..")  # This is to allow the import from the kupicelib folder
 
 
 class CallbackProc(ProcessCallback):
-    """Class encapsulating the callback function. It can have whatever name."""
+    """Class encapsulating the callback function.
+
+    It can have whatever name.
+    """
 
     @staticmethod
     def callback(raw_file, log_file):

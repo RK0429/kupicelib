@@ -28,7 +28,7 @@ __all__ = ["sweep", "sweep_n", "sweep_log", "sweep_log_n"]
 
 
 class BaseIterator(object):
-    """Common implementation to all Iterator classes"""
+    """Common implementation to all Iterator classes."""
 
     def __init__(
         self,
@@ -57,8 +57,8 @@ class BaseIterator(object):
 
 
 class sweep(BaseIterator):
-    """
-    Generator function to be used in sweeps.
+    """Generator function to be used in sweeps.
+
     Advantages towards the range python built-in functions
     - Supports floating point arguments
     - Supports both up and down sweeps
@@ -103,8 +103,9 @@ class sweep(BaseIterator):
 def sweep_n(
     start: Union[int, float], stop: Union[int, float], N: int
 ) -> Iterable[float]:
-    """Helper function.
-    Generator function that generates a 'N' number of points between a start and a stop interval.
+    """Helper function. Generator function that generates a 'N' number of points between
+    a start and a stop interval.
+
     Advantages towards the range python built-in functions
     - Supports floating point arguments
     - Supports both up and down sweeps-
@@ -118,8 +119,8 @@ def sweep_n(
 
 
 class sweep_log(BaseIterator):
-    """
-    Generator function to be used in logarithmic sweeps.
+    """Generator function to be used in logarithmic sweeps.
+
     Advantages towards the range python built-in functions_
     - Supports floating point arguments
     - Supports both up and down sweeps.
@@ -169,8 +170,9 @@ class sweep_log(BaseIterator):
 
 
 class sweep_log_n(BaseIterator):
-    """Helper function.
-    Generator function that generates a 'N' number of points between a start and a stop interval.
+    """Helper function. Generator function that generates a 'N' number of points between
+    a start and a stop interval.
+
     Advantages towards the range python built-in functions
     - Supports floating point arguments
     - Supports both up and down sweeps-

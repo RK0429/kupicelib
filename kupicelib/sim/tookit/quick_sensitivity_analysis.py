@@ -29,7 +29,7 @@ _logger = logging.getLogger("kupicelib.SimAnalysis")
 
 
 class QuickSensitivityAnalysis(ToleranceDeviations):
-    """Class to automate Sensitivity simulations"""
+    """Class to automate Sensitivity simulations."""
 
     def __init__(
         self, circuit_file: Union[str, BaseEditor], runner: Optional[AnyRunner] = None
@@ -37,7 +37,7 @@ class QuickSensitivityAnalysis(ToleranceDeviations):
         super().__init__(circuit_file, runner)
 
     def prepare_testbench(self, **kwargs):
-        """Prepares the simulation by setting the tolerances for each component"""
+        """Prepares the simulation by setting the tolerances for each component."""
         no = 0
         self.elements_analysed.clear()
         use_min = kwargs.get("use_min", False)
@@ -72,17 +72,22 @@ class QuickSensitivityAnalysis(ToleranceDeviations):
     def get_sensitivity_data(
         self, ref: str, measure: str
     ) -> Union[float, Dict[str, float], None]:
-        """
-        Returns the sensitivity data for a given component and measurement in terms of percentage of the total error.
-        This quick approach is not very accurate, but it is fast. It assumes that the system is linear and that the
-        maximum error is the sum of the absolute error of each component. This is a rough approximation, but it is
-        good enough for a quick analysis. For more accurate results, use the Worst Case Analysis, which requires
-        more simulation runs but gives a more accurate result.
-        The best compromise, is to start with the quick analysis and then use the Worst Case Analysis to refine the
-        results with only the components that have a significant contribution to the error.
-        :param ref: The reference component, or '*' to return a dictionary with all the components
+        """Returns the sensitivity data for a given component and measurement in terms
+        of percentage of the total error.
+
+        This quick approach is not very accurate, but it is fast. It assumes that the
+        system is linear and that the maximum error is the sum of the absolute error of
+        each component. This is a rough approximation, but it is good enough for a quick
+        analysis. For more accurate results, use the Worst Case Analysis, which requires
+        more simulation runs but gives a more accurate result. The best compromise, is
+        to start with the quick analysis and then use the Worst Case Analysis to refine
+        the results with only the components that have a significant contribution to the
+        error.
+        :param ref: The reference component, or '*' to return a dictionary with all the
+            components
         :param measure: The measurement to be analysed
-        :return: The sensitivity data in percentage of the total error for the reference component
+        :return: The sensitivity data in percentage of the total error for the reference
+            component
         """
         if (
             self.testbench_prepared
@@ -121,8 +126,7 @@ class QuickSensitivityAnalysis(ToleranceDeviations):
         else:
             _logger.warning(
                 "The analysis was not executed. Please run the run_analysis(...) or run_testbench(...)"
-                " before calling this method"
-            )
+                " before calling this method")
             return None
 
     def run_analysis(
@@ -195,7 +199,8 @@ class QuickSensitivityAnalysis(ToleranceDeviations):
         )
         last_bit_setting = 0
         for run in range(last_run_number):
-            # Preparing the variation on components, but only on the ones that have changed
+            # Preparing the variation on components, but only on the ones that have
+            # changed
             bit_setting = 2**run
             bit_updated = bit_setting ^ last_bit_setting
             bit_index = 0

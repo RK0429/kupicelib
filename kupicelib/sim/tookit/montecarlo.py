@@ -30,40 +30,45 @@ _logger = logging.getLogger("kupicelib.SimAnalysis")
 
 
 class Montecarlo(ToleranceDeviations):
-    """
-    Class to automate Montecarlo simulations, where component values and parameters are replaced by a random
-    distribution (either a gaussian or a uniform distribution).
+    """Class to automate Montecarlo simulations, where component values and parameters
+    are replaced by a random distribution (either a gaussian or a uniform distribution).
 
-    This is a statistical method, hence, it needs a considerable number of simulations to achieve a final
-    gaussian distribution in order to apply this method. If the number of parameters and component values is
-    low, it is better to use a Worst-Case approach.
+    This is a statistical method, hence, it needs a considerable number of simulations
+    to achieve a final gaussian distribution in order to apply this method. If the
+    number of parameters and component values is low, it is better to use a Worst-Case
+    approach.
 
-    Like the Worst-Case and Sensitivity analysis, there are two possible approaches to use this class:
+    Like the Worst-Case and Sensitivity analysis, there are two possible approaches to
+    use this class:
 
-    Class to automate Worst-Case simulations, where all possible combinations of maximum and minimums
-    possible values of component values and parameters are done.
+    Class to automate Worst-Case simulations, where all possible combinations of maximum
+    and minimums possible values of component values and parameters are done.
 
-    It is advised to use this algorithm when the number of parameters to be varied is reduced.
-    Typically less than 10 or 12. A higher number will translate into a huge number of simulations.
-    For more than 1000 simulations, it is better to use a statistical method such as the Montecarlo.
+    It is advised to use this algorithm when the number of parameters to be varied is
+    reduced. Typically less than 10 or 12. A higher number will translate into a huge
+    number of simulations. For more than 1000 simulations, it is better to use a
+    statistical method such as the Montecarlo.
 
-    Like the Worst-Case and Sensitivity analysis, there are two possible approaches to use this class:
+    Like the Worst-Case and Sensitivity analysis, there are two possible approaches to
+    use this class:
 
-        1. Preparing a testbench where all combinations are managed directly by the simulator, replacing
-         parameters and component values by formulas and using a .STEP primitive to cycle through all possible
-         combinations.
+    1. Preparing a testbench where all combinations are managed directly by the
+    simulator, replacing  parameters and component values by formulas and using a .STEP
+    primitive to cycle through all possible  combinations.
 
-        2. Launching each simulation separately where the running python script manages all parameter value
-        variations.
+    2. Launching each simulation separately where the running python script manages all
+    parameter value variations.
 
-    The first approach is normally faster, but not possible in all simulators. The second approach is a valid backup
-    when every single simulation takes too long, or when it is prone to crashes and stalls.
+    The first approach is normally faster, but not possible in all simulators. The
+    second approach is a valid backup when every single simulation takes too long, or
+    when it is prone to crashes and stalls.
     """
 
     def prepare_testbench(self, **kwargs):
-        """
-        Prepares the simulation by setting the tolerances for the components
-        :keyword num_runs: Number of runs to be performed. Default is 1000.
+        """Prepares the simulation by setting the tolerances for the components :keyword
+        num_runs: Number of runs to be performed.
+
+        Default is 1000.
         :return: Nothing
         """
         min_max_uni_func = False
@@ -191,7 +196,7 @@ class Montecarlo(ToleranceDeviations):
 
     @staticmethod
     def _get_sim_value(value: float, dev: ComponentDeviation) -> float:
-        """Returns a new value for the simulation"""
+        """Returns a new value for the simulation."""
         new_val = value
         if dev.typ == DeviationType.tolerance:
             if dev.distribution == "uniform":
@@ -223,9 +228,11 @@ class Montecarlo(ToleranceDeviations):
         num_runs: int = 1000,
     ):
         """This method runs the analysis without updating the netlist.
-        It will update component values and parameters according to their deviation type and call the simulation.
-        The advantage of this method is that it doesn't require adding random functions to the netlist.
-        The number of times the simulation is done is specified on the argument num_runs.
+
+        It will update component values and parameters according to their deviation type
+        and call the simulation. The advantage of this method is that it doesn't require
+        adding random functions to the netlist. The number of times the simulation is
+        done is specified on the argument num_runs.
         """
         self.elements_analysed.clear()
         self.clear_simulation_data()
@@ -274,10 +281,11 @@ class Montecarlo(ToleranceDeviations):
 
     def analyse_measurement(self, meas_name: str):
         """Returns the measurement data for the given measurement name.
-        If the measurement is not found, it returns None
-        Note: It is up to the user to make the statistics on the data. The traditional way is to use the numpy package
-        to calculate the mean and standard deviation of the data. It is also usual to consider max and min as 3 sigma,
-        which is 99.7% of the data.
+
+        If the measurement is not found, it returns None Note: It is up to the user to
+        make the statistics on the data. The traditional way is to use the numpy package
+        to calculate the mean and standard deviation of the data. It is also usual to
+        consider max and min as 3 sigma, which is 99.7% of the data.
         """
         if not self.analysis_executed:
             _logger.warning(

@@ -35,37 +35,43 @@ class WorstCaseType(IntEnum):
 
 
 class FastWorstCaseAnalysis(WorstCaseAnalysis):
-    """
-    This class implements a faster algorithm to perform a worst case analysis. The typical worst case analysis makes
-    all possible combinations of the components that have a deviation. This means that if there are 10 components with
-    a deviation, there will be 1024 simulations to be performed. The number of simulations grows exponentially with the
-    number of components with deviation.
+    """This class implements a faster algorithm to perform a worst case analysis. The
+    typical worst case analysis makes all possible combinations of the components that
+    have a deviation. This means that if there are 10 components with a deviation, there
+    will be 1024 simulations to be performed. The number of simulations grows
+    exponentially with the number of components with deviation.
 
-    This algorithm speeds up the process, by determining the impact of each component with deviation on the final
-    result and skipping simulations that are not necessary. The algorithm is as follows:
+    This algorithm speeds up the process, by determining the impact of each component
+    with deviation on the final result and skipping simulations that are not necessary.
+    The algorithm is as follows:
 
-        1. Make a sensitivity analysis to determine the impact that each component has on the final result.
+    1. Make a sensitivity analysis to determine the impact that each component has on
+    the final result.
 
-        2. Based on the information collected on 1. set all the components with deviation achieve a maximum
-        on the final result. Components are set based on the assumption that the system is reaction is to each
-        component is monotonic. That is, if increasing the component value, increases the final result, then the
-        component is set to the maximum value. If decreasing the component value increases the final result, then the
-        component is set to the minimum value.
+    2. Based on the information collected on 1. set all the components with deviation
+    achieve a maximum on the final result. Components are set based on the assumption
+    that the system is reaction is to each component is monotonic. That is, if
+    increasing the component value, increases the final result, then the component is
+    set to the maximum value. If decreasing the component value increases the final
+    result, then the component is set to the minimum value.
 
-        3. Validate the assumption based on 2. by making a series of test simulations setting each component with their
-        opposite value. If the result is lower, then the assumption is correct. If the result is higher, then the
-        assumption is wrong and the component is set to the opposite value.
+    3. Validate the assumption based on 2. by making a series of test simulations
+    setting each component with their opposite value. If the result is lower, then the
+    assumption is correct. If the result is higher, then the assumption is wrong and the
+    component is set to the opposite value.
 
-        4. Repeat 2. but this time trying to achieve a minimum on the final result.
+    4. Repeat 2. but this time trying to achieve a minimum on the final result.
 
-        5. Repeat step 3. but this time trying to achieve a minimum on the final result.
+    5. Repeat step 3. but this time trying to achieve a minimum on the final result.
 
-    Like in the Worst-Case and Montecarlo, there are two approaches to make this analysis. Either preparing a testbench
-    where component variations are managed by the simulator, or by ordering each simulation individually.
-    In the testbench method all component values are replaced by formulas that depend on a .STEP PARAM run, and
-    then run_testbench() will make all the manipulations of the run variable.
+    Like in the Worst-Case and Montecarlo, there are two approaches to make this
+    analysis. Either preparing a testbench where component variations are managed by the
+    simulator, or by ordering each simulation individually. In the testbench method all
+    component values are replaced by formulas that depend on a .STEP PARAM run, and then
+    run_testbench() will make all the manipulations of the run variable.
 
-    In the latter, each component value is set individually. This is done by calling the run_analysis() method.
+    In the latter, each component value is set individually. This is done by calling the
+    run_analysis() method.
     """
 
     def run_testbench(
@@ -91,9 +97,8 @@ class FastWorstCaseAnalysis(WorstCaseAnalysis):
         exe_log: bool = True,
         measure: Optional[str] = None,
     ) -> Tuple[float, float, Dict[str, float], float, Dict[str, float]]:
-        """
-        As described in the class description, this method will perform a worst case analysis using a faster algorithm.
-        """
+        """As described in the class description, this method will perform a worst case
+        analysis using a faster algorithm."""
         assert measure is not None, "The measure argument must be defined"
 
         self.clear_simulation_data()
@@ -110,11 +115,13 @@ class FastWorstCaseAnalysis(WorstCaseAnalysis):
             self.elements_analysed.append(ref1)
 
         def value_change(val, dev, to: WorstCaseType):
+            """Sets the reference component to the maximum value if set_max is True, or
+            to the minimum value if set_max is False.
+
+            This method is used by the run_analysis() method.
             """
-            Sets the reference component to the maximum value if set_max is True, or to the minimum value if set_max is
-            False. This method is used by the run_analysis() method.
-            """
-            # Preparing the variation on components, but only on the ones that have changed
+            # Preparing the variation on components, but only on the ones that have
+            # changed
             if dev.typ == DeviationType.tolerance:
                 if to == WorstCaseType.max:
                     new_val = val * (1 + dev.max_val)
@@ -207,7 +214,8 @@ class FastWorstCaseAnalysis(WorstCaseAnalysis):
             exe_log=exe_log,
         )
 
-        # Sequence a change of a component value at a time, setting it to the maximum value
+        # Sequence a change of a component value at a time, setting it to the
+        # maximum value
         for ref in self.elements_analysed:
             set_ref_to(ref, WorstCaseType.max)
             # Run the simulation
@@ -259,7 +267,8 @@ class FastWorstCaseAnalysis(WorstCaseAnalysis):
         else:
             max_value = new_measure
 
-        # Check if the assumption is correct. Cycling each component to its opposite value
+        # Check if the assumption is correct. Cycling each component to its
+        # opposite value
         iterator = iter(self.elements_analysed)
         while True:
             try:
@@ -289,7 +298,8 @@ class FastWorstCaseAnalysis(WorstCaseAnalysis):
             else:
                 set_ref_to(ref, WorstCaseType.min)
 
-        # Now determining the minimum value: Assuming the opposite of the maximum setting
+        # Now determining the minimum value: Assuming the opposite of the maximum
+        # setting
         min_setting = {ref: not max_setting[ref] for ref in max_setting}
 
         # Set the component back to their opposite value
@@ -304,7 +314,8 @@ class FastWorstCaseAnalysis(WorstCaseAnalysis):
         min_value = run_and_get_measure()
         idx += 1
 
-        # Check if the assumption is correct. Cycling each component to its opposite value
+        # Check if the assumption is correct. Cycling each component to its
+        # opposite value
         iterator = iter(self.elements_analysed)
         while True:
             try:
@@ -332,7 +343,8 @@ class FastWorstCaseAnalysis(WorstCaseAnalysis):
             else:
                 set_ref_to(ref, WorstCaseType.min)
 
-        # Now that we have the maximum and minimum values, we can set the components to the nominal value
+        # Now that we have the maximum and minimum values, we can set the
+        # components to the nominal value
         min_comp_values = {}
         max_comp_values = {}
         for ref in self.elements_analysed:

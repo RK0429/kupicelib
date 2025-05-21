@@ -18,6 +18,12 @@
 # Licence:     refer to the LICENSE file
 # -------------------------------------------------------------------------------
 
+from kupicelib.utils.sweep_iterators import (  # Python Script under test
+    sweep,
+    sweep_log,
+    sweep_log_n,
+    sweep_n,
+)
 import os  # platform independent paths
 
 # Python Libs
@@ -29,12 +35,6 @@ import unittest  # performs test
 sys.path.append(
     os.path.abspath((os.path.dirname(os.path.abspath(__file__)) + "/../"))
 )  # add project root to lib search path
-from kupicelib.utils.sweep_iterators import (  # Python Script under test
-    sweep,
-    sweep_log,
-    sweep_log_n,
-    sweep_n,
-)
 
 # ------------------------------------------------------------------------------
 
@@ -42,9 +42,7 @@ from kupicelib.utils.sweep_iterators import (  # Python Script under test
 class test_sweep_iterators(unittest.TestCase):
 
     def test_iterator_objects(self):
-        """
-        @note  iterator_objects
-        """
+        """@note  iterator_objects."""
         # *****************************
         # check
         self.assertListEqual(list(sweep(10)), [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10])

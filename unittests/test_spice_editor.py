@@ -18,6 +18,9 @@
 # Licence:     refer to the LICENSE file
 # -------------------------------------------------------------------------------
 
+from kupicelib.editor.spice_editor import component_replace_regexs
+from kupicelib.editor.base_editor import to_float
+import kupicelib
 import os
 import sys
 import unittest
@@ -26,9 +29,6 @@ sys.path.append(
     os.path.abspath((os.path.dirname(os.path.abspath(__file__)) + "/../"))
 )  # add project root to lib search path
 
-import kupicelib
-from kupicelib.editor.base_editor import to_float
-from kupicelib.editor.spice_editor import component_replace_regexs
 
 test_dir = (
     "../examples/testfiles/"
@@ -253,7 +253,7 @@ class SpiceEditor_Test(unittest.TestCase):
             )
 
     def test_resistors(self):
-        """Validates the RegEx expressions on the Spice Editor file"""
+        """Validates the RegEx expressions on the Spice Editor file."""
 
         # Resistors
         regex_r = component_replace_regexs["R"]
@@ -447,25 +447,22 @@ class SpiceEditor_Test(unittest.TestCase):
         )
 
     def test_subcircuits_edit(self):
-        """Test subcircuits editing in the Spice Editor.
-        The input is based on a top circuit plus a subcircuit that is not in a library.
-        It uses the exact same tests as in test_asc_editor.py:test_subcircuits_edit():
+        """Test subcircuits editing in the Spice Editor. The input is based on a top
+        circuit plus a subcircuit that is not in a library. It uses the exact same tests
+        as in test_asc_editor.py:test_subcircuits_edit():
 
-        * Check the subcomponent list
-        * test various methods of reading and changing the value of a component
-          * get_component_value() on a compound component name
-          * get_subcircuit().get_component_value()
-          * get_component_floatvalue()
-          * array access
-            * value_str
-            * value
-        * adding extra parameters
-        * writing to a new file
+        * Check the subcomponent list * test various methods of reading and changing the
+        value of a component   * get_component_value() on a compound component name   *
+        get_subcircuit().get_component_value()   * get_component_floatvalue()   * array
+        access     * value_str     * value * adding extra parameters * writing to a new
+        file
         """
-        # It requires an input file in UTF-8, as otherwise the µ character is not recognized when doing equalFiles
+        # It requires an input file in UTF-8, as otherwise the µ character is not
+        # recognized when doing equalFiles
 
         sc = "XX1"  # need an extra X here, as I'm in SpiceEditor, and not in AscEditor
-        # load the file here, as this is somewhat tricky, and I don't want to block the other tests too early
+        # load the file here, as this is somewhat tricky, and I don't want to
+        # block the other tests too early
         my_edt = kupicelib.editor.spice_editor.SpiceEditor(test_dir + "top_circuit.net")
 
         self.assertEqual(
@@ -527,7 +524,8 @@ class SpiceEditor_Test(unittest.TestCase):
             msg="Subcircuit Value for X1:L1, after 2nd change, float comparison",
         )
 
-        # now change the value to 4uH, because I don't want to deal with the µ character in equalFiles().
+        # now change the value to 4uH, because I don't want to deal with the µ
+        # character in equalFiles().
         my_edt.get_subcircuit(sc)[
             "L1"
         ].value = "4uH"  # set string value via indirect method

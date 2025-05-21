@@ -18,6 +18,7 @@
 # Licence:     refer to the LICENSE file
 # -------------------------------------------------------------------------------
 
+import kupicelib
 import os
 import sys
 import unittest
@@ -26,7 +27,6 @@ sys.path.append(
     os.path.abspath((os.path.dirname(os.path.abspath(__file__)) + "/../"))
 )  # add project root to lib search path
 
-import kupicelib
 
 # import logging
 
@@ -174,23 +174,19 @@ class ASC_Editor_Test(unittest.TestCase):
         )
 
     def test_subcircuits_edit(self):
-        """Test subcircuits editing in the Asc Editor.
-        The input is based on a top circuit plus a subcircuit that is not in a library.
-        It uses the exact same tests as in test_spice_editor.py:test_subcircuits_edit():
+        """Test subcircuits editing in the Asc Editor. The input is based on a top
+        circuit plus a subcircuit that is not in a library. It uses the exact same tests
+        as in test_spice_editor.py:test_subcircuits_edit():
 
-        * Check the subcomponent list
-        * test various methods of reading and changing the value of a component
-          * get_component_value() on a compound component name
-          * get_subcircuit().get_component_value()
-          * get_component_floatvalue()
-          * array access
-            * value_str
-            * value
-        * adding extra parameters
-        * writing to a new file
+        * Check the subcomponent list * test various methods of reading and changing the
+        value of a component   * get_component_value() on a compound component name   *
+        get_subcircuit().get_component_value()   * get_component_floatvalue()   * array
+        access     * value_str     * value * adding extra parameters * writing to a new
+        file
         """
         sc = "X1"
-        # load the file here, as this is somewhat tricky, and I don't want to block the other tests too early
+        # load the file here, as this is somewhat tricky, and I don't want to
+        # block the other tests too early
         my_edt = kupicelib.editor.asc_editor.AscEditor(test_dir + "top_circuit.asc")
 
         self.assertEqual(
@@ -252,7 +248,8 @@ class ASC_Editor_Test(unittest.TestCase):
             msg="Subcircuit Value for X1:L1, after 2nd change, float comparison",
         )
 
-        # now change the value to 4uH, because I don't want to deal with the µ character in equalFiles().
+        # now change the value to 4uH, because I don't want to deal with the µ
+        # character in equalFiles().
         my_edt.get_subcircuit(sc)[
             "L1"
         ].value = "4uH"  # set string value via indirect method
@@ -316,8 +313,10 @@ class ASC_Editor_Test(unittest.TestCase):
         )
 
     def test_subcircuit_block_in_lib(self):
-        """Test subcircuit editing in the Asc Editor, with the component in a BLOCK and library."""
-        # load the file here, as this is somewhat tricky, and I don't want to block the other tests too early
+        """Test subcircuit editing in the Asc Editor, with the component in a BLOCK and
+        library."""
+        # load the file here, as this is somewhat tricky, and I don't want to
+        # block the other tests too early
         my_edt = kupicelib.editor.asc_editor.AscEditor(test_dir + "testcomp1.asc")
         self.assertAlmostEqual(
             my_edt["U1:R1"].value,
@@ -337,7 +336,7 @@ class ASC_Editor_Test(unittest.TestCase):
         )
         try:
             my_edt["U1:R1"].value = 330
-        except:
+        except BaseException:
             pass
         self.assertAlmostEqual(
             my_edt["U1:R1"].value,
@@ -346,11 +345,14 @@ class ASC_Editor_Test(unittest.TestCase):
         )
 
         # my_edt.save_netlist(temp_dir + "testcomp2_edit.asc")
-        # A test of the saved file is not really useful, because the subcircuit value changes are not saved.
+        # A test of the saved file is not really useful, because the subcircuit
+        # value changes are not saved.
 
     def test_subcircuit_cell_in_lib(self):
-        """Test subcircuit editing in the Asc Editor, with the component in a CELL and library."""
-        # load the file here, as this is somewhat tricky, and I don't want to block the other tests too early
+        """Test subcircuit editing in the Asc Editor, with the component in a CELL and
+        library."""
+        # load the file here, as this is somewhat tricky, and I don't want to
+        # block the other tests too early
         my_edt = kupicelib.editor.asc_editor.AscEditor(test_dir + "testcomp2.asc")
         self.assertAlmostEqual(
             my_edt["U1:R1"].value,
@@ -368,7 +370,7 @@ class ASC_Editor_Test(unittest.TestCase):
         )
         try:
             my_edt["U1:R1"].value = 330
-        except:
+        except BaseException:
             pass
         self.assertAlmostEqual(
             my_edt["U1:R1"].value,
@@ -377,10 +379,11 @@ class ASC_Editor_Test(unittest.TestCase):
         )
 
         # my_edt.save_netlist(temp_dir + "testcomp2_edit.asc")
-        # A test of the saved file is not really useful, because the subcircuit value changes are not saved.
+        # A test of the saved file is not really useful, because the subcircuit
+        # value changes are not saved.
 
     def test_version_4_1(self):
-        """Test file with 'Version 4.1'"""
+        """Test file with 'Version 4.1'."""
         my_edt = kupicelib.editor.asc_editor.AscEditor(test_dir + "testcomp_4_1.asc")
 
     def equalFiles(self, file1, file2):

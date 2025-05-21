@@ -32,8 +32,8 @@ _logger = logging.getLogger("kupicelib.QSpiceSimulator")
 
 
 class Qspice(Simulator):
-    """Stores the simulator location and command line options and is responsible for generating netlists and running
-    simulations."""
+    """Stores the simulator location and command line options and is responsible for
+    generating netlists and running simulations."""
 
     raw_extension = ".qraw"
     """:meta private:"""
@@ -61,13 +61,15 @@ class Qspice(Simulator):
 
     if sys.platform == "linux" or sys.platform == "darwin":
         # status mid 2024: Qspice has limited support for running under linux+wine, and none for MacOS+wine
-        # TODO: when the situation gets more mature, add support for wine. See LTspice for an example.
+        # TODO: when the situation gets more mature, add support for wine. See
+        # LTspice for an example.
         spice_exe = []
         process_name = ""
     else:  # Windows (well, also aix, wasi, emscripten,... where it will fail.)
         for exe in _spice_exe_win_paths:
             if exe.startswith("~"):
-                # expand here, as I use _spice_exe_win_paths also for linux, and expanding earlier will fail
+                # expand here, as I use _spice_exe_win_paths also for linux, and
+                # expanding earlier will fail
                 exe = os.path.expanduser(exe)
             if os.path.exists(exe):
                 spice_exe = [exe]
@@ -113,18 +115,19 @@ class Qspice(Simulator):
 
     @classmethod
     def valid_switch(cls, switch: str, path: str = "") -> list:
-        """
-        Validates a command line switch. The following options are available for QSPICE:
+        """Validates a command line switch. The following options are available for
+        QSPICE:
 
-        * `-ASCII`: Use ASCII file format for the output data(.qraw) file.
-        * `-binary`: Use binary file format for the output data(.qraw) file.
-        * `-BSIM1`: Use the charge-conserving BSIM1 charge model for MOS1, MOS2, and MOS3.
-        * `-Meyer`: Use the Meyer Capacitance model for MOS1, MOS2, and MOS3.
-        * `-ProtectSelections <path>`: Protect sections marked with .prot/.unprot with encryption.
-        * `-ProtectSubcircuits <path>`: Protect the body of subcircuits with encryption.
-        * `-r <path>`: Specify the name of the output data(.qraw) file.
+        * `-ASCII`: Use ASCII file format for the output data(.qraw) file. * `-binary`:
+        Use binary file format for the output data(.qraw) file. * `-BSIM1`: Use the
+        charge-conserving BSIM1 charge model for MOS1, MOS2, and MOS3. * `-Meyer`: Use
+        the Meyer Capacitance model for MOS1, MOS2, and MOS3. * `-ProtectSelections
+        <path>`: Protect sections marked with .prot/.unprot with encryption. *
+        `-ProtectSubcircuits <path>`: Protect the body of subcircuits with encryption. *
+        `-r <path>`: Specify the name of the output data(.qraw) file.
 
-        The following parameters will already be filled in by kupicelib, and cannot be set:
+        The following parameters will already be filled in by kupicelib, and cannot be
+        set:
 
         * `-o <path>`: Specify the name of a file for the console output.
 
@@ -169,26 +172,35 @@ class Qspice(Simulator):
     ) -> int:
         """Executes a Qspice simulation run.
 
-        A raw file and a log file will be generated, with the same name as the netlist file,
-        but with `.qraw` and `.log` extension. You can however change the raw file name using the `-r` switch.
+        A raw file and a log file will be generated, with the same name as the netlist
+        file, but with `.qraw` and `.log` extension. You can however change the raw file
+        name using the `-r` switch.
 
         :param netlist_file: path to the netlist file
         :type netlist_file: Union[str, Path]
-        :param cmd_line_switches: additional command line options. Best to have been validated by valid_switch(), defaults to None
+        :param cmd_line_switches: additional command line options. Best to have been
+            validated by valid_switch(), defaults to None
         :type cmd_line_switches: list, optional
-        :param timeout: If timeout is given, and the process takes too long, a TimeoutExpired exception will be raised, defaults to None
+        :param timeout: If timeout is given, and the process takes too long, a
+            TimeoutExpired exception will be raised, defaults to None
         :type timeout: float, optional
-        :param stdout: control redirection of the command's stdout. Valid values are None, subprocess.PIPE, subprocess.DEVNULL, an existing file descriptor (a positive integer),
-            and an existing file object with a valid file descriptor.
-            With the default settings of None, no redirection will occur. Also see `exe_log` for a simpler form of control.
+        :param stdout: control redirection of the command's stdout. Valid values are
+            None, subprocess.PIPE, subprocess.DEVNULL, an existing file descriptor (a
+            positive integer), and an existing file object with a valid file descriptor.
+            With the default settings of None, no redirection will occur. Also see
+            `exe_log` for a simpler form of control.
         :type stdout: _FILE, optional
-        :param stderr: Like stdout, but affecting the command's error output. Also see `exe_log` for a simpler form of control.
+        :param stderr: Like stdout, but affecting the command's error output. Also see
+            `exe_log` for a simpler form of control.
         :type stderr: _FILE, optional
-        :param exe_log: If True, stdout and stderr will be ignored, and the simulator's execution console messages will be written to a log file
-            (named ...exe.log) instead of console. This is especially useful when running under wine or when running simultaneous tasks.
+        :param exe_log: If True, stdout and stderr will be ignored, and the simulator's
+            execution console messages will be written to a log file (named ...exe.log)
+            instead of console. This is especially useful when running under wine or
+            when running simultaneous tasks.
         :type exe_log: bool, optional
         :raises SpiceSimulatorError: when the executable is not found.
-        :raises NotImplementedError: when the requested execution is not possible on this platform.
+        :raises NotImplementedError: when the requested execution is not possible on
+            this platform.
         :return: return code from the process
         :rtype: int
         """
@@ -204,9 +216,8 @@ class Qspice(Simulator):
             cmd_line_switches = []
         elif isinstance(cmd_line_switches, str):
             cmd_line_switches = [cmd_line_switches]
-        netlist_file = Path(
-            netlist_file
-        ).absolute()  # need absolute path, as early 2025 qspice has a strange repetition bug
+        # need absolute path, as early 2025 qspice has a strange repetition bug
+        netlist_file = Path(netlist_file).absolute()
 
         log_file = Path(netlist_file).with_suffix(".log").as_posix()
         cmd_run = (

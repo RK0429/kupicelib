@@ -18,27 +18,22 @@
 # Created:     17-01-2017
 # Licence:     refer to the LICENSE file
 # -------------------------------------------------------------------------------
-"""
-Helper script to read the raw file and output to a CSV, Excel or Clipboard
+"""Helper script to read the raw file and output to a CSV, Excel or Clipboard.
 
-Usage:
-    raw_convert.py [options] <rawfile> <trace_list>
+Usage:     raw_convert.py [options] <rawfile> <trace_list>
 
-Options:
-    -h --help               Show this screen
-    -v --version            Show version
-    -o --output=<file>      Output file name. Valid extensions are .csv, .xlsx
-    -c --clipboard          Output to clipboard
-    -s --separator=<sep>    Separator for CSV output [default: \t]
+Options:     -h --help               Show this screen     -v --version            Show
+version     -o --output=<file>      Output file name. Valid extensions are .csv, .xlsx
+-c --clipboard          Output to clipboard     -s --separator=<sep>    Separator for
+CSV output [default: \t]
 
 The script will read the raw file and output the specified traces to the chosen format.
-In case of .TRAN simulations, the time column is always output. In case of .AC simulations
-the frequency column is always output. The traces are specified in the <trace_list> as a
-space separated list of trace names.
-The V() qualifier is optional. If the trace name is not found, the script will try to
-find the trace name with the V() qualifier. If the trace name is not found, the script
-will try to find the trace name with the I() qualifier.
-
+In case of .TRAN simulations, the time column is always output. In case of .AC
+simulations the frequency column is always output. The traces are specified in the
+<trace_list> as a space separated list of trace names. The V() qualifier is optional. If
+the trace name is not found, the script will try to find the trace name with the V()
+qualifier. If the trace name is not found, the script will try to find the trace name
+with the I() qualifier.
 """
 
 from optparse import OptionParser

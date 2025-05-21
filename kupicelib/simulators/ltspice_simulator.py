@@ -32,8 +32,8 @@ _logger = logging.getLogger("kupicelib.LTSpiceSimulator")
 
 
 class LTspice(Simulator):
-    """Stores the simulator location and command line options and is responsible for generating netlists and running
-    simulations."""
+    """Stores the simulator location and command line options and is responsible for
+    generating netlists and running simulations."""
 
     """Searches on the any usual locations for a simulator"""
     # windows paths (that are also valid for wine)
@@ -96,16 +96,19 @@ class LTspice(Simulator):
                 # MacOS would use this:
                 #    '/Users/myuser/.wine/drive_c/users/myuser/AppData/...' for _spice_exe_win_paths[0]
                 # or '/Users/myuser/.wine/drive_c/Program Files/...'        for _spice_exe_win_paths[2]
-                # Note that in the user path versions (_spice_exe_win_paths[0] and [1]), I have 2 expansions of the user name.
+                # Note that in the user path versions (_spice_exe_win_paths[0] and [1]),
+                # I have 2 expansions of the user name.
                 if exe.startswith("~"):
                     exe = "C:/users/" + os.path.expandvars("${USER}" + exe[1:])
-                # Now I have a "windows" path (but with forward slashes). Make it into a path under wine.
+                # Now I have a "windows" path (but with forward slashes). Make it into a
+                # path under wine.
                 exe = os.path.expanduser(exe.replace("C:/", "~/.wine/drive_c/"))
 
                 if os.path.exists(exe):
                     spice_exe = ["wine", exe]
                     # Note that one easy method of killing a wine process is to run "wineserver -k",
-                    # but we kill via psutil....kill(), as that would also fit non-wine executions.
+                    # but we kill via psutil....kill(), as that would also fit non-wine
+                    # executions.
 
                     break
             else:
@@ -119,13 +122,15 @@ class LTspice(Simulator):
     else:  # Windows (well, also aix, wasi, emscripten,... where it will fail.)
         for exe in _spice_exe_win_paths:
             if exe.startswith("~"):
-                # expand here, as I use _spice_exe_win_paths also for linux, and expanding earlier will fail
+                # expand here, as I use _spice_exe_win_paths also for linux, and
+                # expanding earlier will fail
                 exe = os.path.expanduser(exe)
             if os.path.exists(exe):
                 spice_exe = [exe]
                 break
 
-    # The following variables are not needed anymore. This also makes sphinx not mention them in the documentation.
+    # The following variables are not needed anymore. This also makes sphinx
+    # not mention them in the documentation.
     del exe
     if sys.platform == "linux" or sys.platform == "darwin":
         del spice_folder
@@ -186,9 +191,10 @@ class LTspice(Simulator):
 
     @classmethod
     def using_macos_native_sim(cls) -> bool:
-        """Tells if the simulator used is the MacOS native LTspice
+        """Tells if the simulator used is the MacOS native LTspice.
 
-        :return: True if the MacOS native LTspice is used, False otherwise (will also return False on Windows or Linux)
+        :return: True if the MacOS native LTspice is used, False otherwise (will also
+            return False on Windows or Linux)
         :rtype: bool
         """
         return (
@@ -199,29 +205,33 @@ class LTspice(Simulator):
 
     @classmethod
     def valid_switch(cls, switch: str, path: str = "") -> list:
-        """
-        Validates a command line switch. The following options are available for Windows/wine LTspice:
+        """Validates a command line switch. The following options are available for
+        Windows/wine LTspice:
 
-        * `-alt`: Set solver to Alternate.
-        * `-ascii`: Use ASCII.raw files. Seriously degrades program performance.
-        * `-encrypt`: Encrypt a model library.For 3rd parties wishing to allow people to use libraries without revealing implementation details. Not used by AnalogDevices models.
-        * `-fastaccess`: Batch conversion of a binary.rawfile to Fast Access format.
-        * `-FixUpSchematicFonts`: Convert the font size field of very old user - authored schematic text to the modern default.
-        * `-FixUpSymbolFonts`: Convert the font size field of very old user - authored symbols to the modern default. See Changelog.txt for application hints.
-        * `-ini <path>`: Specify an .ini file to use other than %APPDATA%\\LTspice.ini
-        * `-I<path>`: Specify a path to insert in the symbol and file search paths. Must be the last specified option.
-        * `-netlist`: Batch conversion of a schematic to a netlist.
-        * `-normal`: Set solver to Normal.
-        * `-PCBnetlistBatch`: Conversion of a schematic to a PCB format netlist.
-        * `-SOI`: Allow MOSFET's to have up to 7 nodes even in subcircuit expansion.
-        * `-sync`: Update component libraries
+        * `-alt`: Set solver to Alternate. * `-ascii`: Use ASCII.raw files. Seriously
+        degrades program performance. * `-encrypt`: Encrypt a model library.For 3rd
+        parties wishing to allow people to use libraries without revealing
+        implementation details. Not used by AnalogDevices models. * `-fastaccess`: Batch
+        conversion of a binary.rawfile to Fast Access format. * `-FixUpSchematicFonts`:
+        Convert the font size field of very old user - authored schematic text to the
+        modern default. * `-FixUpSymbolFonts`: Convert the font size field of very old
+        user - authored symbols to the modern default. See Changelog.txt for application
+        hints. * `-ini <path>`: Specify an .ini file to use other than
+        %APPDATA%\\LTspice.ini * `-I<path>`: Specify a path to insert in the symbol and
+        file search paths. Must be the last specified option. * `-netlist`: Batch
+        conversion of a schematic to a netlist. * `-normal`: Set solver to Normal. *
+        `-PCBnetlistBatch`: Conversion of a schematic to a PCB format netlist. * `-SOI`:
+        Allow MOSFET's to have up to 7 nodes even in subcircuit expansion. * `-sync`:
+        Update component libraries
 
-        The following parameters will already be filled in by kupicelib, and cannot be set:
+        The following parameters will already be filled in by kupicelib, and cannot be
+        set:
 
-        * `-Run`: Start simulating the schematic opened on the command line without pressing the Run button.
-        * `-b`: Run in batch mode.
+        * `-Run`: Start simulating the schematic opened on the command line without
+        pressing the Run button. * `-b`: Run in batch mode.
 
-        MacOS native LTspice accepts no command line switches (yet), use it under wine for full support.
+        MacOS native LTspice accepts no command line switches (yet), use it under wine
+        for full support.
 
         :param switch: switch to be added.
         :type switch: str
@@ -232,7 +242,8 @@ class LTspice(Simulator):
 
         # See if the MacOS simulator is used. If so, check if I use the native simulator
         if cls.using_macos_native_sim():
-            # this is the native LTspice. It has no useful command line switches (except '-b').
+            # this is the native LTspice. It has no useful command line switches
+            # (except '-b').
             raise ValueError(
                 "MacOS native LTspice does not support command line switches. Use it under wine for full support."
             )
@@ -270,26 +281,34 @@ class LTspice(Simulator):
     ) -> int:
         """Executes a LTspice simulation run.
 
-        A raw file and a log file will be generated, with the same name as the netlist file,
-        but with `.raw` and `.log` extension.
+        A raw file and a log file will be generated, with the same name as the netlist
+        file, but with `.raw` and `.log` extension.
 
         :param netlist_file: path to the netlist file
         :type netlist_file: Union[str, Path]
-        :param cmd_line_switches: additional command line options. Best to have been validated by valid_switch(), defaults to None
+        :param cmd_line_switches: additional command line options. Best to have been
+            validated by valid_switch(), defaults to None
         :type cmd_line_switches: Union[list, None], optional
-        :param timeout: If timeout is given, and the process takes too long, a TimeoutExpired exception will be raised, defaults to None
+        :param timeout: If timeout is given, and the process takes too long, a
+            TimeoutExpired exception will be raised, defaults to None
         :type timeout: Union[float, None], optional
-        :param stdout: control redirection of the command's stdout. Valid values are None, subprocess.PIPE, subprocess.DEVNULL, an existing file descriptor (a positive integer),
-            and an existing file object with a valid file descriptor.
-            With the default settings of None, no redirection will occur. Also see `exe_log` for a simpler form of control.
+        :param stdout: control redirection of the command's stdout. Valid values are
+            None, subprocess.PIPE, subprocess.DEVNULL, an existing file descriptor (a
+            positive integer), and an existing file object with a valid file descriptor.
+            With the default settings of None, no redirection will occur. Also see
+            `exe_log` for a simpler form of control.
         :type stdout: _FILE, optional
-        :param stderr: Like stdout, but affecting the command's error output. Also see `exe_log` for a simpler form of control.
+        :param stderr: Like stdout, but affecting the command's error output. Also see
+            `exe_log` for a simpler form of control.
         :type stderr: _FILE, optional
-        :param exe_log: If True, stdout and stderr will be ignored, and the simulator's execution console messages will be written to a log file
-            (named ...exe.log) instead of console. This is especially useful when running under wine or when running simultaneous tasks.
+        :param exe_log: If True, stdout and stderr will be ignored, and the simulator's
+            execution console messages will be written to a log file (named ...exe.log)
+            instead of console. This is especially useful when running under wine or
+            when running simultaneous tasks.
         :type exe_log: bool, optional
         :raises SpiceSimulatorError: when the executable is not found.
-        :raises NotImplementedError: when the requested execution is not possible on this platform.
+        :raises NotImplementedError: when the requested execution is not possible on
+            this platform.
         :return: return code from the process
         :rtype: int
         """
@@ -307,7 +326,8 @@ class LTspice(Simulator):
             cmd_line_switches = [cmd_line_switches]
         netlist_file = Path(netlist_file)
 
-        # cannot set raw and log file names or extensions. They are always '<netlist_file>.raw' and '<netlist_file>.log'
+        # cannot set raw and log file names or extensions. They are always
+        # '<netlist_file>.raw' and '<netlist_file>.log'
 
         if sys.platform == "linux" or sys.platform == "darwin":
             if cls.using_macos_native_sim():
@@ -326,7 +346,8 @@ class LTspice(Simulator):
             else:
                 # wine
                 # Drive letter 'Z' is the link from wine to the host platform's root directory.
-                # Z: is needed for netlists with absolute paths, but will also work with relative paths.
+                # Z: is needed for netlists with absolute paths, but will also work with
+                # relative paths.
                 cmd_run = (
                     cls.spice_exe
                     + ["-Run"]
@@ -364,24 +385,32 @@ class LTspice(Simulator):
         stderr=None,
         exe_log: bool = False,
     ) -> Path:
-        """Create a netlist out of the circuit file
+        """Create a netlist out of the circuit file.
 
         :param circuit_file: path to the circuit file
         :type circuit_file: Union[str, Path]
-        :param cmd_line_switches: additional command line options. Best to have been validated by valid_switch(), defaults to None
+        :param cmd_line_switches: additional command line options. Best to have been
+            validated by valid_switch(), defaults to None
         :type cmd_line_switches: Union[list, None], optional
-        :param timeout: If timeout is given, and the process takes too long, a TimeoutExpired exception will be raised, defaults to None
+        :param timeout: If timeout is given, and the process takes too long, a
+            TimeoutExpired exception will be raised, defaults to None
         :type timeout: Union[float, None], optional
-        :param stdout: control redirection of the command's stdout. Valid values are None, subprocess.PIPE, subprocess.DEVNULL, an existing file descriptor (a positive integer),
-            and an existing file object with a valid file descriptor.
-            With the default settings of None, no redirection will occur. Also see `exe_log` for a simpler form of control.
+        :param stdout: control redirection of the command's stdout. Valid values are
+            None, subprocess.PIPE, subprocess.DEVNULL, an existing file descriptor (a
+            positive integer), and an existing file object with a valid file descriptor.
+            With the default settings of None, no redirection will occur. Also see
+            `exe_log` for a simpler form of control.
         :type stdout: _FILE, optional
-        :param stderr: Like stdout, but affecting the command's error output. Also see `exe_log` for a simpler form of control.
+        :param stderr: Like stdout, but affecting the command's error output. Also see
+            `exe_log` for a simpler form of control.
         :type stderr: _FILE, optional
-        :param exe_log: If True, stdout and stderr will be ignored, and the simulator's execution console messages will be written to a log file
-            (named ...exe.log) instead of console. This is especially useful when running under wine or when running simultaneous tasks.
+        :param exe_log: If True, stdout and stderr will be ignored, and the simulator's
+            execution console messages will be written to a log file (named ...exe.log)
+            instead of console. This is especially useful when running under wine or
+            when running simultaneous tasks.
         :type exe_log: bool, optional
-        :raises NotImplementedError: when the requested execution is not possible on this platform.
+        :raises NotImplementedError: when the requested execution is not possible on
+            this platform.
         :raises RuntimeError: when the netlist cannot be created
         :return: path to the netlist produced
         :rtype: Path

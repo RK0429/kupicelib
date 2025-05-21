@@ -32,7 +32,7 @@ _logger = logging.getLogger("kupicelib.BaseSchematic")
 
 
 class ERotation(enum.IntEnum):
-    """Component Rotation Enum"""
+    """Component Rotation Enum."""
 
     R0 = 0  # 0 Rotation
     R45 = 45  # 45 Rotation
@@ -113,7 +113,7 @@ class ERotation(enum.IntEnum):
 
 
 class HorAlign(enum.Enum):
-    """Horizontal Alignment Enum"""
+    """Horizontal Alignment Enum."""
 
     LEFT = "Left"
     RIGHT = "Right"
@@ -121,7 +121,7 @@ class HorAlign(enum.Enum):
 
 
 class VerAlign(enum.Enum):
-    """Vertical Alignment Enum"""
+    """Vertical Alignment Enum."""
 
     TOP = "Top"
     CENTER = "Center"
@@ -129,7 +129,7 @@ class VerAlign(enum.Enum):
 
 
 class TextTypeEnum(enum.IntEnum):
-    """Text Type Enum"""
+    """Text Type Enum."""
 
     NULL = enum.auto()
     COMMENT = enum.auto()
@@ -149,7 +149,7 @@ class LineStyle:
 
 
 class Point:
-    """X, Y coordinates"""
+    """X, Y coordinates."""
 
     def __init__(self, X: float, Y: float):
         self.X = X
@@ -157,7 +157,7 @@ class Point:
 
 
 class Line:
-    """X1, Y1, X2, Y2 coordinates"""
+    """X1, Y1, X2, Y2 coordinates."""
 
     def __init__(
         self, v1: Point, v2: Point, style: Optional[LineStyle] = None, net: str = ""
@@ -171,7 +171,7 @@ class Line:
         self.net = net
 
     def touches(self, point: Point) -> bool:
-        """Returns True if the line passes through the given point"""
+        """Returns True if the line passes through the given point."""
         if self.V1.X == self.V2.X:
             if self.V1.X == point.X:
                 if min(self.V1.Y, self.V2.Y) <= point.Y <= max(self.V1.Y, self.V2.Y):
@@ -188,7 +188,8 @@ class Line:
             b = self.V1.Y - m * self.V1.X
             # Now we can calculate the Y value for the given X
             y = m * point.X + b
-            # If the Y value is the same as the point Y, then the line passes through the point
+            # If the Y value is the same as the point Y, then the line passes through
+            # the point
             if y == point.Y:
                 # Now we have to check if the point is within the line segment
                 if min(self.V1.X, self.V2.X) <= point.X <= max(self.V1.X, self.V2.X):
@@ -197,21 +198,27 @@ class Line:
 
     def intercepts(self, line: "Line") -> bool:
         """Returns True if the line intercepts the given line.
-        The intercepts is calculated by checking if the line touches any of the line vertices
+
+        The intercepts is calculated by checking if the line touches any of the line
+        vertices
         """
         # We have to check if the line touches any of the vertices of the given line
         if self.touches(line.V1) or self.touches(line.V2):
             return True
-        # We also have to check if the given line touches any of the vertices of this line
+        # We also have to check if the given line touches any of the vertices of
+        # this line
         if line.touches(self.V1) or line.touches(self.V2):
             return True
         return False
 
 
 class Shape:
-    """Polygon object. The shape is defined by a list of points. It can define a closed or open shape.
-    The closed shape is defined by the first and last points being the same. In this case, it can have a fill.
-    It is used to define polygons, arcs, circles or more complex shapes like the ones found in QSPICE
+    """Polygon object.
+
+    The shape is defined by a list of points. It can define a closed or open shape. The
+    closed shape is defined by the first and last points being the same. In this case,
+    it can have a fill. It is used to define polygons, arcs, circles or more complex
+    shapes like the ones found in QSPICE
     """
 
     def __init__(
@@ -234,7 +241,8 @@ class Shape:
 # Rectangle is a special case of a Shape. Rectangle is defined by two points that define the diagonal
 # of the rectangle.
 
-# Circle = Shape  # Circle is a special case of a Shape. Circle is defined by the rectangle that encloses it.
+# Circle = Shape  # Circle is a special case of a Shape. Circle is defined
+# by the rectangle that encloses it.
 
 # Arc = Shape
 # Arc is a special case of a Shape. Since different tools have different ways of defining arcs, we will use
@@ -258,7 +266,7 @@ class Shape:
 
 @dataclasses.dataclass
 class Text:
-    """Text object"""
+    """Text object."""
 
     coord: Point
     text: str
@@ -277,7 +285,7 @@ class Port:
 
 
 class SchematicComponent(Component):
-    """Holds component information"""
+    """Holds component information."""
 
     def __init__(self, parent, line):
         super().__init__(parent, line)
@@ -290,10 +298,8 @@ class SchematicComponent(Component):
 
 
 class BaseSchematic(BaseEditor):
-    """
-    This defines the primitives (protocol) to be used for both SpiceEditor and AscEditor
-    classes.
-    """
+    """This defines the primitives (protocol) to be used for both SpiceEditor and
+    AscEditor classes."""
 
     def __init__(self):
         self.components: OrderedDict[str, SchematicComponent] = OrderedDict()
@@ -306,7 +312,7 @@ class BaseSchematic(BaseEditor):
         self.updated = False  # indicates if an edit was done and the file has to be written back to disk
 
     def reset_netlist(self, create_blank: bool = False) -> None:
-        """Resets the netlist to the original state"""
+        """Resets the netlist to the original state."""
         self.components.clear()
         self.wires.clear()
         self.labels.clear()
@@ -316,7 +322,7 @@ class BaseSchematic(BaseEditor):
         self.updated = False
 
     def copy_from(self, editor: "BaseSchematic") -> None:
-        """Clones the contents of the given editor"""
+        """Clones the contents of the given editor."""
         from copy import deepcopy
 
         self.components = deepcopy(editor.components)
@@ -343,8 +349,8 @@ class BaseSchematic(BaseEditor):
         sub_circuit.updated = True
 
     def get_component(self, reference: str) -> SchematicComponent:
-        """
-        Returns the SchematicComponent object representing the given reference in the schematic file.
+        """Returns the SchematicComponent object representing the given reference in the
+        schematic file.
 
         :param reference: The reference of the component
         :return: The SchematicComponent object
@@ -363,7 +369,7 @@ class BaseSchematic(BaseEditor):
             return sub_circuit.components[ref]
 
     def get_component_position(self, reference: str) -> Tuple[Point, ERotation]:
-        """Returns the position and rotation of the component"""
+        """Returns the position and rotation of the component."""
         comp = self.get_component(reference)
         return comp.position, comp.rotation
 
@@ -389,7 +395,8 @@ class BaseSchematic(BaseEditor):
             schematic_component = SchematicComponent(self, component.line)
             schematic_component.reference = component.reference
             schematic_component.attributes = component.attributes
-            # Set value through the setter which is implemented correctly in the base class
+            # Set value through the setter which is implemented correctly in the base
+            # class
             schematic_component.value_str = component.value_str
             component = schematic_component
 
@@ -408,7 +415,7 @@ class BaseSchematic(BaseEditor):
         scale_y: float,
         round_fun: Optional[Callable[[float], Union[int, float]]] = None,
     ) -> None:
-        """Scales the schematic"""
+        """Scales the schematic."""
         if round_fun is None:
             round_fun = int
         for comp in self.components.values():

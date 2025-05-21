@@ -18,7 +18,8 @@ netlist["R1"].set_params(
 # Modifying the behavior of the voltage source
 netlist.set_element_model("V3", "SINE(0 1 3k 0 0 0)")
 netlist["V3"].model = (
-    "SINE(0 1 3k 0 0 0)"  # Alternative way of modifying the behaviour. Same as the above.
+    # Alternative way of modifying the behaviour. Same as the above.
+    "SINE(0 1 3k 0 0 0)"
 )
 netlist.set_component_value(
     "XU1:C2", 20e-12

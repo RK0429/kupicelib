@@ -95,7 +95,8 @@ QSCH_NET_STR_ATTR = 5
 #   «text (-800,-650) 1 77 0 0x1000000 -1 -1 "ï»¿.tran 5m"»
 QSCH_TEXT_POS = 1
 QSCH_TEXT_SIZE = 2
-QSCH_TEXT_ROTATION = 3  # 13="0 Degrees" 45="90 Degrees" 77="180 Degrees" 109="270 Degrees" r= 13+32*alpha/90
+# 13="0 Degrees" 45="90 Degrees" 77="180 Degrees" 109="270 Degrees" r= 13+32*alpha/90
+QSCH_TEXT_ROTATION = 3
 QSCH_TEXT_COMMENT = 4  # 0="Normal Text" 1="Comment"
 QSCH_TEXT_COLOR = 5  # 0xdbbggrr  d=1 "Default" rr=Red gg=Green bb=Blue in hex format
 QSCH_TEXT_STR_ATTR = 8
@@ -177,14 +178,17 @@ QSCH_ZIGZAG_UNKNOWN2 = 8
 
 
 def decap(s: str) -> str:
-    """Take the leading < and ending > from the parameter value on a string with the format "param=<value>"
-    If they are not there, the string is returned unchanged."""
+    """Take the leading < and ending > from the parameter value on a string with the
+    format "param=<value>" If they are not there, the string is returned unchanged."""
     regex = re.compile(r"(\w+)=<(.*)>")
     return regex.sub(r"\1=\2", s)
 
 
 def smart_split(s):
-    """Splits a string into chunks based on spaces. What is inside "" is not divided."""
+    """Splits a string into chunks based on spaces.
+
+    What is inside "" is not divided.
+    """
     return re.findall(r'[^"\s]+|"[^"]*"', s)
 
 
@@ -193,8 +197,9 @@ class QschReadingError(IOError):
 
 
 class QschTag:
-    """
-    Class to represent a tag in a QSCH file. It is a recursive class, so it can have children tags.
+    """Class to represent a tag in a QSCH file.
+
+    It is a recursive class, so it can have children tags.
     """
 
     def __init__(self, *tokens):
@@ -206,8 +211,8 @@ class QschTag:
 
     @classmethod
     def parse(cls, stream: str, start: int = 0) -> Tuple["QschTag", int]:
-        """
-        Parses a tag from the stream starting at the given position. The stream should be a string.
+        """Parses a tag from the stream starting at the given position. The stream
+        should be a string.
 
         :param stream: The string to be parsed
         :param start: The position to start parsing
@@ -249,12 +254,14 @@ class QschTag:
         return self, stop
 
     def __str__(self):
-        """Returns only the first line of the tag. The children are not shown."""
+        """Returns only the first line of the tag.
+
+        The children are not shown.
+        """
         return " ".join(self.tokens)
 
     def out(self, level):
-        """
-        Returns a string representation of the tag with the specified indentation.
+        """Returns a string representation of the tag with the specified indentation.
 
         :param level: The indentation level
         :return: A string representation of the tag
@@ -271,7 +278,10 @@ class QschTag:
 
     @property
     def tag(self) -> str:
-        """Returns the tag id of the object. The tag id is the first token in the tag."""
+        """Returns the tag id of the object.
+
+        The tag id is the first token in the tag.
+        """
         return self.tokens[0]
 
     def get_items(self, item) -> List["QschTag"]:
@@ -280,13 +290,11 @@ class QschTag:
         return answer
 
     def get_attr(self, index: int) -> Union[str, int, float, tuple]:
-        """
-        Returns the attribute at the given index. The attribute can be a string, an integer or a tuple.
-        The return type depends on the attribute being read.
-        If the attribute is between quotes, it returns a string.
-        If it is between parenthesis, it returns a tuple of integers.
-        If it starts with "0x", it returns an integer representing the following hexadecimal number.
-        Otherwise, it returns an integer.
+        """Returns the attribute at the given index. The attribute can be a string, an
+        integer or a tuple. The return type depends on the attribute being read. If the
+        attribute is between quotes, it returns a string. If it is between parenthesis,
+        it returns a tuple of integers. If it starts with "0x", it returns an integer
+        representing the following hexadecimal number. Otherwise, it returns an integer.
 
         :param index: The index of the attribute to be read
         :type index: int
@@ -310,9 +318,10 @@ class QschTag:
             return value
 
     def set_attr(self, index: int, value: Union[str, int, tuple]):
-        """Sets the attribute at the given index. The attribute can be a string, an integer or a tuple.
-        Integer values are written as integers, strings are written between quotes unless it starts with "0x"
-        and tuples are written between parenthesis.
+        """Sets the attribute at the given index. The attribute can be a string, an
+        integer or a tuple. Integer values are written as integers, strings are written
+        between quotes unless it starts with "0x" and tuples are written between
+        parenthesis.
 
         :param index: The index of the attribute to be set
         :type index: int
@@ -334,12 +343,12 @@ class QschTag:
         self.tokens[index] = value_str
 
     def get_text(self, label: str, default: Optional[str] = None) -> Optional[str]:
-        """
-        Returns the text of the first child tag that matches the given label. The label can have up to 1 space in it.
-        It will return the entire text of the tag, after the label.
-        If the label is not found, it returns the default value.
+        """Returns the text of the first child tag that matches the given label. The
+        label can have up to 1 space in it. It will return the entire text of the tag,
+        after the label. If the label is not found, it returns the default value.
 
-        :param label: label to be found. Can have up to 1 space (e.g. "library file" or "shorted pins")
+        :param label: label to be found. Can have up to 1 space (e.g. "library file" or
+            "shorted pins")
         :type label: str
         :param default: Default value, defaults to None
         :type default: str, optional
@@ -365,7 +374,10 @@ class QschTag:
             return default
 
     def get_text_attr(self, index: int) -> str:
-        """Returns the text of the attribute at the given index. Unlike get_attr, this method only returns strings."""
+        """Returns the text of the attribute at the given index.
+
+        Unlike get_attr, this method only returns strings.
+        """
         a = self.tokens[index]
         if a.startswith('"') and a.endswith('"'):
             return a[1:-1]
@@ -374,18 +386,20 @@ class QschTag:
 
 
 class QschEditor(BaseSchematic):
-    """Class made to update directly QSCH files. It is a subclass of BaseSchematic, so it can be used to
-    update the netlist and the parameters of the simulation. It can also be used to update the components.
+    """Class made to update directly QSCH files. It is a subclass of BaseSchematic, so
+    it can be used to update the netlist and the parameters of the simulation. It can
+    also be used to update the components.
 
     :param qsch_file: Path to the QSCH file to be edited
     :type qsch_file: str
-    :keyword create_blank: If True, the file will be created from scratch. If False, the file will be read and parsed
+    :keyword create_blank: If True, the file will be created from scratch. If False, the
+        file will be read and parsed
     """
 
     simulator_lib_paths: List[str] = Qspice.get_default_library_paths()
-    """ This is initialised with typical locations found for QSPICE.
-    You can (and should, if you use wine), call `prepare_for_simulator()` once you've set the executable paths.
-    This is a class variable, so it will be shared between all instances.
+    """This is initialised with typical locations found for QSPICE. You can (and should,
+    if you use wine), call `prepare_for_simulator()` once you've set the executable
+    paths. This is a class variable, so it will be shared between all instances.
 
     :meta hide-value:
     """
@@ -403,8 +417,9 @@ class QschEditor(BaseSchematic):
         return self._qsch_file_path
 
     def save_as(self, qsch_filename: Union[str, Path]) -> None:
-        """
-        Saves the schematic to a QSCH file. The file is saved in cp1252 encoding.
+        """Saves the schematic to a QSCH file.
+
+        The file is saved in cp1252 encoding.
         """
         if self.updated or Path(qsch_filename) != self._qsch_file_path:
             with open(qsch_filename, "w", encoding="cp1252") as qsch_file:
@@ -424,8 +439,7 @@ class QschEditor(BaseSchematic):
                     sub_circuit.save_as(sub_circuit._qsch_file_path)
 
     def write_spice_to_file(self, netlist_file: TextIO):
-        """
-        Appends the netlist to a file buffer.
+        """Appends the netlist to a file buffer.
 
         :param netlist_file: The file buffer to save the netlist
         :type netlist_file: TextIO
@@ -468,9 +482,10 @@ class QschEditor(BaseSchematic):
             if library_name and (library_name not in libraries_to_include):
                 marker = "|.subckt"
                 if library_name.startswith(marker):
-                    # This is an embedded subcircuit, print it here, not at the end. It must be printed before the component
+                    # This is an embedded subcircuit, print it here, not at the end. It
+                    # must be printed before the component
                     sub_circuit_content = library_name[
-                        len(marker) :
+                        len(marker):
                     ].strip()  # The section after "|.subckt"
                     sub_circuit_content = sub_circuit_content.replace("\\n", "\n")
                     netlist_file.write(f".subckt {refdes}•{sub_circuit_content}\n")
@@ -495,7 +510,9 @@ class QschEditor(BaseSchematic):
                             comp_obj.attributes[
                                 "_SUBCKT"
                             ],  # the subcircuit schematic is saved
-                            sub_ports,  # and also storing the port position now, so to save time later.
+                            sub_ports,
+                            # and also storing the port position now, so to save time
+                            # later.
                         )
                 nets = " ".join(comp_obj.ports)
                 netlist_file.write(f"{refdes} {nets} {model}{parameters}\n")
@@ -610,7 +627,7 @@ class QschEditor(BaseSchematic):
     def _find_pin_position(
         self, comp_pos, orientation: int, pin: QschTag
     ) -> Tuple[int, int]:
-        """Returns the net name at the pin position"""
+        """Returns the net name at the pin position."""
         pin_pos = pin.get_attr(1)
         # Ensure pin_pos is properly handled as a tuple of integers
         if not isinstance(pin_pos, tuple) or len(pin_pos) != 2:
@@ -642,7 +659,7 @@ class QschEditor(BaseSchematic):
         return x, y
 
     def _find_net_at_position(self, x, y) -> Optional[str]:
-        """Returns the net name at the given position"""
+        """Returns the net name at the given position."""
         if self.schematic is None:
             return None
 
@@ -659,14 +676,15 @@ class QschEditor(BaseSchematic):
         return None
 
     def reset_netlist(self, create_blank: bool = False) -> None:
-        """
-        If create_blank is True, it creates a blank netlist.
+        """If create_blank is True, it creates a blank netlist.
 
-        If False, it reads the netlist from the file into memory. If the file does not exist, it raises a FileNotFoundError.
+        If False, it reads the netlist from the file into memory. If the file does not
+        exist, it raises a FileNotFoundError.
 
         All previous edits done to the netlist are lost.
 
-        :param create_blank: If True, the file will be created from scratch. If False, the file will be read and parsed
+        :param create_blank: If True, the file will be created from scratch. If False,
+            the file will be read and parsed
         """
         super().reset_netlist(create_blank)
         if create_blank:
@@ -681,7 +699,7 @@ class QschEditor(BaseSchematic):
             self._parse_qsch_stream(stream)
 
     def _parse_qsch_stream(self, stream):
-        """Parses the QSCH file stream"""
+        """Parses the QSCH file stream."""
         self.components.clear()
         _logger.debug("Parsing QSCH file")
         header = tuple(ord(c) for c in stream[:4])
@@ -741,7 +759,8 @@ class QschEditor(BaseSchematic):
             sch_comp.attributes["type"] = symbol.get_text(
                 "type", "X"
             )  # Assuming a sub-circuit
-            # a bit complicated way to detect embedded subcircuits: they are in the library tag,
+            # a bit complicated way to detect embedded subcircuits: they are in the
+            # library tag,
             lib = symbol.get_text("library file", "-")
             if lib.startswith("|.subckt"):
                 have_embedded_subcircuit = True
@@ -817,7 +836,8 @@ class QschEditor(BaseSchematic):
             else:
                 type_text = TextTypeEnum.NULL
 
-            # angle = text_tag.get_attr(QSCH_TEXT_ROTATION)  # TODO: Implement text Rotation
+            # angle = text_tag.get_attr(QSCH_TEXT_ROTATION)  # TODO: Implement text
+            # Rotation
 
             text_obj = Text(
                 point,
@@ -855,8 +875,7 @@ class QschEditor(BaseSchematic):
         return None, None
 
     def get_all_parameter_names(self, param: str = "") -> list:
-        """
-        Returns all parameter names from the netlist.
+        """Returns all parameter names from the netlist.
 
         :return: A list of parameter names found in the netlist
         :rtype: List[str]
@@ -889,7 +908,7 @@ class QschEditor(BaseSchematic):
         return search_file_in_containers(filename, *containers)
 
     def get_subcircuit(self, reference: str) -> "QschEditor":
-        """Returns an QschEditor file corresponding to the symbol"""
+        """Returns an QschEditor file corresponding to the symbol."""
         subcircuit = self.get_component(reference)
         if (
             "_SUBCKT" in subcircuit.attributes
@@ -987,11 +1006,12 @@ class QschEditor(BaseSchematic):
         return component.attributes["value"]
 
     def get_component_parameters(self, element: str) -> dict:
-        """
-        Returns the parameters of the component in a dictionary. Since QSpice stores attributes by their order of
-        appearance on the QSCH file, some parameters may not be found if they are not in the standard format.
-        If a line contains a parameter definition that is on the standard format, it will be parsed and stored in the
-        dictionary. The key of the dictionary is the line number where the parameter was found.
+        """Returns the parameters of the component in a dictionary. Since QSpice stores
+        attributes by their order of appearance on the QSCH file, some parameters may
+        not be found if they are not in the standard format. If a line contains a
+        parameter definition that is on the standard format, it will be parsed and
+        stored in the dictionary. The key of the dictionary is the line number where the
+        parameter was found.
 
         :param element: The reference of the component
         :type element: str
@@ -1013,10 +1033,12 @@ class QschEditor(BaseSchematic):
         return parameters
 
     def set_component_parameters(self, element: str, **kwargs) -> None:
-        """
-        Sets the parameters of the component. If key parameters that are integers, they represent the line number
-        where the parameter was found. If the key is a string, it represents the parameter name. If the parameter name
-        already exists, it will be replaced. If not found, it will be added as a new text line.
+        """Sets the parameters of the component.
+
+        If key parameters that are integers, they represent the line number where the
+        parameter was found. If the key is a string, it represents the parameter name.
+        If the parameter name already exists, it will be replaced. If not found, it will
+        be added as a new text line.
         """
         sub_circuit, ref = self._get_parent(element)
         if ref not in sub_circuit.components:
@@ -1109,9 +1131,8 @@ class QschEditor(BaseSchematic):
             self.schematic.items.remove(comp_tag)
 
     def _get_text_space(self):
-        """
-        Returns the coordinate on the Schematic File canvas where a text can be appended.
-        """
+        """Returns the coordinate on the Schematic File canvas where a text can be
+        appended."""
         first = True
         for tag in self.schematic.items:
             if tag.tag in ("component", "net", "text"):
@@ -1148,7 +1169,8 @@ class QschEditor(BaseSchematic):
         command = instruction.split()[0].upper()
 
         if command in UNIQUE_SIMULATION_DOT_INSTRUCTIONS:
-            # Before adding new instruction, if it is a unique instruction, we just replace it
+            # Before adding new instruction, if it is a unique instruction, we just
+            # replace it
             if self.schematic is not None:
                 for text_tag in self.schematic.get_items("text"):
                     if (
@@ -1216,7 +1238,8 @@ class QschEditor(BaseSchematic):
     def copy_from(self, another_schematic):
         # docstring inherited from BaseSchematic
         super().copy_from(another_schematic)
-        # If another_schematic is an QschEditor, we can just copy the _schematic tag tree
+        # If another_schematic is an QschEditor, we can just copy the _schematic
+        # tag tree
         if isinstance(another_schematic, QschEditor):
             self.schematic = another_schematic.schematic
         else:

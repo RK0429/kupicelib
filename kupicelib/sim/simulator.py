@@ -34,8 +34,10 @@ _logger = logging.getLogger("kupicelib.Simulator")
 if sys.version_info.major >= 3 and sys.version_info.minor >= 6:
 
     def run_function(command, timeout=None, stdout=None, stderr=None):
-        """Normalizing OS subprocess function calls between different platforms. This function is used for python 3.6
-        and higher versions."""
+        """Normalizing OS subprocess function calls between different platforms.
+
+        This function is used for python 3.6 and higher versions.
+        """
         _logger.debug(f"Running command: {command}, with timeout: {timeout}")
         result = subprocess.run(command, timeout=timeout, stdout=stdout, stderr=stderr)
         return result.returncode
@@ -43,53 +45,53 @@ if sys.version_info.major >= 3 and sys.version_info.minor >= 6:
 else:
 
     def run_function(command, timeout=None, stdout=None, stderr=None):
-        """Normalizing OS subprocess function calls between different platforms. This is the old function that was used
-        for python version prior to 3.6"""
+        """Normalizing OS subprocess function calls between different platforms.
+
+        This is the old function that was used for python version prior to 3.6
+        """
         _logger.debug(f"Running command: {command}, with timeout: {timeout}")
         return subprocess.call(command, timeout=timeout, stdout=stdout, stderr=stderr)
 
 
 class SpiceSimulatorError(Exception):
-    """Generic Simulator Error Exceptions"""
+    """Generic Simulator Error Exceptions."""
 
     ...
 
 
 class Simulator(ABC):
-    """Pure static class template for Spice simulators. This class only defines the interface of the subclasses.
-    The variables below shall be overridden by the subclasses. Instantiating this class will raise a SpiceSimulatorError
-    exception.
+    """Pure static class template for Spice simulators. This class only defines the
+    interface of the subclasses. The variables below shall be overridden by the
+    subclasses. Instantiating this class will raise a SpiceSimulatorError exception.
 
     A typical subclass for a Windows installation is:
 
     .. code-block:: python
 
-        class MySpiceWindowsInstallation(Simulator):
-            spice_exe = ['<path to the spice executable>']
-            process_name = "<name of the process on Windows Task Manager>"
-
+    class MySpiceWindowsInstallation(Simulator):     spice_exe = ['<path to the spice
+    executable>']     process_name = "<name of the process on Windows Task Manager>"
 
     or on a Linux distribution:
 
     .. code-block:: python
 
-        class MySpiceLinuxInstallation(Simulator):
-            spice_exe = ['<wine_command>', '<path to the spice executable>']
-            process_name = "<name of the process within the system>"
+    class MySpiceLinuxInstallation(Simulator):     spice_exe = ['<wine_command>', '<path
+    to the spice executable>']     process_name = "<name of the process within the
+    system>"
 
-
-    If you use MacOS, you can choose either one of the 2 above. If you are on Intel, running LTSpice under wine (therefore: like under Linux) is preferred.
-
+     If you use MacOS, you can choose either one of the 2 above. If you are on Intel,
+    running LTSpice under wine (therefore: like under Linux) is preferred.
 
     The subclasses should then implement at least the run() function as a classmethod.
 
     .. code-block:: python
 
-        @classmethod
-        def run(cls, netlist_file: Union[str, Path], cmd_line_switches: list = None, timeout: float = None, stdout=None, stderr=None):
-            '''This method implements the call for the simulation of the netlist file. '''
-            cmd_run = cls.spice_exe + ['-Run'] + ['-b'] + [netlist_file] + cmd_line_switches
-            return run_function(cmd_run, timeout=timeout, stdout=stdout, stderr=stderr)
+    @classmethod def run(cls, netlist_
+    file:
+    Union[str, Path], cmd_line_switches: list = None, timeout: float = None, stdout=None, stderr=None):
+    '''This method implements the call for the simulation of the netlist file. '''
+    cmd_run = cls.spice_exe + ['-Run'] + ['-b'] + [netlist_file] + cmd_line_switches
+    return run_function(cmd_run, timeout=timeout, stdout=stdout, stderr=stderr)
 
 
     The ``run_function()`` can be imported from the simulator.py with
@@ -97,14 +99,17 @@ class Simulator(ABC):
     """
 
     spice_exe: List[str] = []
-    """ The executable. If using a loader (like wine), make sure that the last in the array is the real simulator.
+    """The executable. If using a loader (like wine), make sure that the last in the
+    array is the real simulator.
 
-    :meta hide-value:"""
+    :meta hide-value:
+    """
 
     process_name: str = ""
-    """ the name of the process in the task manager
+    """The name of the process in the task manager.
 
-    :meta hide-value:"""
+    :meta hide-value:
+    """
 
     raw_extension = ".raw"
     """:meta private:"""
@@ -114,14 +119,14 @@ class Simulator(ABC):
 
     @classmethod
     def create_from(cls, path_to_exe, process_name=None):
-        """
-        Creates a simulator class from a path to the simulator executable
+        """Creates a simulator class from a path to the simulator executable.
 
         :param path_to_exe:
-        :type path_to_exe: pathlib.Path or str. If it is a string, it supports multiple sections,
-            allowing loaders like wine, but MUST be in posix format in that case, and
-            the last section MUST be the simulator executable.
-        :param process_name: the process_name to be used for killing phantom processes. If not provided, it will be
+        :type path_to_exe: pathlib.Path or str. If it is a string, it supports multiple
+            sections, allowing loaders like wine, but MUST be in posix format in that
+            case, and the last section MUST be the simulator executable.
+        :param process_name: the process_name to be used for killing phantom processes.
+            If not provided, it will be
         :return: a class instance representing the Spice simulator
         :rtype: Simulator
         """
@@ -160,12 +165,13 @@ class Simulator(ABC):
 
     @staticmethod
     def guess_process_name(exe: str) -> str:
-        """Guess the process name based on the executable path"""
+        """Guess the process name based on the executable path."""
         if not exe:
             return ""
         if sys.platform == "darwin":
             if "wine" in exe:
-                # For MacOS wine, there will be no process called "wine". Use "wine-preloader"
+                # For MacOS wine, there will be no process called "wine". Use
+                # "wine-preloader"
                 return "wine-preloader"
             else:
                 return Path(exe).stem
@@ -186,8 +192,10 @@ class Simulator(ABC):
         stderr=None,
         exe_log: bool = False,
     ) -> int:
-        """This method implements the call for the simulation of the netlist file. This should be overriden by its
-        subclass."""
+        """This method implements the call for the simulation of the netlist file.
+
+        This should be overriden by its subclass.
+        """
         raise SpiceSimulatorError(
             "This class should be subclassed and this function should be overridden."
         )
@@ -195,13 +203,18 @@ class Simulator(ABC):
     @classmethod
     @abstractmethod
     def valid_switch(cls, switch, switch_param) -> list:
-        """This method validates that a switch exist and is valid. This should be overriden by its subclass."""
+        """This method validates that a switch exist and is valid.
+
+        This should be overriden by its subclass.
+        """
         ...
 
     @classmethod
     def is_available(cls):
-        """This method checks if the simulator exists in the system. It will return a boolean value indicating if the
-        simulator is installed or not."""
+        """This method checks if the simulator exists in the system.
+
+        It will return a boolean value indicating if the simulator is installed or not.
+        """
         if cls.spice_exe and len(cls.spice_exe) > 0:
             # check if file exists
             if Path(cls.spice_exe[0]).exists():
@@ -213,10 +226,9 @@ class Simulator(ABC):
 
     @classmethod
     def get_default_library_paths(cls) -> List[str]:
-        """
-        Return the directories that contain the standard simulator's libraries,
-        as derived from the simulator's executable path and platform.
-        spice_exe must be set before calling this method.
+        """Return the directories that contain the standard simulator's libraries, as
+        derived from the simulator's executable path and platform. spice_exe must be set
+        before calling this method.
 
         This is companion with `set_custom_library_paths()`
 
@@ -227,7 +239,8 @@ class Simulator(ABC):
         myexe = None
         # get the executable
         if cls.spice_exe and len(cls.spice_exe) > 0:
-            # TODO: this will fail if the simulator executable is not in the last element of the list. Maybe make this more robust.
+            # TODO: this will fail if the simulator executable is not in the last
+            # element of the list. Maybe make this more robust.
             if os.path.exists(cls.spice_exe[-1]):
                 myexe = cls.spice_exe[-1]
         _logger.debug(
@@ -248,31 +261,35 @@ class Simulator(ABC):
     def expand_and_check_local_dir(
         path: str, exe_path: Optional[str] = None
     ) -> Optional[str]:
-        """
-        Expands a directory path to become an absolute path, while taking into account a potential use under wine (under MacOS and Linux).
-        Will also check if that directory exists.
-        The path must either be an absolute path or start with ~. Relative paths are not supported.
-        On MacOS or Linux, it will try to replace any reference to the virtual windows root under wine into a host OS path.
+        """Expands a directory path to become an absolute path, while taking into
+        account a potential use under wine (under MacOS and Linux). Will also check if
+        that directory exists. The path must either be an absolute path or start with ~.
+        Relative paths are not supported. On MacOS or Linux, it will try to replace any
+        reference to the virtual windows root under wine into a host OS path.
 
         Examples:
 
         * under windows:
 
-          * C:/mydir -> C:/mydir
+        * C:/mydir -> C:/mydir
 
-          * ~/mydir -> C:/Users/myuser/mydir
+        * ~/mydir -> C:/Users/myuser/mydir
 
         * under linux, and if the executable is /mywineroot/.wine/drive_c/(something):
 
-          * C:/mydir -> /mywineroot/.wine/drive_c/mydir
+        * C:/mydir -> /mywineroot/.wine/drive_c/mydir
 
-          * ~/mydir -> /mywineroot/.wine/drive_c/users/myuser/mydir
+        * ~/mydir -> /mywineroot/.wine/drive_c/users/myuser/mydir
 
-        :param path: The path to expand. Must be in posix format, use `PureWindowsPath(path).as_posix()` to transform a windows path to a posix path.
+        :param path: The path to expand. Must be in posix format, use
+            `PureWindowsPath(path).as_posix()` to transform a windows path to a posix
+            path.
         :type path: str
-        :param exe_path: path to a related executable that may or may not be under wine, defaults to None, ignored on Windows
+        :param exe_path: path to a related executable that may or may not be under wine,
+            defaults to None, ignored on Windows
         :type exe_path: str, optional
-        :return: the fully expanded path, as posix path, will return None if the path does not exist.
+        :return: the fully expanded path, as posix path, will return None if the path
+            does not exist.
         :rtype: Optional[str]
         """
         c_drive = None
@@ -289,17 +306,20 @@ class Simulator(ABC):
                 # to the user's home directory in the host OS. That would mean, that "~/Documents" under wine is
                 # normally also "~/Documents" under the host OS. But this is not always the case, and not for all directories.
                 # The user can have modified this, via for example a winetricks sandbox.
-                # Therefore, I make it an absolute path for Windows and do not try to optimise:
+                # Therefore, I make it an absolute path for Windows and do not try to
+                # optimise:
                 path = "C:/users/" + os.path.expandvars("${USER}" + path[1:])
                 # If I were to do this expansion under Windows, I should use ${USERNAME} but we're not in Windows here.
                 # I also cannot use expanduser(), as that again would be for the wrong OS.
                 # All lowercase "users" is correct, as it is the default path for the user's home directory in wine.
-            # I now have a "windows" path (but in posix form, with forward slashes). Make it into a host OS path.
+            # I now have a "windows" path (but in posix form, with forward slashes).
+            # Make it into a host OS path.
             if path.startswith("C:/") or path.startswith("c:/"):
                 path = (
                     c_drive + path[3:]
                 )  # should start with C:. If not, something is wrong.
-            # note that in theory, the exe path can be relative to the user's home directory, so...
+            # note that in theory, the exe path can be relative to the user's home
+            # directory, so...
 
         # and in all cases (Windows, MacOS, linux,...):
         # terminate with the expansion of the ~

@@ -41,14 +41,14 @@ def zip_files(raw_filename: Path, log_filename: Path):
 
 
 class ServerSimRunner(threading.Thread):
-    """This class maintains updated status of the SimRunner.
-    It was decided not to make SimRunner a super class and rather make it manipulate directly the structures of
-    SimRunner. The rationale for this, was to avoid confusions between the run() on the Thread class and the
-    run on the SimRunner class.
-    Making a class derive from two different classes needs to be handled carefully.
+    """This class maintains updated status of the SimRunner. It was decided not to make
+    SimRunner a super class and rather make it manipulate directly the structures of
+    SimRunner. The rationale for this, was to avoid confusions between the run() on the
+    Thread class and the run on the SimRunner class. Making a class derive from two
+    different classes needs to be handled carefully.
 
-    In consequence of the rationale above, many of the functions that were handled by the SimRunner are overriden
-    by this class.
+    In consequence of the rationale above, many of the functions that were handled by
+    the SimRunner are overriden by this class.
     """
 
     def __init__(
@@ -60,7 +60,8 @@ class ServerSimRunner(threading.Thread):
         simulator=None,
     ):
         super().__init__(name="SimManager")
-        # SimRunner expects a float for timeout, so use 600.0 as default if None is provided
+        # SimRunner expects a float for timeout, so use 600.0 as default if None
+        # is provided
         sim_timeout = 600.0 if timeout is None else timeout
         self.runner = SimRunner(
             simulator=simulator,
@@ -75,7 +76,10 @@ class ServerSimRunner(threading.Thread):
         self._stop = False
 
     def run(self) -> None:
-        """This function makes a direct manipulation of the structures of SimRunner. This option is"""
+        """This function makes a direct manipulation of the structures of SimRunner.
+
+        This option is
+        """
         while True:
             self.runner.update_completed()
             while len(self.runner.completed_tasks) > 0:
@@ -106,13 +110,13 @@ class ServerSimRunner(threading.Thread):
     def add_simulation(
         self, netlist: Union[str, Path, BaseEditor], *, timeout: Optional[float] = None
     ) -> int:
-        """
-        Adding a simulation to the list of simulations to be run. The function will return the runno of the simulation
-        or -1 if the simulation could not be started.
+        """Adding a simulation to the list of simulations to be run. The function will
+        return the runno of the simulation or -1 if the simulation could not be started.
 
         :param netlist: The netlist to be simulated
         :param timeout: The timeout for the simulation
-        :return: The runno of the simulation or -1 if the simulation could not be started
+        :return: The runno of the simulation or -1 if the simulation could not be
+            started
         """
         _logger.debug(f"starting Simulation of {netlist}")
         # SimRunner.run accepts Optional[float] for timeout, so we can pass it directly
@@ -136,8 +140,10 @@ class ServerSimRunner(threading.Thread):
         del self.completed_tasks[pos]
 
     def erase_files_of_runno(self, runno):
-        """Will delete all files related with a completed task. Will also delete information on the completed_tasks
-        attribute."""
+        """Will delete all files related with a completed task.
+
+        Will also delete information on the completed_tasks attribute.
+        """
         for i, task_info in enumerate(self.completed_tasks):
             if task_info["runno"] == runno:
                 self._erase_files_and_info(i)

@@ -32,29 +32,31 @@ _logger = logging.getLogger("kupicelib.qspice_log_reader")
 
 
 class QspiceLogReader(LogfileData):
-    """
-    Reads an QSpice log file and retrieves the step and measurement information if it exists.
-    The step information is then accessible by using the 'stepset' property of this class.
-    This class is intended to be used together with the RawRead to retrieve the runs that are associated with a
-    given parameter setting.
+    """Reads an QSpice log file and retrieves the step and measurement information if it
+    exists. The step information is then accessible by using the 'stepset' property of
+    this class. This class is intended to be used together with the RawRead to retrieve
+    the runs that are associated with a given parameter setting.
 
-    This class constructor only reads the step information of the log file. If the measures are needed, then the user
-    should call the get_measures() method.
+    This class constructor only reads the step information of the log file. If the
+    measures are needed, then the user should call the get_measures() method.
 
-    :property stepset: dictionary in which the keys are the variables that were STEP'ed during the simulation and
-        the associated value is a list representing the sequence of assigned values during simulation.
+    :property stepset: dictionary in which the keys are the variables that were STEP'ed
+    during the simulation and     the associated value is a list representing the
+    sequence of assigned values during simulation.
 
-    :property headers: list containing the headers on the exported data. This is only populated when the *read_measures*
-        optional parameter is set to False.
+    :property headers: list containing the headers on the exported data. This is only
+    populated when the *read_measures*     optional parameter is set to False.
 
-    :property dataset: dictionary in which the keys are the the headers and the export file and the values are
-         lists. This is information is only populated when the *read_measures* optional parameter is set to False.
+    :property dataset: dictionary in which the keys are the the headers and the export
+    file and the values are      lists. This is information is only populated when the
+    *read_measures* optional parameter is set to False.
 
     :param log_filename: path to the Export file.
     :type log_filename: str
     :param read_measures: Optional parameter to skip measuring data reading.
     :type read_measures: boolean
-    :param step_set: Optional parameter to provide the steps from another file. This is used to process .mout files.
+    :param step_set: Optional parameter to provide the steps from another file. This is
+        used to process .mout files.
     :type step_set: dict
     """
 
@@ -109,16 +111,16 @@ class QspiceLogReader(LogfileData):
             self.parse_meas_file(meas_file)
 
     def obtain_measures(self, meas_filename: Optional[Path] = None) -> Path:
-        """
-        In QSpice the measures are obtained by calling the QPOST command giving as arguments
-        the .qraw file and the .log file
-        This function makes this call to QPOST and returns the measurement output file path.
+        """In QSpice the measures are obtained by calling the QPOST command giving as
+        arguments the .qraw file and the .log file This function makes this call to
+        QPOST and returns the measurement output file path.
 
-        Note the call to QPOST includes the path to the circuit netlist. This is assumed to be the name of the
-        logfile, but with the '.net' or '.cir' extension.
+        Note the call to QPOST includes the path to the circuit netlist. This is assumed
+        to be the name of the logfile, but with the '.net' or '.cir' extension.
 
-        :param meas_filename: This optional parameter specifies the measurement file name. If not given, it will
-            assume the name of the log file but with the extension '.meas'.
+        :param meas_filename: This optional parameter specifies the measurement file
+            name. If not given, it will assume the name of the log file but with the
+            extension '.meas'.
         :type meas_filename: Optional str or Path
         :returns: The .meas file path
         :rtype: Path
@@ -152,9 +154,8 @@ class QspiceLogReader(LogfileData):
         return meas_filename
 
     def parse_meas_file(self, meas_filename):
-        """
-        Parses the .meas file and reads all measurements contained in the file. Access to the measurements is done
-        using this class interface.
+        """Parses the .meas file and reads all measurements contained in the file.
+        Access to the measurements is done using this class interface.
 
         :param meas_filename: path to the measurement file to parse.
         :type meas_filename: str or Path

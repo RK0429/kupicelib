@@ -30,7 +30,7 @@ _logger = logging.getLogger("kupicelib.AscToQsch")
 
 
 def main():
-    """Converts an ASC file to a QSCH schematic"""
+    """Converts an ASC file to a QSCH schematic."""
     import os.path
     from optparse import OptionParser
 
@@ -66,7 +66,7 @@ def main():
 
 
 def convert_asc_to_qsch(asc_file, qsch_file, search_paths=[]):
-    """Converts an ASC file to a QSCH schematic"""
+    """Converts an ASC file to a QSCH schematic."""
     symbol_stock = {}
     # Open the ASC file
     asc_editor = AscEditor(asc_file)
@@ -102,13 +102,15 @@ def convert_asc_to_qsch(asc_file, qsch_file, search_paths=[]):
         if symbol_tag is None:
             # Will try to get it from the sym folder
             print(f"Searching for symbol {comp.symbol}...")
-            # TODO: this should use the default locations from AscEditor, and use search_file_in_containers, just like AscEditor does.
+            # TODO: this should use the default locations from AscEditor, and use
+            # search_file_in_containers, just like AscEditor does.
             for sym_root in search_paths + [
                 # os.path.curdir,  # The current script directory
                 os.path.split(asc_file)[0],  # The directory where the script is located
                 os.path.expanduser("~/AppData/Local/LTspice/lib/sym"),
                 os.path.expanduser("~/Documents/LtspiceXVII/lib/sym"),
-                # os.path.expanduser(r"~\AppData\Local\Programs\ADI\LTspice\lib.zip"), # TODO: implement this
+                # os.path.expanduser(r"~\AppData\Local\Programs\ADI\LTspice\lib.zip"), #
+                # TODO: implement this
             ]:
                 print(f"   {os.path.abspath(sym_root)}")
                 if not os.path.exists(sym_root):  # Skipping invalid paths

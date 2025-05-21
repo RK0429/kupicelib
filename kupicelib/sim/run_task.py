@@ -18,9 +18,7 @@
 # Created:     23-12-2016
 # Licence:     refer to the LICENSE file
 # -------------------------------------------------------------------------------
-"""
-Internal classes not to be used directly by the user
-"""
+"""Internal classes not to be used directly by the user."""
 __author__ = "Nuno Canto Brum <nuno.brum@gmail.com>"
 __copyright__ = "Copyright 2023, Fribourg Switzerland"
 
@@ -47,7 +45,8 @@ else:
 
 
 def format_time_difference(time_diff):
-    """Formats the time difference in a human-readable format, stripping the hours or minutes if they are zero"""
+    """Formats the time difference in a human-readable format, stripping the hours or
+    minutes if they are zero."""
     seconds_difference = int(time_diff)
     milliseconds = int((time_diff - seconds_difference) * 1000)
     hours, remainder = divmod(seconds_difference, 3600)
@@ -112,7 +111,11 @@ class RunTask(threading.Thread):
             ": Starting simulation %d: %s" % (self.runno, self.netlist_file),
         )
         # Ensure simulator executable is configured if missing
-        if hasattr(self.simulator, 'spice_exe') and not self.simulator.spice_exe and hasattr(self.simulator, 'get_default_executable'):
+        if hasattr(
+                self.simulator,
+                'spice_exe') and not self.simulator.spice_exe and hasattr(
+                self.simulator,
+                'get_default_executable'):
             # Initialize default LTspice executable
             self.simulator = self.simulator.create_from(None)
         # start execution
@@ -204,11 +207,13 @@ class RunTask(threading.Thread):
                 )
 
     def get_results(self) -> Union[None, Any, Tuple[str, str]]:
-        """
-        Returns the simulation outputs if the simulation and callback function has already finished.
-        If the simulation is not finished, it simply returns None. If no callback function is defined, then
-        it returns a tuple with (raw_file, log_file). If a callback function is defined, it returns whatever
-        the callback function is returning.
+        """Returns the simulation outputs if the simulation and callback function has
+        already finished.
+
+        If the simulation is not finished, it simply returns None. If no callback
+        function is defined, then it returns a tuple with (raw_file, log_file). If a
+        callback function is defined, it returns whatever the callback function is
+        returning.
         """
         if self.is_alive():
             return None
@@ -225,8 +230,9 @@ class RunTask(threading.Thread):
                 return self.raw_file, self.log_file
 
     def wait_results(self) -> Union[Any, Tuple[str, str]]:
-        """
-        Waits for the completion of the task and returns a tuple with the raw and log files.
+        """Waits for the completion of the task and returns a tuple with the raw and log
+        files.
+
         :returns: Tuple with the path to the raw file and the path to the log file
         :rtype: tuple(str, str)
         """

@@ -61,7 +61,8 @@ class XyceSimulator(Simulator):
                 spice_exe = [exe]
                 break
 
-    # The following variables are not needed anymore. This also makes sphinx not mention them in the documentation.
+    # The following variables are not needed anymore. This also makes sphinx
+    # not mention them in the documentation.
     del exe
 
     # fall through
@@ -155,43 +156,43 @@ class XyceSimulator(Simulator):
 
     @classmethod
     def valid_switch(cls, switch: str, parameter: str = "") -> list:
-        """
-        Validates a command line switch. The following options are available for Xyce:
+        """Validates a command line switch. The following options are available for
+        Xyce:
 
-        * `-capabilities`: print compiled-in options and exit
-        * `-license`: print license and exit
-        * `-param [device [level [<inst|mod>]]]`: print a terse summary of model and/or device parameters
-        * `-doc [device [level [<inst|mod>]]]`: output latex tables of model and device parameters to files
-        * `-doc_cat [device [level [<inst|mod>]]]`: output latex tables of model and device parameters to files
-        * `-count`: device count without netlist syntax or topology check
-        * `-syntax`: check netlist syntax and exit
-        * `-norun`: netlist syntax and topology and exit
-        * `-namesfile <path>`: output internal names file to <path> and exit
-        * `-noise_names_file <path>`: output noise source names file to <path> and exit
-        * `-quiet`: suppress some of the simulation-progress messages sent to stdout
-        * `-jacobian_test`: jacobian matrix diagnostic
-        * `-hspice-ext  <option>`: apply hspice compatibility features during parsing.  option=all applies them all
-        * `-redefined_params <option>`: set option for redefined .params as ignore (use last), usefirst, warn or error
-        * `-subckt_multiplier <option>`: set option to true(default) or false to apply implicit subcircuit multipliers
-        * `-local_variation <option>`: set option to true(default) or false to enable local variation in UQ analysis
-        * `-delim <TAB|COMMA|string>`: set the output file field delimiter
-        * `-o <basename>`: <basename> for the output file(s)
-        * `-per-processor`: create log file for each procesor, add .<n>.<r> to log path
-        * `-remeasure [existing Xyce output file]`: recompute .measure() results with existing data
-        * `-nox <on|off>`: NOX nonlinear solver usage
-        * `-linsolv <solver>`: force usage of specific linear solver
-        * `-maxord <1..5>`: maximum time integration order
-        * `-max-warnings <#>`: maximum number of warning messages
-        * `-prf <param file name>`: specify a file with simulation parameters
-        * `-rsf <response file name>`: specify a file to save simulation responses functions.
-        * `-a`: output in ascii format
-        * `-randseed <number>`: seed random number generator used by expressions and sampling methods
-        * `-plugin <plugin list>`: load device plugin libraries (comma-separated list)
+        * `-capabilities`: print compiled-in options and exit * `-license`: print
+        license and exit * `-param [device [level [<inst|mod>]]]`: print a terse summary
+        of model and/or device parameters * `-doc [device [level [<inst|mod>]]]`: output
+        latex tables of model and device parameters to files * `-doc_cat [device [level
+        [<inst|mod>]]]`: output latex tables of model and device parameters to files *
+        `-count`: device count without netlist syntax or topology check * `-syntax`:
+        check netlist syntax and exit * `-norun`: netlist syntax and topology and exit *
+        `-namesfile <path>`: output internal names file to <path> and exit *
+        `-noise_names_file <path>`: output noise source names file to <path> and exit *
+        `-quiet`: suppress some of the simulation-progress messages sent to stdout *
+        `-jacobian_test`: jacobian matrix diagnostic * `-hspice-ext  <option>`: apply
+        hspice compatibility features during parsing.  option=all applies them all *
+        `-redefined_params <option>`: set option for redefined .params as ignore (use
+        last), usefirst, warn or error * `-subckt_multiplier <option>`: set option to
+        true(default) or false to apply implicit subcircuit multipliers *
+        `-local_variation <option>`: set option to true(default) or false to enable
+        local variation in UQ analysis * `-delim <TAB|COMMA|string>`: set the output
+        file field delimiter * `-o <basename>`: <basename> for the output file(s) *
+        `-per-processor`: create log file for each procesor, add .<n>.<r> to log path *
+        `-remeasure [existing Xyce output file]`: recompute .measure() results with
+        existing data * `-nox <on|off>`: NOX nonlinear solver usage * `-linsolv
+        <solver>`: force usage of specific linear solver * `-maxord <1..5>`: maximum
+        time integration order * `-max-warnings <#>`: maximum number of warning messages
+        * `-prf <param file name>`: specify a file with simulation parameters * `-rsf
+        <response file name>`: specify a file to save simulation responses functions. *
+        `-a`: output in ascii format * `-randseed <number>`: seed random number
+        generator used by expressions and sampling methods * `-plugin <plugin list>`:
+        load device plugin libraries (comma-separated list)
 
-        The following parameters will already be filled in by kupicelib, and cannot be set:
+        The following parameters will already be filled in by kupicelib, and cannot be
+        set:
 
-        * `-l <path>`: place the log output into <path>, "cout" to log to stdout
-        * `-r <file>`: generate a rawfile named <file> in binary format
+        * `-l <path>`: place the log output into <path>, "cout" to log to stdout * `-r
+        <file>`: generate a rawfile named <file> in binary format
 
         :param switch: switch to be added.
         :type switch: str
@@ -224,10 +225,8 @@ class XyceSimulator(Simulator):
                     ret = [switch_list[0], parameter]
                 elif param_token == "<param_options>":
                     # Check for [device [level [<inst|mod>]]] syntax ??
-                    ret = [
-                        switch_list[0],
-                        parameter,
-                    ]  # TODO: this will probably not work, need to separate the parameters
+                    # TODO: this will probably not work, need to separate the parameters
+                    ret = [switch_list[0], parameter, ]
                 elif param_token == "<hsext_options>":
                     ret = [switch_list[0], parameter]
                 elif param_token == "<redef_param_option>":
@@ -272,26 +271,34 @@ class XyceSimulator(Simulator):
     ) -> int:
         """Executes a Xyce simulation run.
 
-        A raw file and a log file will be generated, with the same name as the netlist file,
-        but with `.raw` and `.log` extension.
+        A raw file and a log file will be generated, with the same name as the netlist
+        file, but with `.raw` and `.log` extension.
 
         :param netlist_file: path to the netlist file
         :type netlist_file: Union[str, Path]
-        :param cmd_line_switches: additional command line options. Best to have been validated by valid_switch(), defaults to None
+        :param cmd_line_switches: additional command line options. Best to have been
+            validated by valid_switch(), defaults to None
         :type cmd_line_switches: list, optional
-        :param timeout: If timeout is given, and the process takes too long, a TimeoutExpired exception will be raised, defaults to None
+        :param timeout: If timeout is given, and the process takes too long, a
+            TimeoutExpired exception will be raised, defaults to None
         :type timeout: float, optional
-        :param stdout: control redirection of the command's stdout. Valid values are None, subprocess.PIPE, subprocess.DEVNULL, an existing file descriptor (a positive integer),
-            and an existing file object with a valid file descriptor.
-            With the default settings of None, no redirection will occur. Also see `exe_log` for a simpler form of control.
+        :param stdout: control redirection of the command's stdout. Valid values are
+            None, subprocess.PIPE, subprocess.DEVNULL, an existing file descriptor (a
+            positive integer), and an existing file object with a valid file descriptor.
+            With the default settings of None, no redirection will occur. Also see
+            `exe_log` for a simpler form of control.
         :type stdout: _FILE, optional
-        :param stderr: Like stdout, but affecting the command's error output. Also see `exe_log` for a simpler form of control.
+        :param stderr: Like stdout, but affecting the command's error output. Also see
+            `exe_log` for a simpler form of control.
         :type stderr: _FILE, optional
-        :param exe_log: If True, stdout and stderr will be ignored, and the simulator's execution console messages will be written to a log file
-            (named ...exe.log) instead of console. This is especially useful when running under wine or when running simultaneous tasks.
+        :param exe_log: If True, stdout and stderr will be ignored, and the simulator's
+            execution console messages will be written to a log file (named ...exe.log)
+            instead of console. This is especially useful when running under wine or
+            when running simultaneous tasks.
         :type exe_log: bool, optional
         :raises SpiceSimulatorError: when the executable is not found.
-        :raises NotImplementedError: when the requested execution is not possible on this platform.
+        :raises NotImplementedError: when the requested execution is not possible on
+            this platform.
         :return: return code from the process
         :rtype: int
         """

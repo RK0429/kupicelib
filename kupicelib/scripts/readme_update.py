@@ -47,9 +47,9 @@ while line_no < len(readme_md):
                 # where <loc> is the text within the square brackets [] in the readme.md
                 if (loc := m.group("loc")) is not None:
                     lines_to_plug = []
-                    loc_text = loc[
-                        2:-1
-                    ]  # This is crude but it works. It removes the leading \s[ and the trailing ]
+                    # This is crude but it works. It removes the leading \s[ and the
+                    # trailing ]
+                    loc_text = loc[2:-1]
                     start_tag = "-- Start of %s --" % loc_text
                     end_tag = "-- End of %s --" % loc_text
                     include_ident = -1
@@ -74,7 +74,7 @@ while line_no < len(readme_md):
                     block_start + 1
                 )  # This accounts for the start and finish ``` line
                 new_lines = len(lines_to_plug)
-                readme_md[block_start + 1 : line_no] = lines_to_plug
+                readme_md[block_start + 1: line_no] = lines_to_plug
                 line_no += new_lines - existing_lines
         block_start = -1
     line_no += 1

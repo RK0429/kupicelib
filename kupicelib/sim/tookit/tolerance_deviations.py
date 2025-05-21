@@ -29,7 +29,7 @@ from .sim_analysis import AnyRunner, ProcessCallback, SimAnalysis
 
 
 class DeviationType(Enum):
-    """Enum to define the type of deviation"""
+    """Enum to define the type of deviation."""
 
     tolerance = "tolerance"
     minmax = "minmax"
@@ -38,7 +38,7 @@ class DeviationType(Enum):
 
 @dataclass
 class ComponentDeviation:
-    """Class to store the deviation of a component"""
+    """Class to store the deviation of a component."""
 
     max_val: float
     min_val: float = 0.0
@@ -61,7 +61,7 @@ class ComponentDeviation:
 
 
 class ToleranceDeviations(SimAnalysis, ABC):
-    """Class to automate Monte-Carlo simulations"""
+    """Class to automate Monte-Carlo simulations."""
 
     devices_with_deviation_allowed = ("R", "C", "L", "V", "I")
 
@@ -83,16 +83,14 @@ class ToleranceDeviations(SimAnalysis, ABC):
         self.elements_analysed: List[str] = []
 
     def reset_tolerances(self):
-        """
-        Clears all the settings for the simulation
-        """
+        """Clears all the settings for the simulation."""
         self.device_deviations.clear()
         self.parameter_deviations.clear()
         self.testbench_prepared = False
         self.last_run_number = 0
 
     def clear_simulation_data(self):
-        """Clears the data from the simulations"""
+        """Clears the data from the simulations."""
         super().clear_simulation_data()
         self.simulation_results.clear()
         self.analysis_executed = False
@@ -100,9 +98,10 @@ class ToleranceDeviations(SimAnalysis, ABC):
     def set_tolerance(
         self, ref: str, new_tolerance: float, distribution: str = "uniform"
     ):
-        """
-        Sets the tolerance for a given component. If only the prefix is given, the tolerance is set for all.
-        The valid prefixes that can be used are: R, C, L, V, I
+        """Sets the tolerance for a given component.
+
+        If only the prefix is given, the tolerance is set for all. The valid prefixes
+        that can be used are: R, C, L, V, I
         """
         if ref in self.devices_with_deviation_allowed:  # Only the prefix is given
             self.default_tolerance[ref] = ComponentDeviation.from_tolerance(
@@ -115,10 +114,11 @@ class ToleranceDeviations(SimAnalysis, ABC):
                 )
 
     def set_tolerances(self, new_tolerances: dict, distribution: str = "uniform"):
-        """
-        Sets the tolerances for a set of components. The dictionary keys are the references and the values are the
-        tolerances. If only the prefix is given, the tolerance is set for all components with that prefix. See
-        set_tolerance method.
+        """Sets the tolerances for a set of components.
+
+        The dictionary keys are the references and the values are the tolerances. If
+        only the prefix is given, the tolerance is set for all components with that
+        prefix. See set_tolerance method.
         """
         for ref, tol in new_tolerances.items():
             self.set_tolerance(ref, tol, distribution)
@@ -126,9 +126,11 @@ class ToleranceDeviations(SimAnalysis, ABC):
     def set_deviation(
         self, ref: str, min_val, max_val: float, distribution: str = "uniform"
     ):
-        """
-        Sets the deviation for a given component. This establishes a min and max value for the component.
-        Optionally a distribution can be specified. The valid distributions are: uniform or normal (gaussian).
+        """Sets the deviation for a given component.
+
+        This establishes a min and max value for the component. Optionally a
+        distribution can be specified. The valid distributions are: uniform or normal
+        (gaussian).
         """
         self.device_deviations[ref] = ComponentDeviation.from_min_max(
             min_val, max_val, distribution
@@ -197,20 +199,26 @@ class ToleranceDeviations(SimAnalysis, ABC):
         run_filename: Optional[str] = None,
         exe_log: bool = False,
     ):
-        """
-        Runs the simulations.
-        :param runs_per_sim: Maximum number of runs per simulation. If the number of runs is higher than this
-        number, the simulation is split in multiple runs.
-        :param wait_resource: If True, the simulation will wait for the resource to be available. If False, the
-        simulation will be queued and the method will return immediately.
-        :param callback: A callback function to be called when the simulation is completed. The callback function must
-        accept a single argument, which is the simulation object.
-        :param callback_args: A tuple or dictionary with the arguments to be passed to the callback function.
+        """Runs the simulations.
+
+        :param runs_per_sim: Maximum number of runs per simulation. If the number of
+            runs is higher than this number, the simulation is split in multiple runs.
+        :param wait_resource: If True, the simulation will wait for the resource to be
+            available. If False, the simulation will be queued and the method will
+            return immediately.
+        :param callback: A callback function to be called when the simulation is
+            completed. The callback function must accept a single argument, which is the
+            simulation object.
+        :param callback_args: A tuple or dictionary with the arguments to be passed to
+            the callback function.
         :param switches: A list of switches to be passed to the simulator.
-        :param timeout: A timeout in seconds. If the simulation is not completed in this time, it will be aborted.
-        :param run_filename: The name of the file to be used for the simulation. If None, a temporary file will be used.
+        :param timeout: A timeout in seconds. If the simulation is not completed in this
+            time, it will be aborted.
+        :param run_filename: The name of the file to be used for the simulation. If
+            None, a temporary file will be used.
         :param exe_log: Sends the execution log_file to a file "netlist_name.exe.log".
-        :return: The callback returns of every batch if a callback function is given. Otherwise, None.
+        :return: The callback returns of every batch if a callback function is given.
+            Otherwise, None.
         """
         if self.testbench_prepared is False:
             super()._reset_netlist()
@@ -286,8 +294,10 @@ class ToleranceDeviations(SimAnalysis, ABC):
         return None
 
     def add_log(self, run_task: RunTask) -> Optional[LogfileData]:
-        """Reads a log file and adds it to the simulation_results. It does so making sure that the run number is
-        correctly set."""
+        """Reads a log file and adds it to the simulation_results.
+
+        It does so making sure that the run number is correctly set.
+        """
         if run_task.retcode != 0:
             return None
 
@@ -333,7 +343,7 @@ class ToleranceDeviations(SimAnalysis, ABC):
         return log_results
 
     def read_logfiles(self):
-        """Returns the logdata for the simulations"""
+        """Returns the logdata for the simulations."""
         if self.analysis_executed is False and self.testbench_executed is False:
             raise RuntimeError("The analysis has not been executed yet")
 
@@ -375,5 +385,5 @@ class ToleranceDeviations(SimAnalysis, ABC):
         timeout: Optional[float] = None,
         exe_log: bool = True,
     ):
-        """The override of this method should set the self.analysis_executed to True"""
+        """The override of this method should set the self.analysis_executed to True."""
         ...

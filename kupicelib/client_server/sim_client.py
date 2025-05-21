@@ -34,14 +34,14 @@ _logger = logging.getLogger("kupicelib.SimClient")
 
 
 class SimClientInvalidRunId(LookupError):
-    """Raised when asking for a run_no that doesn't exist"""
+    """Raised when asking for a run_no that doesn't exist."""
 
     ...
 
 
 @dataclass
 class JobInformation:
-    """Contains information about pending simulation jobs"""
+    """Contains information about pending simulation jobs."""
 
     run_number: (
         int  # The run id that is returned by the Server and which identifies the server
@@ -63,51 +63,54 @@ class JobInformation:
 
 
 class SimClient(object):
-    """
-    Class used for launching simulations in a Spice Simulation Server.
-    A Spice Simulation Server is a machine running a script with an active SimServer object.
+    """Class used for launching simulations in a Spice Simulation Server. A Spice
+    Simulation Server is a machine running a script with an active SimServer object.
 
     This class only implement basic level handshaking with a single simulation Server.
-    Upon instance, it will establish a connection with Simulation Server. This connection is kept
-    alive during the whole live of this object.
+    Upon instance, it will establish a connection with Simulation Server. This
+    connection is kept alive during the whole live of this object.
 
-    The run() method will transfer the netlist for the server, execute a simulation and transfer the simulation results
-    back to the client.
+    The run() method will transfer the netlist for the server, execute a simulation and
+    transfer the simulation results back to the client.
 
-    Data is returned from the server inside a zipfie which is copied into the directory defined when the job was
-    created, /i.e./ run() method called.
+    Data is returned from the server inside a zipfie which is copied into the directory
+    defined when the job was created, /i.e./ run() method called.
 
     Two lists are kept by this class:
 
-        * A list of started jobs (started_jobs) and,
+    * A list of started jobs (started_jobs) and,
 
-        * a list with finished jobs on the server, but, which haven't been yet transferred to the client (stored_jobs).
+    * a list with finished jobs on the server, but, which haven't been yet transferred
+    to the client (stored_jobs).
 
-    This distinction is important because the data is erased on the server side when the data is transferred.
+    This distinction is important because the data is erased on the server side when the
+    data is transferred.
 
-    This class implements an iterator that is to be used for retrieving the job. See the example below.
-    The iterator polls the server with a time interval defined by the attribute ``minimum_time_between_server_calls``.
-    This attribute is set to 0.2 seconds by default, but it can be overriden.
+    This class implements an iterator that is to be used for retrieving the job. See the
+    example below. The iterator polls the server with a time interval defined by the
+    attribute ``minimum_time_between_server_calls``. This attribute is set to 0.2
+    seconds by default, but it can be overriden.
 
     Usage:
 
     .. code-block:: python
 
-        import zipfile
-        from PySpice.sim.sim_client import SimClient
+    import zipfile from PySpice.sim.sim_client import SimClient
 
-        server = SimClient('http://localhost', 9000)  # Use another computer address.
-        print(server.session_id)
-        runid = server.run("../../tests/testfile.net")
-        print("Got Job id", runid)
+    server = SimClient(
+    'http://localhost',
+    9000)  # Use another computer address.
+    print(server.session_id)
+    runid = server.run("../../tests/testfile.net")
+    print("Got Job id", runid)
 
-        for runid in server:   # may not arrive in the same order as runids were launched
-            zip_filename = server.get_runno_data(runid)
-            print(f"Received {zip_filename} from runid {runid}")
+    for runid in server:   # may not arrive in the same order as runids were launched
+    zip_filename = server.get_runno_data(runid)
+    print(f"Received {zip_filename} from runid {runid}")
 
-            with zipfile.ZipFile(zip_filename, 'r') as zipf:  # Extract the contents of the zip file
-                print(zipf.namelist())  # Debug printing the contents of the zip file
-                zipf.extract(zipf.namelist()[0])  # Normally the raw file comes first
+    with zipfile.ZipFile(zip_filename, 'r') as zipf:  # Extract the contents of the zip file
+    print(zipf.namelist())  # Debug printing the contents of the zip file
+    zipf.extract(zipf.namelist()[0])  # Normally the raw file comes first
 
     NOTE: More elaborate algorithms such as managing multiple servers will be done on another class.
     """
@@ -119,9 +122,9 @@ class SimClient(object):
         self.started_jobs = (
             OrderedDict()
         )  # This list keeps track of started jobs on the server
-        self.stored_jobs = (
-            OrderedDict()
-        )  # This list keeps track of finished simulations that haven't yet been transferred.
+        # This list keeps track of finished simulations that haven't yet been
+        # transferred.
+        self.stored_jobs = (OrderedDict())
         self.completed_jobs = 0
         self.minimum_time_between_server_calls = (
             0.2  # Minimum time between server calls
@@ -132,9 +135,12 @@ class SimClient(object):
         self.close_session()
 
     def add_sources(self, sources: Iterable) -> bool:
-        """Add sources to the simulation environment. The sources are a list of file paths that are going to be
-        transferred to the server. The server will add the sources to the simulation folder. Returns True if the sources
-        were added and False if the session_id is not valid."""
+        """Add sources to the simulation environment.
+
+        The sources are a list of file paths that are going to be transferred to the
+        server. The server will add the sources to the simulation folder. Returns True
+        if the sources were added and False if the session_id is not valid.
+        """
         # Create a buffer to store the zip file in memory
         zip_buffer = io.BytesIO()
 
@@ -167,16 +173,15 @@ class SimClient(object):
     def run(
         self, circuit, dependencies: Optional[List[Union[str, pathlib.Path]]] = None
     ) -> int:
-        """
-        Sends the netlist identified with the argument "circuit" to the server, and it receives a run identifier
-        (runno). Since the server can receive requests from different machines, this identifier is not guaranteed to be
-        sequential.
+        """Sends the netlist identified with the argument "circuit" to the server, and
+        it receives a run identifier (runno). Since the server can receive requests from
+        different machines, this identifier is not guaranteed to be sequential.
 
         :param circuit: path to the netlist file containing the simulation directives.
         :type circuit: pathlib.Path or str
-        :param dependencies: list of files that the netlist depends on. This is used to ensure that the netlist is
-         transferred to the server with all the necessary files.
-
+        :param dependencies: list of files that the netlist depends on. This is used to
+            ensure that the netlist is transferred to the server with all the necessary
+            files.
         :type dependencies: list of pathlib.Path or str
         :returns: identifier on the server of the simulation.
         :rtype: int
@@ -213,8 +218,7 @@ class SimClient(object):
             return -1
 
     def get_runno_data(self, runno) -> Union[str, None]:
-        """
-        Returns the simulation output data inside a zip file name.
+        """Returns the simulation output data inside a zip file name.
 
         :rtype: str
         """

@@ -35,12 +35,13 @@ _logger = logging.getLogger("kupicelib.SimAnalysis")
 
 
 class SimAnalysis(object):
-    """
-    Base class for making Monte-Carlo, Extreme Value Analysis (EVA) or Failure Mode and Effects Analysis.
-    As a base class, a certain number of assertions must be made on the simulation results that will make the pass/fail.
+    """Base class for making Monte-Carlo, Extreme Value Analysis (EVA) or Failure Mode
+    and Effects Analysis. As a base class, a certain number of assertions must be made
+    on the simulation results that will make the pass/fail.
 
-    Note: For the time being only measurements done with .MEAS are possible. At a later stage the parsing of RAW files
-    will be possible, although, it seems that the later solution is less computing intense.
+    Note: For the time being only measurements done with .MEAS are possible. At a later
+    stage the parsing of RAW files will be possible, although, it seems that the later
+    solution is less computing intense.
     """
 
     def __init__(
@@ -61,7 +62,7 @@ class SimAnalysis(object):
         self.log_data = LogfileData()
 
     def clear_simulation_data(self):
-        """Clears the data from the simulations"""
+        """Clears the data from the simulations."""
         self.simulations.clear()
 
     @property
@@ -87,8 +88,9 @@ class SimAnalysis(object):
         run_filename: Optional[str] = None,
         exe_log: bool = True,
     ) -> Optional[RunTask]:
-        """
-        Runs the simulations. See runner.run() method for details on arguments.
+        """Runs the simulations.
+
+        See runner.run() method for details on arguments.
         """
         sim = self.runner.run(
             self.editor,
@@ -110,14 +112,18 @@ class SimAnalysis(object):
 
     @wraps(BaseEditor.reset_netlist)
     def reset_netlist(self):
-        """Resets the netlist to the original state and clears the instructions added by the user."""
+        """Resets the netlist to the original state and clears the instructions added by
+        the user."""
         self._reset_netlist()
         self.received_instructions.clear()
 
     def _reset_netlist(self):
-        """Unlike the reset_netlist method of the BaseEditor, this method does not clear the instructions added by the
-        user. This is useful for the case where the user wants to run multiple simulations with different parameters
-        without having to add the instructions again."""
+        """Unlike the reset_netlist method of the BaseEditor, this method does not clear
+        the instructions added by the user.
+
+        This is useful for the case where the user wants to run multiple simulations
+        with different parameters without having to add the instructions again.
+        """
         self.editor.reset_netlist()
         self.instructions_added = False
 
@@ -164,11 +170,14 @@ class SimAnalysis(object):
         self.editor.save_netlist(filename)
 
     def cleanup_files(self):
-        """Clears all simulation files. Typically used after a simulation run and analysis."""
+        """Clears all simulation files.
+
+        Typically used after a simulation run and analysis.
+        """
         self.runner.cleanup_files()
 
     def simulation(self, index: int):
-        """Returns a simulation object"""
+        """Returns a simulation object."""
         return self.simulations[index]
 
     def __getitem__(self, item):
@@ -176,7 +185,7 @@ class SimAnalysis(object):
 
     @staticmethod
     def read_logfile(run_task: RunTask) -> Optional[LogfileData]:
-        """Reads the log file and returns a dictionary with the results"""
+        """Reads the log file and returns a dictionary with the results."""
         log_reader_cls: Type[Union[LTSpiceLogReader, QspiceLogReader]]
         if run_task.simulator.__name__ == "LTspice":
             log_reader_cls = LTSpiceLogReader
@@ -200,7 +209,7 @@ class SimAnalysis(object):
         return log_results
 
     def add_log_data(self, log_data: LogfileData):
-        """Add data from a log file to the log_data object"""
+        """Add data from a log file to the log_data object."""
         if log_data is None:
             return
 
@@ -217,7 +226,7 @@ class SimAnalysis(object):
         self.log_data.step_count += log_data.step_count
 
     def read_logfiles(self) -> LogfileData:
-        """Reads the log files and returns a dictionary with the results"""
+        """Reads the log files and returns a dictionary with the results."""
         self.log_data = LogfileData()  # Clears the log data
         for sim in self.simulations:
             if sim is None:
@@ -232,7 +241,7 @@ class SimAnalysis(object):
     def configure_measurement(
         self, meas_name: str, meas_expression: str, meas_type: str = "tran"
     ):
-        """Configures a measurement to be done in the simulation"""
+        """Configures a measurement to be done in the simulation."""
         self.editor.add_instruction(
             ".meas {} {} {}".format(meas_type, meas_name, meas_expression)
         )

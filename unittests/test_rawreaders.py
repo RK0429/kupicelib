@@ -17,22 +17,25 @@
 #
 # Licence:     refer to the LICENSE file
 # -------------------------------------------------------------------------------
-"""
-@author:        hb020
-@copyright:     Copyright 2025
-@credits:       nunobrum
+"""@author:        hb020.
 
-@license:       GPLv3
-@maintainer:    Nuno Brum
-@email:         me@nunobrum.com
+@copyright:     Copyright 2025 @credits:       nunobrum
 
-@file:          test_rawreaders.py
+@license:       GPLv3 @maintainer:    Nuno Brum @email:         me@nunobrum.com
+
+@
+
+file:
+test_rawreaders.py
 @date:          2025-02-12
 
 @note           kupicelib raw_read unit test, on all supported simulators
-                  run ./test/unittests/test_rawreaders
+run ./test/unittests/test_rawreaders
 """
 
+from kupicelib.raw.raw_read import RawRead
+import kupicelib
+from numpy import angle, exp, pi
 import logging
 import os  # platform independent paths
 
@@ -45,10 +48,6 @@ sys.path.append(
     os.path.abspath((os.path.dirname(os.path.abspath(__file__)) + "/../"))
 )  # add project root to lib search path
 
-from numpy import angle, exp, pi
-
-import kupicelib
-from kupicelib.raw.raw_read import RawRead
 
 test_dir = (
     "../examples/testfiles/"
@@ -80,7 +79,8 @@ kupicelib.set_log_level(logging.INFO)
 # ngspice -D ngbehavior=kiltspa -b -o ac_ngspice.log -r ac_ngspice.bin.raw ac_rawtest.net
 # ngspice -D ngbehavior=kiltspa -D filetype=ascii -b -o ac_ngspice.log -r ac_ngspice.ascii.raw ac_rawtest.net
 # ngspice -D ngbehavior=kiltspa -b -o tran_ngspice.log -r tran_ngspice.bin.raw tran_rawtest.net
-# ngspice -D ngbehavior=kiltspa -D filetype=ascii -b -o tran_ngspice.log -r tran_ngspice.ascii.raw tran_rawtest.net
+# ngspice -D ngbehavior=kiltspa -D filetype=ascii -b -o tran_ngspice.log
+# -r tran_ngspice.ascii.raw tran_rawtest.net
 
 # xyce -r ac_xyce.bin.raw ac_rawtest.net
 # xyce -r ac_xyce.ascii.raw -a ac_rawtest.net
@@ -90,7 +90,8 @@ kupicelib.set_log_level(logging.INFO)
 # c:\"Program Files"\QSPICE\QSPICE64.exe -binary -r ac_qspice.bin.qraw -o ac_rawtest.log ac_rawtest.net
 # c:\"Program Files"\QSPICE\QSPICE64.exe -ascii -r ac_qspice.ascii.qraw -o ac_rawtest.log ac_rawtest.net
 # c:\"Program Files"\QSPICE\QSPICE64.exe -binary -r tran_qspice.bin.qraw -o tran_rawtest.log tran_rawtest.net
-# c:\"Program Files"\QSPICE\QSPICE64.exe -ascii -r tran_qspice.ascii.qraw -o tran_rawtest.log tran_rawtest.net
+# c:\"Program Files"\QSPICE\QSPICE64.exe -ascii -r tran_qspice.ascii.qraw
+# -o tran_rawtest.log tran_rawtest.net
 
 expected_ac_range = (1, 100000)
 expected_time_range = (0, 5e-3)
@@ -222,7 +223,8 @@ class RawReader_Test(unittest.TestCase):
                     freqrange, expected_ac_range, "Frequency range is not as expected"
                 )
 
-                # Compute the RC AC response with the resistor and capacitor values from the netlist.
+                # Compute the RC AC response with the resistor and capacitor values from
+                # the netlist.
                 vout_name = "v(out)"
                 vin_name = "v(in)"
                 if vout_name not in (name.lower() for name in raw.get_trace_names()):
@@ -299,7 +301,8 @@ class RawReader_Test(unittest.TestCase):
                     timerange, expected_time_range, "Time range is not as expected"
                 )
 
-                # Compute the RC transient response with the resistor and capacitor values from the netlist.
+                # Compute the RC transient response with the resistor and capacitor
+                # values from the netlist.
                 vout_name = "v(out)"
                 vin_name = "v(in)"
                 if vout_name not in (name.lower() for name in raw.get_trace_names()):

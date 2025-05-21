@@ -1,4 +1,5 @@
 # coding=utf-8
+from kupicelib.simulators.ltspice_simulator import LTspice
 import logging
 
 try:
@@ -15,9 +16,6 @@ from kupicelib import SimRunner, SpiceEditor
 kupicelib.set_log_level(logging.DEBUG)
 if RichHandler is not None:
     kupicelib.add_log_handler(RichHandler())
-
-
-from kupicelib.simulators.ltspice_simulator import LTspice
 
 
 def processing_data(raw_file, log_file, supply_voltage, opamp):

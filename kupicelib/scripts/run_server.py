@@ -34,8 +34,7 @@ def main():
         "The SimServer class is used to run simulations in parallel using a server-client architecture."
         "The server is a machine that runs the SimServer class and the client is a machine that runs the "
         "SimClient class."
-        "The argument is the simulator to be used (LTSpice, NGSpice, XYCE, etc.)"
-    )
+        "The argument is the simulator to be used (LTSpice, NGSpice, XYCE, etc.)")
     parser.add_argument(
         "simulator",
         type=str,

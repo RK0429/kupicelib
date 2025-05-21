@@ -29,30 +29,35 @@ _logger = logging.getLogger("kupicelib.SimAnalysis")
 
 
 class WorstCaseAnalysis(ToleranceDeviations):
-    """
-    Class to automate Worst-Case simulations, where all possible combinations of maximum and minimums
-    possible values of component values and parameters are done.
+    """Class to automate Worst-Case simulations, where all possible combinations of
+    maximum and minimums possible values of component values and parameters are done.
 
-    It is advised to use this algorithm when the number of parameters to be varied is reduced.
-    Typically less than 10 or 12. A higher number will translate into a huge number of simulations.
-    For more than 1000 simulations, it is better to use a statistical method such as the Montecarlo.
+    It is advised to use this algorithm when the number of parameters to be varied is
+    reduced. Typically less than 10 or 12. A higher number will translate into a huge
+    number of simulations. For more than 1000 simulations, it is better to use a
+    statistical method such as the Montecarlo.
 
-    Like the Montecarlo and Sensitivity analysis, there are two possible approaches to use this class:
+    Like the Montecarlo and Sensitivity analysis, there are two possible approaches to
+    use this class:
 
-        1. Preparing a testbench where all combinations are managed directly by the simulator, replacing
-         parameters and component values by formulas and using a .STEP primitive to cycle through all possible
-         combinations.
+    1. Preparing a testbench where all combinations are managed directly by the
+    simulator, replacing  parameters and component values by formulas and using a .STEP
+    primitive to cycle through all possible  combinations.
 
-        2. Launching each simulation separately where the running python script manages all parameter value
-        variations.
+    2. Launching each simulation separately where the running python script manages all
+    parameter value variations.
 
-    The first approach is normally faster, but not possible in all simulators. The second approach is a valid backup
-    when every single simulation takes too long, or when it is prone to crashes and stalls.
+    The first approach is normally faster, but not possible in all simulators. The
+    second approach is a valid backup when every single simulation takes too long, or
+    when it is prone to crashes and stalls.
     """
 
     def _set_component_deviation(self, ref: str, index) -> bool:
-        """Sets the deviation of a component. Returns True if the component is valid and the deviation was set.
-        Otherwise, returns False"""
+        """Sets the deviation of a component.
+
+        Returns True if the component is valid and the deviation was set. Otherwise,
+        returns False
+        """
         val, dev = self.get_component_value_deviation_type(
             ref
         )  # get there present value
@@ -79,7 +84,7 @@ class WorstCaseAnalysis(ToleranceDeviations):
         return True
 
     def prepare_testbench(self, **kwargs):
-        """Prepares the simulation by setting the tolerances for the components"""
+        """Prepares the simulation by setting the tolerances for the components."""
         index = 0
         self.elements_analysed.clear()
         for ref in self.device_deviations:
@@ -130,8 +135,10 @@ class WorstCaseAnalysis(ToleranceDeviations):
         exe_log: bool = True,
     ):
         """This method runs the analysis without updating the netlist.
-        It will update component values and parameters according to their deviation type and call the simulation.
-        The advantage of this method is that it doesn't require adding random functions to the netlist.
+
+        It will update component values and parameters according to their deviation type
+        and call the simulation. The advantage of this method is that it doesn't require
+        adding random functions to the netlist.
         """
         self.clear_simulation_data()
         self.elements_analysed.clear()
@@ -196,7 +203,8 @@ class WorstCaseAnalysis(ToleranceDeviations):
         # Simulate the worst case
         last_run = self.last_run_number  # Sets all valid bits to 1
         for run in range(0, run_count):
-            # Preparing the variation on components, but only on the ones that have changed
+            # Preparing the variation on components, but only on the ones that have
+            # changed
             bit_updated = run ^ last_run
             bit_index = 0
             while bit_updated != 0:
@@ -247,7 +255,10 @@ class WorstCaseAnalysis(ToleranceDeviations):
         self.analysis_executed = True
 
     def get_min_max_measure_value(self, meas_name: str):
-        """Returns the minimum and maximum values of a measurement. See SPICE .MEAS primitive documentation."""
+        """Returns the minimum and maximum values of a measurement.
+
+        See SPICE .MEAS primitive documentation.
+        """
         if not self.analysis_executed:
             _logger.warning(
                 "The analysis was not executed. Please run the analysis before calling this method"
@@ -271,13 +282,15 @@ class WorstCaseAnalysis(ToleranceDeviations):
     def make_sensitivity_analysis(
         self, measure: str, ref: str = "*"
     ) -> Union[Dict[str, Tuple[float, float]], Tuple[float, float], None]:
-        """
-        Makes a sensitivity analysis for a given measurement and reference component. The sensitivity is a percentage of
-        the component error contribution over the total error. As supplement a second value is given that is the
-        standard deviation of the error contribution of the component across all sensitivity analysis simulations.
+        """Makes a sensitivity analysis for a given measurement and reference component.
+        The sensitivity is a percentage of the component error contribution over the
+        total error. As supplement a second value is given that is the standard
+        deviation of the error contribution of the component across all sensitivity
+        analysis simulations.
 
-        If no reference is given, it will return a dictionary where the key is the component reference and the value
-        is the tuple with (sensitivity, standard_deviation) in percent values of the total error.
+        If no reference is given, it will return a dictionary where the key is the
+        component reference and the value is the tuple with (sensitivity,
+        standard_deviation) in percent values of the total error.
 
         Returns None, if no data still exists for the sensitivity analysis.
 
@@ -285,7 +298,8 @@ class WorstCaseAnalysis(ToleranceDeviations):
         :type measure: str
         :param ref: Optional component reference in the netlist
         :type ref: str
-        :returns: Tuple with sensitivity and a standard deviation or dictionary of tuples.
+        :returns: Tuple with sensitivity and a standard deviation or dictionary of
+            tuples.
         """
         if (
             self.testbench_prepared
@@ -300,9 +314,8 @@ class WorstCaseAnalysis(ToleranceDeviations):
             ]
 
             def diff_for_a_ref(wc_data, bit_index):
-                """
-                Calculates the difference of the measurement for the toggle of a given bit.
-                """
+                """Calculates the difference of the measurement for the toggle of a
+                given bit."""
                 bit_updated = 1 << bit_index
                 diffs = []
                 for run in range(len(wc_data)):
@@ -336,6 +349,5 @@ class WorstCaseAnalysis(ToleranceDeviations):
         else:
             _logger.warning(
                 "The analysis was not executed. Please run the run_analysis(...) or run_testbench(...)"
-                " before calling this method"
-            )
+                " before calling this method")
             return None

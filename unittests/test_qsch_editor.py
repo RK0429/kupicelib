@@ -18,6 +18,7 @@
 # Licence:     refer to the LICENSE file
 # -------------------------------------------------------------------------------
 
+import kupicelib
 import logging
 import os
 import sys
@@ -27,7 +28,6 @@ sys.path.append(
     os.path.abspath((os.path.dirname(os.path.abspath(__file__)) + "/../"))
 )  # add project root to lib search path
 
-import kupicelib
 
 test_dir = (
     "../examples/testfiles/"

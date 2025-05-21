@@ -18,7 +18,8 @@
 #
 # -------------------------------------------------------------------------------
 
-# From https://stackoverflow.com/questions/23598289/how-to-get-windows-short-file-name-in-python
+# From
+# https://stackoverflow.com/questions/23598289/how-to-get-windows-short-file-name-in-python
 import ctypes
 from ctypes import wintypes
 
@@ -32,8 +33,8 @@ _GetShortPathNameW.restype = wintypes.DWORD
 
 
 def get_short_path_name(long_name):
-    """
-    Gets the short path name of a given long path.
+    """Gets the short path name of a given long path.
+
     http://stackoverflow.com/a/23598461/200291
     """
     output_buf_size = 0

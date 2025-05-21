@@ -22,9 +22,7 @@ _logger = logging.getLogger("kupicelib.LTSteps")
 
 
 class LTComplex(complex):
-    """
-    Class to represent complex numbers as exported by LTSpice
-    """
+    """Class to represent complex numbers as exported by LTSpice."""
 
     complex_match = re.compile(
         r"\((?P<mag>.*?)(?P<dB>dB)?,(?P<ph>.*?)(?P<degrees>°)?\)"
@@ -58,16 +56,16 @@ class LTComplex(complex):
 
     @property
     def mag(self):
-        """Returns the magnitude of the complex number"""
+        """Returns the magnitude of the complex number."""
         return abs(self)
 
     @property
     def ph(self):
-        """Returns the phase of the complex number in degrees"""
+        """Returns the phase of the complex number in degrees."""
         return math.atan2(self.imag, self.real) * 180 / math.pi
 
     def mag_db(self):
-        """Returns the magnitude of the complex number in dBV"""
+        """Returns the magnitude of the complex number in dBV."""
         return 20 * math.log10(self.mag)
 
     def ph_rad(self):
@@ -95,9 +93,8 @@ T = TypeVar("T", bound=Comparable)
 
 
 def try_convert_value(value: Union[str, int, float, list]) -> ValueType:
-    """
-    Tries to convert the string into an integer and if it fails, tries to convert to a float, if it fails, then returns the
-    value as string.
+    """Tries to convert the string into an integer and if it fails, tries to convert to
+    a float, if it fails, then returns the value as string.
 
     :param value: value to convert
     :type value: str, int or float
@@ -130,10 +127,12 @@ def try_convert_value(value: Union[str, int, float, list]) -> ValueType:
 
 
 def split_line_into_values(line: str) -> List[ValueType]:
-    """
-    Splits a line into values. The values are separated by tabs or spaces. If a value starts with ( and ends with ),
-    then it is considered a complex value, and it is returned as a single value. If converting values within () fails,
-    then the value is returned as a tuple with the values inside the ().
+    """Splits a line into values.
+
+    The values are separated by tabs or spaces. If a value starts with ( and ends with
+    ), then it is considered a complex value, and it is returned as a single value. If
+    converting values within () fails, then the value is returned as a tuple with the
+    values inside the ().
     """
     parenthesis: List[str] = []
     i = 0
@@ -153,7 +152,7 @@ def split_line_into_values(line: str) -> List[ValueType]:
                 parenthesis.pop(0)
                 if len(parenthesis) == 0:
                     value_list = split_line_into_values(
-                        line[value_start + 1 : i]
+                        line[value_start + 1: i]
                     )  # Excludes the parenthesis
                     values.append(value_list)
                     value_start = i + 1
@@ -168,7 +167,7 @@ def split_line_into_values(line: str) -> List[ValueType]:
                 values.append(cast(ValueType, None))
             value_start = i + 1
     if value_start < i + 1:
-        values.append(try_convert_value(line[value_start : i + 1]))
+        values.append(try_convert_value(line[value_start: i + 1]))
     parenthesis_balanced = len(parenthesis) == 0
     if not parenthesis_balanced:
         raise ValueError("Parenthesis are not balanced")
@@ -176,8 +175,9 @@ def split_line_into_values(line: str) -> List[ValueType]:
 
 
 class LogfileData:
-    """
-    This is a subclass of LTSpiceLogReader that is used to analyse the log file of a simulation.
+    """This is a subclass of LTSpiceLogReader that is used to analyse the log file of a
+    simulation.
+
     The super class constructor is bypassed and only their attributes are initialized
     """
 
@@ -210,9 +210,9 @@ class LogfileData:
         self.encoding: str = "utf-8"
 
     def __getitem__(self, key):
-        """
-        __getitem__ implements
-        :key: step or measurement name. This is case insensitive.
+        """__getitem__ implements :key: step or measurement name.
+
+        This is case insensitive.
         :return: step or measurement set
         :rtype: List[float]
         """
@@ -228,24 +228,22 @@ class LogfileData:
         raise IndexError("'%s' is not a valid step variable or measurement name" % key)
 
     def has_steps(self):
-        """
-        Returns true if the simulation has steps
-        :return: True if the simulation has steps
-        :rtype: bool
-        """
+        """Returns true if the simulation has steps :return: True if the simulation has
+        steps :rtype: bool."""
         return self.step_count > 0
 
     def steps_with_parameter_equal_to(
         self, param: str, value: Union[str, int, float]
     ) -> List[int]:
-        """
-        Returns the steps that contain a given condition.
+        """Returns the steps that contain a given condition.
 
-        :param param: parameter identifier on a stepped simulation. This is case insensitive.
+        :param param: parameter identifier on a stepped simulation. This is case
+            insensitive.
         :type param: str
         :param value:
         :type value:
-        :return: List of positions that respect the condition of equality with parameter value
+        :return: List of positions that respect the condition of equality with parameter
+            value
         :rtype: List[int]
         """
         param = param.lower()
@@ -257,16 +255,17 @@ class LogfileData:
             raise IndexError(
                 "'%s' is not a valid step variable or measurement name" % param
             )
-        # tries to convert the value to integer or float, for consistency with data loading implementation
+        # tries to convert the value to integer or float, for consistency with
+        # data loading implementation
         v = try_convert_value(value)
         # returns the positions where there is match
         return [i for i, a in enumerate(condition_set) if a == v]
 
     def steps_with_conditions(self, **conditions) -> List[int]:
-        """
-        Returns the steps that respect one or more equality conditions
+        """Returns the steps that respect one or more equality conditions.
 
-        :key conditions: parameters within the Spice simulation. Values are the matches to be found.
+        :key conditions: parameters within the Spice simulation. Values are the matches
+            to be found.
         :type conditions: dict
         :return: List of steps that respect all the given conditions
         :rtype: List[int]
@@ -283,16 +282,16 @@ class LogfileData:
         return current_set if current_set is not None else []
 
     def get_step_vars(self) -> List[str]:
-        """
-        Returns the stepped variable names on the log file.
+        """Returns the stepped variable names on the log file.
+
         :return: List of step variables.
         :rtype: list of str
         """
         return list(self.stepset.keys())
 
     def get_measure_names(self) -> List[str]:
-        """
-        Returns the names of the measurements read from the log file.
+        """Returns the names of the measurements read from the log file.
+
         :return: List of measurement names.
         :rtype: list of str
         """
@@ -301,8 +300,7 @@ class LogfileData:
     def get_measure_value(
         self, measure: str, step: Optional[Union[int, slice]] = None, **kwargs
     ) -> Union[float, int, str, LTComplex]:
-        """
-        Returns a measure value on a given step.
+        """Returns a measure value on a given step.
 
         :param measure: name of the measurement to get. This is case insensitive.
         :type measure: str
@@ -348,15 +346,15 @@ class LogfileData:
     def get_measure_values_at_steps(
         self, measure: str, steps: Union[None, int, Iterable[int]]
     ) -> List[ValueType]:
-        """
-        Returns the measurements taken at a list of steps provided by the steps list.
+        """Returns the measurements taken at a list of steps provided by the steps list.
 
         :param measure: name of the measurement to get. This is case insensitive.
         :type measure: str
         :param steps: step number, or list of step numbers.
         :type steps: Optional: int or list
         :return: measurement or list of measurements
-        :rtype: list with the values converted to either integer (int) or floating point (float)
+        :rtype: list with the values converted to either integer (int) or floating point
+            (float)
         """
         measure = measure.lower()
         if steps is None:
@@ -370,8 +368,7 @@ class LogfileData:
     def max_measure_value(
         self, measure: str, steps: Union[None, int, Iterable[int]] = None
     ) -> ValueType:
-        """
-        Returns the maximum value of a measurement.
+        """Returns the maximum value of a measurement.
 
         :param measure: name of the measurement to get. This is case insensitive.
         :type measure: str
@@ -396,8 +393,7 @@ class LogfileData:
     def min_measure_value(
         self, measure: str, steps: Union[None, int, Iterable[int]] = None
     ) -> ValueType:
-        """
-        Returns the minimum value of a measurement.
+        """Returns the minimum value of a measurement.
 
         :param measure: name of the measurement to get. This is case insensitive.
         :type measure: str
@@ -422,8 +418,7 @@ class LogfileData:
     def avg_measure_value(
         self, measure: str, steps: Union[None, int, Iterable[int]] = None
     ) -> NumericType:
-        """
-        Returns the average value of a measurement.
+        """Returns the average value of a measurement.
 
         :param measure: name of the measurement to get.  This is case insensitive.
         :type measure: str
@@ -442,9 +437,10 @@ class LogfileData:
         return sum(numeric_values) / len(numeric_values)  # type: ignore
 
     def obtain_amplitude_and_phase_from_complex_values(self):
-        """
-        Internal function to split the complex values into additional two columns.
-        The two columns correspond to the magnitude and phase of the complex value in degrees.
+        """Internal function to split the complex values into additional two columns.
+
+        The two columns correspond to the magnitude and phase of the complex value in
+        degrees.
         """
         for param in list(self.dataset.keys()):
             if len(self.dataset[param]) > 0 and isinstance(
@@ -454,8 +450,9 @@ class LogfileData:
                 self.dataset[param + "_ph"] = [v.ph for v in self.dataset[param]]
 
     def split_complex_values_on_datasets(self):
-        """
-        .. deprecated:: 1.0 Use `obtain_amplitude_and_phase_from_complex_values()` instead.
+        """..
+
+        deprecated:: 1.0 Use `obtain_amplitude_and_phase_from_complex_values()` instead.
         """
         self.obtain_amplitude_and_phase_from_complex_values()
 
@@ -467,19 +464,21 @@ class LogfileData:
         value_separator: str = "\t",
         line_terminator: str = "\n",
     ):
-        """
-        Exports the measurement information to a tab separated value (.tsv) format. If step data is found, it is
-        included in the exported file.
+        """Exports the measurement information to a tab separated value (.tsv) format.
+        If step data is found, it is included in the exported file.
 
-        When using export data together with SpiceBatch.py classes, it may be helpful to append data to an existing
-        file. For this purpose, the user can user the append_with_line_prefix argument to indicate that an append should
-        be done. And in this case, the user must provide a string that will identify the LTSpice batch run.
+        When using export data together with SpiceBatch.py classes, it may be helpful to
+        append data to an existing file. For this purpose, the user can user the
+        append_with_line_prefix argument to indicate that an append should be done. And
+        in this case, the user must provide a string that will identify the LTSpice
+        batch run.
 
         :param export_file: path to the file containing the information
         :type export_file: str
         :param optional encoding: encoding to be used in the file
         :type encoding: str
-        :param optional append_with_line_prefix: user information to be written in the file in case an append is to be made.
+        :param optional append_with_line_prefix: user information to be written in the
+            file in case an append is to be made.
         :type append_with_line_prefix: str
         :param optional value_separator: character to be used to separate values
         :type value_separator: str
@@ -533,8 +532,7 @@ class LogfileData:
                 if len(values) != data_size:
                     logging.error(
                         f"Data size mismatch. Not all measurements have the same length."
-                        f' Expected {data_size}. "{title}" has {len(values)}'
-                    )
+                        f' Expected {data_size}. "{title}" has {len(values)}')
 
             if isinstance(values[0], list) and len(values[0]) > 1:
                 for n in range(len(values[0])):
@@ -601,9 +599,7 @@ class LogfileData:
         image_file=None,
         **kwargs,
     ):
-        """
-        Plots a histogram of the parameter
-        """
+        """Plots a histogram of the parameter."""
         import matplotlib.pyplot as plt
         import numpy as np
         from scipy.stats import norm  # type: ignore

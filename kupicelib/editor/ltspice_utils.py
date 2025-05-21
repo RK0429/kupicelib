@@ -67,7 +67,7 @@ WEIGHT_CONVERSION_TABLE = ("Thin", "Normal", "Thick")
 
 
 def asc_text_align_set(text: Text, alignment: str):
-    """Sets the alignment of the text in the ASC format"""
+    """Sets the alignment of the text in the ASC format."""
     # Default
     text.textAlignment = HorAlign.CENTER
     text.verticalAlignment = VerAlign.CENTER
@@ -94,7 +94,7 @@ def asc_text_align_set(text: Text, alignment: str):
 
 
 def asc_text_align_get(text: Text) -> str:
-    """Returns the alignment of the text in the ASC format"""
+    """Returns the alignment of the text in the ASC format."""
     if not text.visible:
         ans = "Invisible"
     else:

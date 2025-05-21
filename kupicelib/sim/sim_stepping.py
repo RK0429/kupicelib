@@ -49,43 +49,39 @@ class StepInfo(object):
 
 
 class SimStepper(object):
-    """This class is intended to be used for simulations with many parameter sweeps. This provides a more
-    user-friendly interface than the SpiceEditor/SimRunner class when there are many parameters to be stepped.
+    """This class is intended to be used for simulations with many parameter sweeps.
+    This provides a more user-friendly interface than the SpiceEditor/SimRunner class
+    when there are many parameters to be stepped.
 
-    Using the SpiceEditor/SimRunner classes a loop needs to be added for each dimension of the simulations.
-    A typical usage would be as follows:
-    ```
-    netlist = SpiceEditor("my_circuit.asc")
-    runner = SimRunner(parallel_sims=4)
-    for dmodel in ("BAT54", "BAT46WJ")
-        netlist.set_element_model("D1", model)  # Sets the Diode D1 model
-        for res_value1 in sweep(2.2, 2,4, 0.2):  # Steps from 2.2 to 2.4 with 0.2 increments
-            netlist.set_component_value('R1', res_value1)  # Updates the resistor R1 value to be 3.3k
-            for temperature in sweep(0, 80, 20):  # Makes temperature step from 0 to 80 degrees in 20 degree steps
-                netlist.set_parameters(temp=80)  # Sets the simulation temperature to be 80 degrees
-                for res_value2 in (10, 25, 32):
-                    netlist.set_component_value('R2', res_value2)  # Updates the resistor R2 value to be 3.3k
-                    runner.run(netlist)
+    Using the SpiceEditor/SimRunner classes a loop needs to be added for each dimension
+    of the simulations. A typical usage would be as follows: ``` netlist =
+    SpiceEditor("my_circuit.asc") runner = SimRunner(parallel_sims=4) for dmodel in
+    ("BAT54", "BAT46WJ")     netlist.set_element_model("D1", model)  # Sets the Diode D1
+    model     for res_value1 in sweep(2.2, 2,4, 0.2):  # Steps from 2.2 to 2.4 with 0.2
+    increments         netlist.set_component_value('R1', res_value1)  # Updates the
+    resistor R1 value to be 3.3k         for temperature in sweep(0, 80, 20):  # Makes
+    temperature step from 0 to 80 degrees in 20 degree steps
+    netlist.set_parameters(temp=80)  # Sets the simulation temperature to be 80 degrees
+    for res_value2 in (10, 25, 32):                 netlist.set_component_value('R2',
+    res_value2)  # Updates the resistor R2 value to be 3.3k runner.run(netlist)
 
-    runner.wait_completion()  # Waits for the Spice simulations to complete
-    ```
+    runner.wait_completion()  # Waits for the Spice simulations to complete ```
 
     With SimStepper the same thing can be done as follows, resulting in a cleaner code.
 
-    ```
-    netlist = SpiceEditor("my_circuit.asc")
-    Stepper = SimStepper(netlist, SimRunner(parallel_sims=4, output_folder="./output"))
-    Stepper.add_model_sweep('D1', "BAT54", "BAT46WJ")
-    Stepper.add_component_sweep('R1', sweep(2.2, 2,4, 0.2))  # Steps from 2.2 to 2.4 with 0.2 increments
-    Stepper.add_parameter_sweep('temp', sweep(0, 80, 20))  # Makes temperature step from 0 to 80 degrees in 20
-                                                           # degree steps
-    Stepper.add_component_sweep('R2', (10, 25, 32)) #  Updates the resistor R2 value to be 3.3k
-    Stepper.run_all()
+    ``` netlist = SpiceEditor("my_circuit.asc") Stepper = SimStepper(netlist,
+    SimRunner(parallel_sims=4, output_folder="./output")) Stepper.add_model_sweep('D1',
+    "BAT54", "BAT46WJ") Stepper.add_component_sweep('R1', sweep(2.2, 2,4, 0.2))  # Steps
+    from 2.2 to 2.4 with 0.2 increments Stepper.add_parameter_sweep('temp', sweep(0, 80,
+    20))  # Makes temperature step from 0 to 80 degrees in 20 # degree steps
+    Stepper.add_component_sweep('R2', (10, 25, 32)) #  Updates the resistor R2 value to
+    be 3.3k Stepper.run_all()
 
     ```
 
-    Another advantage of using SimStepper is that it can optionally use the .SAVEBIAS in the first simulation and
-    then use the .LOADBIAS command at the subsequent ones to speed up the simulation times.
+    Another advantage of using SimStepper is that it can optionally use the .SAVEBIAS in
+    the first simulation and then use the .LOADBIAS command at the subsequent ones to
+    speed up the simulation times.
     """
 
     def __init__(self, circuit: BaseEditor, runner: AnyRunner):
@@ -215,7 +211,7 @@ class SimStepper(object):
             self.runner.wait_completion()
 
     def run(self):
-        """Rather uses run_all instead"""
+        """Rather uses run_all instead."""
         self.run_all()
 
     @property

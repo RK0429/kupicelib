@@ -29,8 +29,8 @@ _logger = logging.getLogger("kupicelib.Utils")
 
 
 def find_file_in_directory(directory: str, filename: str) -> Optional[str]:
-    """
-    Searches for a file with the given filename in the specified directory and its subdirectories.
+    """Searches for a file with the given filename in the specified directory and its
+    subdirectories.
 
     The search is case-insensitive, but the returned path preserves the case from the file system.
     If the filename includes a path component, it will be appended to the directory.
@@ -51,7 +51,8 @@ def find_file_in_directory(directory: str, filename: str) -> Optional[str]:
     if path != "":
         directory = os.path.join(directory, path)
     for root, dirs, files in os.walk(directory):
-        # match case insensitive, but store the file system's file name, as the file system may be case sensitive
+        # match case insensitive, but store the file system's file name, as the
+        # file system may be case sensitive
         for filefound in files:
             if filename.lower() == filefound.lower():
                 return os.path.join(root, filefound)
@@ -59,8 +60,7 @@ def find_file_in_directory(directory: str, filename: str) -> Optional[str]:
 
 
 def search_file_in_containers(filename: str, *containers: str) -> Optional[str]:
-    """
-    Searches for a file with the given filename in the specified containers.
+    """Searches for a file with the given filename in the specified containers.
 
     Containers can be directories or zip files. For zip files, the matching file will be
     extracted to a temporary directory "./spice_lib_temp" and the path to the extracted file
@@ -87,7 +87,8 @@ def search_file_in_containers(filename: str, *containers: str) -> Optional[str]:
                 with zipfile.ZipFile(container, "r") as zip_ref:
                     files = zip_ref.namelist()
                     for filefound in files:
-                        # match case insensitive, but store the file system's file name, as the file system may be case sensitive
+                        # match case insensitive, but store the file system's file name,
+                        # as the file system may be case sensitive
                         if filename.lower() == filefound.lower():
                             temp_dir = os.path.join(".", "spice_lib_temp")
                             if not os.path.exists(temp_dir):

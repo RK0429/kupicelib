@@ -24,13 +24,15 @@ import logging
 import os
 import zipfile
 
-# In order for this, to work, you need to have a server running. To start a server, run the following command:
+from kupicelib.client_server.sim_client import SimClient
+
+# In order for this, to work, you need to have a server running. To start a server, run
+# the following command:
 # python -m kupicelib.run_server --port 9000 --parallel 4 --output ./temp
 
 _logger = logging.getLogger("kupicelib.SimClient")
 _logger.setLevel(logging.DEBUG)
 
-from kupicelib.client_server.sim_client import SimClient
 
 server = SimClient("http://localhost", 9000)
 print(server.session_id)

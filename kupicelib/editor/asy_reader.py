@@ -43,7 +43,7 @@ SCALE_Y = -6.25
 
 
 class AsyReader(object):
-    """Symbol parser"""
+    """Symbol parser."""
 
     def __init__(self, asy_file: Union[Path, str], encoding="autodetect"):
         super().__init__()
@@ -106,7 +106,7 @@ class AsyReader(object):
                     ], f"Unsupported version : {version}"
                     self.version = version  # Store version as string
                 elif line_text.startswith("SymbolType "):
-                    self.symbol_type = line_text[len("SymbolType ") :].strip()
+                    self.symbol_type = line_text[len("SymbolType "):].strip()
                 elif line_text.startswith("PINATTR"):
                     assert pin is not None, "A PIN was already created."
                     tag, attribute, value = line_text.split(" ", maxsplit=3)
@@ -155,14 +155,16 @@ class AsyReader(object):
                         angle=angle,
                     )
 
-                # the following is identical to the code in asc_reader.py. If you modify it, do so in both places.
+                # the following is identical to the code in asc_reader.py. If you modify
+                # it, do so in both places.
                 elif (
                     line_text.startswith("LINE")
                     or line_text.startswith("RECTANGLE")
                     or line_text.startswith("CIRCLE")
                 ):
                     # format: LINE|RECTANGLE|CIRCLE Normal, x1, y1, x2, y2, [line_style]
-                    # Maybe support something else than 'Normal', but LTSpice does not seem to do so.
+                    # Maybe support something else than 'Normal', but LTSpice does not
+                    # seem to do so.
                     line_elements = line_text.split()
                     assert len(line_elements) in (
                         6,
@@ -186,7 +188,8 @@ class AsyReader(object):
                 elif line_text.startswith("ARC"):
                     # I don't support editing yet, so why make it complicated
                     # format: ARC Normal, x1, y1, x2, y2, x3, y3, x4, y4 [line_style]
-                    # Maybe support something else than 'Normal', but LTSpice does not seem to do so.
+                    # Maybe support something else than 'Normal', but LTSpice does not
+                    # seem to do so.
                     line_elements = line_text.split()
                     assert len(line_elements) in (
                         10,
@@ -216,7 +219,8 @@ class AsyReader(object):
                         )
                         self.windows.append(text_obj)
                     else:
-                        # Text in asy not supported however non-critical and not neccesary to crash the program.
+                        # Text in asy not supported however non-critical and not
+                        # neccesary to crash the program.
                         _logger.warning(
                             f"Cosmetic text in ASY format not supported, text skipped. ASY file: {self._asy_file_path}"
                         )
@@ -226,8 +230,7 @@ class AsyReader(object):
                     raise NotImplementedError(
                         f"Primitive not supported for ASY file \n"
                         f'"{line_text}"'
-                        f"in file: {self._asy_file_path}. Contact the author to add support."
-                    )
+                        f"in file: {self._asy_file_path}. Contact the author to add support.")
             if pin is not None:
                 self.pins.append(pin)
 
@@ -328,7 +331,10 @@ class AsyReader(object):
         return self.symbol_type == "BLOCK" or self.attributes.get("Prefix") == "X"
 
     def get_library(self) -> Optional[str]:
-        """Returns the library name of the model. If not found, returns None."""
+        """Returns the library name of the model.
+
+        If not found, returns None.
+        """
         # Searching in this exact order
         suffixes = (".lib", ".sub", ".cir", ".txt")  # must be lowercase here
         for attr in (
@@ -348,7 +354,10 @@ class AsyReader(object):
         return self.attributes.get("SpiceModel")
 
     def get_model(self) -> str:
-        """Returns the model name of the component. If not found, returns None."""
+        """Returns the model name of the component.
+
+        If not found, returns None.
+        """
         # Searching in this exact order
         for attr in (
             "Value",
@@ -364,9 +373,10 @@ class AsyReader(object):
         raise ValueError("No Value or Value2 attribute found")
 
     def get_value(self) -> Union[int, float, str]:
-        """
-        Returns the value of the component. If not found, returns None.
-        If found it tries to convert the value to a number. If it fails, it returns the string.
+        """Returns the value of the component.
+
+        If not found, returns None. If found it tries to convert the value to a number.
+        If it fails, it returns the string.
         """
         value = self.get_model()
         try:
@@ -378,9 +388,7 @@ class AsyReader(object):
                 return value.strip()  # Removes the leading trailing spaces
 
     def get_schematic_file(self):
-        """
-        Returns the file name of the component, if it were a .asc file
-        """
+        """Returns the file name of the component, if it were a .asc file."""
         assert self._asy_file_path.suffix == ".asy", "File is not an asy file"
         assert self.symbol_type == "BLOCK", "File is not a sub-circuit"
         return self._asy_file_path.with_suffix(".asc")

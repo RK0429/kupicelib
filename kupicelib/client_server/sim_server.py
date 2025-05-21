@@ -35,20 +35,27 @@ _logger = logging.getLogger("kupicelib.SimServer")
 
 
 class SimServer(object):
-    """This class implements a server that can run simulations by request of a client located in a different machine.
+    """This class implements a server that can run simulations by request of a client
+    located in a different machine.
 
-    The server is implemented using the SimpleXMLRPCServer class from the xmlrpc.server module.
+    The server is implemented using the SimpleXMLRPCServer class from the xmlrpc.server
+    module.
 
-    The client can request the server to start a session, run a simulation, check the status of the simulations and
-    retrieve the results of the simulations. The server can run multiple simulations in parallel, but the number of
-    parallel simulations is limited by the parallel_sims parameter.
+    The client can request the server to start a session, run a simulation, check the
+    status of the simulations and retrieve the results of the simulations. The server
+    can run multiple simulations in parallel, but the number of parallel simulations is
+    limited by the parallel_sims parameter.
 
     The server can be stopped by the client by calling the stop_server method.
 
-    :param simulator: The simulator to be used. It must be a class that derives from the BaseSimulator class.
-    :param parallel_sims: The maximum number of parallel simulations that the server can run. Default is 4.
-    :param output_folder: The folder where the results of the simulations will be stored. Default is './temp'
-    :param timeout: The maximum time that a simulation can run. Default is None, which means that there is no timeout.
+    :param simulator: The simulator to be used. It must be a class that derives from the
+        BaseSimulator class.
+    :param parallel_sims: The maximum number of parallel simulations that the server can
+        run. Default is 4.
+    :param output_folder: The folder where the results of the simulations will be
+        stored. Default is './temp'
+    :param timeout: The maximum time that a simulation can run. Default is None, which
+        means that there is no timeout.
     :param port: The port where the server will listen for requests. Default is 9000
     """
 
@@ -75,9 +82,9 @@ class SimServer(object):
         )
         self.server.register_introspection_functions()
         self.server.register_instance(self)
-        self.sessions: dict[str, list[int]] = (
-            {}
-        )  # this will contain the session_id ids hashing their respective list of sim_tasks
+        # this will contain the session_id ids hashing their respective list of
+        # sim_tasks
+        self.sessions: dict[str, list[int]] = ({})
         self.simulation_manager.start()
         self.server_thread = threading.Thread(
             target=self.server.serve_forever, name="ServerThread"
@@ -85,8 +92,10 @@ class SimServer(object):
         self.server_thread.start()
 
     def add_sources(self, session_id, zip_data) -> bool:
-        """Add sources to the simulation. The sources are contained in a zip file will be added to the simulation
-        folder. Returns True if the sources were added and False if the session_id is not valid.
+        """Add sources to the simulation.
+
+        The sources are contained in a zip file will be added to the simulation folder.
+        Returns True if the sources were added and False if the session_id is not valid.
         """
         _logger.info(f"Server: Add sources {session_id}")
         if session_id not in self.sessions:
@@ -117,8 +126,10 @@ class SimServer(object):
         return runno
 
     def start_session(self):
-        """Returns an unique key that represents the session. It will be later used to sort the sim_tasks belonging
-        to the session."""
+        """Returns an unique key that represents the session.
+
+        It will be later used to sort the sim_tasks belonging to the session.
+        """
         session_id = str(
             uuid.uuid4()
         )  # Needs to be a string, otherwise the rpc client can't handle it
@@ -127,16 +138,16 @@ class SimServer(object):
         return session_id
 
     def status(self, session_id):
-        """
-        Returns a dictionary with task information. The key for the dictionary is the simulation identifier returned
-        by the simulation start command. The value associated with each simulation identifier is another dictionary
-        containing the following keys:
+        """Returns a dictionary with task information. The key for the dictionary is the
+        simulation identifier returned by the simulation start command. The value
+        associated with each simulation identifier is another dictionary containing the
+        following keys:
 
-            * 'completed' - whether the simulation is already finished
+        * 'completed' - whether the simulation is already finished
 
-            * 'start' - time when the simulation was started
+        * 'start' - time when the simulation was started
 
-            * 'stop' - server time
+        * 'stop' - server time
         """
         _logger.debug(f"Server: collecting status for {session_id}")
         ret = []
@@ -168,7 +179,7 @@ class SimServer(object):
         return "", Binary(b"")  # Returns and empty data
 
     def close_session(self, session_id):
-        """Cleans all the pending sim_tasks with"""
+        """Cleans all the pending sim_tasks with."""
         if session_id not in self.sessions:
             return False
         _logger.info(f"Closing session {session_id}")
