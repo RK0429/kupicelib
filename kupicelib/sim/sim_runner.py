@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 # coding=utf-8
+# flake8: noqa: E501
 
 # -------------------------------------------------------------------------------
 #
@@ -137,6 +138,12 @@ from .process_callback import ProcessCallback
 _logger = logging.getLogger("kupicelib.SimRunner")
 END_LINE_TERM = "\n"
 
+# Define a callback type alias for readability
+CallbackType = Union[
+    Type[ProcessCallback],
+    Callable[[Path, Path], Any],
+]
+
 
 class SimRunnerTimeoutError(TimeoutError):
     """Timeout Error class."""
@@ -219,9 +226,9 @@ class SimRunner(AnyRunner):
         self.completed_tasks: List[RunTask] = []
         self._iterator_counter = 0  # Note: Nested iterators are not supported
 
-        self.runno = 0  # number of total runs
-        self.failSim = 0  # number of failed simulations
-        self.okSim = 0  # number of successful completed simulations
+        self.run_count: int = 0  # number of total runs
+        self.failed_simulations: int = 0  # number of failed simulations
+        self.successful_simulations: int = 0  # number of successful completed simulations
         # self.failParam = []  # collects for later user investigation of failed
         # parameter sets
 
@@ -316,14 +323,14 @@ class SimRunner(AnyRunner):
             # The Qsch files can't be simulated, so, they have to be converted to
             # netlist first.
             netlist = netlist.with_suffix(".net")
-        return "%s_%i%s" % (netlist.stem, self.runno, netlist.suffix)
+        return f"{netlist.stem}_{self.run_count}{netlist.suffix}"
 
     def _prepare_sim(
         self, netlist: Union[str, Path, BaseEditor], run_filename: Optional[str]
     ) -> Path:
         """Internal function."""
         # update number of simulation
-        self.runno += 1  # Incrementing internal simulation number
+        self.run_count += 1  # Incrementing internal simulation number
         # Harmonize the netlist into a Path object pointing to a netlist file on
         # the right output folder
         if isinstance(netlist, BaseEditor):
@@ -404,7 +411,7 @@ class SimRunner(AnyRunner):
             if not wait_resource or (self.active_threads() < self.parallel_sims):
                 return True
             sleep(0.1)
-        _logger.error(f"Timeout waiting for resources for simulation {self.runno}")
+        _logger.error(f"Timeout waiting for resources for simulation {self.run_count}")
         return False
 
     def run(
@@ -412,9 +419,7 @@ class SimRunner(AnyRunner):
         netlist: Union[str, Path, BaseEditor],
         *,
         wait_resource: bool = True,
-        callback: Optional[
-            Union[Type[ProcessCallback], Callable[[Path, Path], Any]]
-        ] = None,
+        callback: Optional[CallbackType] = None,
         callback_args: Optional[Union[tuple, dict]] = None,
         switches: Optional[List[str]] = None,
         timeout: Optional[float] = None,
@@ -481,7 +486,7 @@ class SimRunner(AnyRunner):
         # Wait for an available resource slot or timeout
         if not self._wait_for_resources(wait_resource, timeout):
             if self.verbose:
-                _logger.warning(f"Timeout on launching simulation {self.runno}.")
+                _logger.warning(f"Timeout on launching simulation {self.run_count}.")
             return None
 
         # Prepare command-line switches
@@ -494,7 +499,7 @@ class SimRunner(AnyRunner):
         # Launch the simulation task via ThreadPoolExecutor
         t = RunTask(
             simulator=self.simulator,
-            runno=self.runno,
+            runno=self.run_count,
             netlist_file=run_netlist_file,
             callback=actual_callback,
             callback_args=callback_kwargs,
@@ -564,7 +569,7 @@ class SimRunner(AnyRunner):
 
         t = RunTask(
             simulator=self.simulator,
-            runno=self.runno,
+            runno=self.run_count,
             netlist_file=run_netlist_file,
             callback=dummy_callback,
             callback_args=None,
@@ -581,10 +586,10 @@ class SimRunner(AnyRunner):
         )
         self.completed_tasks.append(t)
         if t.retcode == 0:
-            self.okSim += 1
+            self.successful_simulations += 1
         else:
             # simulation failed
-            self.failSim += 1
+            self.failed_simulations += 1
         return t.raw_file, t.log_file  # Returns the raw and log file
 
     def active_threads(self) -> int:
@@ -610,9 +615,9 @@ class SimRunner(AnyRunner):
                 i += 1
             else:
                 if task.retcode == 0:
-                    self.okSim += 1
+                    self.successful_simulations += 1
                 else:
-                    self.failSim += 1
+                    self.failed_simulations += 1
                 self.active_tasks.pop(i)
                 self.completed_tasks.append(task)
                 _logger.debug(
@@ -646,7 +651,7 @@ class SimRunner(AnyRunner):
                 _logger.info(f"killing Spice {proc.pid}")
                 proc.kill()
 
-    def _maximum_stop_time(self):
+    def _maximum_stop_time(self) -> Optional[float]:
         """This function will return the maximum timeout time of all active tasks.
 
         :return: Maximum timeout time or None, if there is no timeout defined.
@@ -704,8 +709,8 @@ class SimRunner(AnyRunner):
                         self.kill_all_spice()
                     return False
 
-        _logger.debug("wait_completion returning %s", self.failSim == 0)
-        return self.failSim == 0
+        _logger.debug("wait_completion returning %s", self.failed_simulations == 0)
+        return self.failed_simulations == 0
 
     @staticmethod
     def _del_file_if_exists(workfile: Optional[Path]):
