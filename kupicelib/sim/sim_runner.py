@@ -245,6 +245,10 @@ class SimRunner(AnyRunner):
         if self.verbose:
             _logger.setLevel(logging.DEBUG)
             _logger.debug("Verbose mode enabled: logger level set to DEBUG")
+            # also set RunTask logger level to DEBUG
+            logging.getLogger("kupicelib.RunTask").setLevel(logging.DEBUG)
+            logging.getLogger("kupicelib.RunTask").debug(
+                "RunTask logger level set to DEBUG")
 
     def __del__(self):
         """Class Destructor : Closes Everything."""
@@ -664,7 +668,7 @@ class SimRunner(AnyRunner):
             if timeout_val is None:
                 continue
             # Cast to float now that timeout_val is guaranteed
-            candidate = task.start_time + cast(float, timeout_val)  # type: ignore
+            candidate = cast(float, task.start_time) + cast(float, timeout_val)
             if alarm is None or candidate > alarm:
                 alarm = candidate
         return alarm
