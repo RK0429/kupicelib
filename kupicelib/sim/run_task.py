@@ -25,7 +25,6 @@ __copyright__ = "Copyright 2023, Fribourg Switzerland"
 import logging
 import sys
 import time
-import traceback
 from pathlib import Path
 from time import sleep
 from typing import Any, Callable, Optional, Tuple, Type, Union
@@ -34,6 +33,21 @@ from .process_callback import ProcessCallback
 from .simulator import Simulator
 
 _logger = logging.getLogger("kupicelib.RunTask")
+
+# Configure structured logging formatter if python-json-logger is installed
+try:
+    from pythonjsonlogger import jsonlogger
+
+    handler = logging.StreamHandler()
+    json_formatter = jsonlogger.JsonFormatter(
+        '%(asctime)s %(name)s %(levelname)s '
+        '[runno=%(runno)s netlist=%(netlist)s] %(message)s'
+    )
+    handler.setFormatter(json_formatter)
+    if not _logger.handlers:
+        _logger.addHandler(handler)
+except ImportError:
+    pass
 
 END_LINE_TERM = "\n"
 
@@ -92,9 +106,14 @@ class RunTask:
         self.log_file = None
         self.callback_return = None
         self.exe_log = exe_log
+        # Create a LoggerAdapter to include run number and netlist in logs
+        self.logger = logging.LoggerAdapter(
+            _logger, {
+                "runno": self.runno, "netlist": str(
+                    self.netlist_file)})
 
     def print_info(self, logger_fun: Callable[[str], Any], message: str) -> None:
-        message = f"RunTask #{self.runno}:{message}"
+        # Use contextual logger for info/error messages
         logger_fun(message)
         if self.verbose:
             print(f"{time.asctime()} {logger_fun.__name__}: {message}{END_LINE_TERM}")
@@ -165,8 +184,8 @@ class RunTask:
                                 self.raw_file, self.log_file
                             )
                     except Exception:
-                        error = traceback.format_exc()
-                        self.print_info(_logger.error, error)
+                        # Log exception with full traceback
+                        self.logger.exception("Exception during callback execution")
                     else:
                         if isinstance(return_or_process, ProcessCallback):
                             proc = return_or_process
@@ -194,10 +213,8 @@ class RunTask:
                     _logger.error, "Simulation Raw file or Log file were not found"
                 )
         else:
-            # simulation failed
-            self.print_info(
-                _logger.error, ": Simulation Aborted. Time elapsed: %s" % sim_time
-            )
+            # Simulation failed
+            self.logger.error("Simulation Aborted. Time elapsed: %s", sim_time)
             if self.log_file.exists():
                 self.log_file = self.log_file.replace(
                     self.log_file.with_suffix(".fail")
