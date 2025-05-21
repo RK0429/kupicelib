@@ -606,7 +606,10 @@ class SimRunner(AnyRunner):
                 alarm = candidate
         return alarm
 
-    def wait_completion(self, timeout=None, abort_all_on_timeout=False) -> bool:
+    def wait_completion(
+            self,
+            timeout: Optional[float] = None,
+            abort_all_on_timeout: bool = False) -> bool:
         """This function will wait for the execution of all scheduled simulations to
         complete.
 
@@ -623,6 +626,7 @@ class SimRunner(AnyRunner):
         :rtype: bool
         """
         self.update_completed()
+        stop_time: Optional[float] = None
         if timeout is not None:
             stop_time = clock_function() + timeout
         while len(self.active_tasks) > 0:
