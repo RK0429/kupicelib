@@ -43,7 +43,7 @@ else:
     clock_function = time.perf_counter
 
 
-def format_time_difference(time_diff):
+def format_time_difference(time_diff: float) -> str:
     """Formats the time difference in a human-readable format, stripping the hours or
     minutes if they are zero."""
     seconds_difference = int(time_diff)
@@ -93,7 +93,7 @@ class RunTask:
         self.callback_return = None
         self.exe_log = exe_log
 
-    def print_info(self, logger_fun, message):
+    def print_info(self, logger_fun: Callable[[str], Any], message: str) -> None:
         message = f"RunTask #{self.runno}:{message}"
         logger_fun(message)
         if self.verbose:
