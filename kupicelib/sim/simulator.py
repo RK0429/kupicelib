@@ -56,8 +56,6 @@ else:
 class SpiceSimulatorError(Exception):
     """Generic Simulator Error Exceptions."""
 
-    ...
-
 
 class Simulator(ABC):
     """Pure static class template for Spice simulators. This class only defines the
@@ -86,9 +84,14 @@ class Simulator(ABC):
 
     .. code-block:: python
 
-    @classmethod def run(cls, netlist_
-    file:
-    Union[str, Path], cmd_line_switches: list = None, timeout: float = None, stdout=None, stderr=None):
+    @classmethod def run(
+    cls,
+    netlist_file: Union[str, Path],
+    cmd_line_switches: list = None,
+    timeout: float = None,
+    stdout=None,
+    stderr=None
+    ):
     '''This method implements the call for the simulation of the netlist file. '''
     cmd_run = cls.spice_exe + ['-Run'] + ['-b'] + [netlist_file] + cmd_line_switches
     return run_function(cmd_run, timeout=timeout, stdout=stdout, stderr=stderr)
@@ -141,8 +144,9 @@ class Simulator(ABC):
         else:
             if (
                 "\\" in path_to_exe
-            ):  # this probably a windows path. Don't be smart here.
-                # make the path into a posix path. Rather complicated gymnastics, but it works.
+            ):  # Windows path detected.
+                # Convert Windows path to posix format.
+                # Use Path and PureWindowsPath for conversion.
                 # I do not support multiple sections here, as it is not likely needed.
                 plib_path_to_exe = Path(PureWindowsPath(path_to_exe).as_posix())
                 exe_parts = [plib_path_to_exe.as_posix()]
@@ -153,7 +157,10 @@ class Simulator(ABC):
                     plib_path_to_exe = Path(exe_parts[0])
                     exe_parts[0] = plib_path_to_exe.as_posix()
 
-        if plib_path_to_exe.exists() or shutil.which(plib_path_to_exe):
+        if plib_path_to_exe is not None and (
+            plib_path_to_exe.exists()
+            or shutil.which(str(plib_path_to_exe))
+        ):
             if process_name is None:
                 cls.process_name = cls.guess_process_name(exe_parts[0])
             else:
@@ -161,7 +168,9 @@ class Simulator(ABC):
             cls.spice_exe = exe_parts
             return cls
         else:
-            raise FileNotFoundError(f"Provided exe file was not found '{path_to_exe}'")
+            raise FileNotFoundError(
+                f"Provided exe file was not found '{path_to_exe}'"
+            )
 
     @staticmethod
     def guess_process_name(exe: str) -> str:
@@ -244,7 +253,8 @@ class Simulator(ABC):
             if os.path.exists(cls.spice_exe[-1]):
                 myexe = cls.spice_exe[-1]
         _logger.debug(
-            f"Using Spice executable path '{myexe}' to determine the correct library paths."
+            f"Using Spice executable path '{myexe}' "
+            "to determine the correct library paths."
         )
         for path in cls._default_lib_paths:
             _logger.debug(f"Checking if library path '{path}' exists.")
@@ -302,16 +312,15 @@ class Simulator(ABC):
         if c_drive is not None:
             # this must be linux or darwin, with wine
             if path.startswith("~"):
-                # Normally, a large number of directories in the home directory of a user under wine are symlinked
-                # to the user's home directory in the host OS. That would mean, that "~/Documents" under wine is
-                # normally also "~/Documents" under the host OS. But this is not always the case, and not for all directories.
-                # The user can have modified this, via for example a winetricks sandbox.
-                # Therefore, I make it an absolute path for Windows and do not try to
-                # optimise:
+                # Many wine home dirs are symlinked to the host OS home.
+                # e.g., "~/Documents" under wine matches host's "~/Documents".
+                # However, this may not hold for every directory.
+                # Users can modify this via tools like winetricks sandbox.
+                # Therefore, we use an absolute Windows path directly:
                 path = "C:/users/" + os.path.expandvars("${USER}" + path[1:])
-                # If I were to do this expansion under Windows, I should use ${USERNAME} but we're not in Windows here.
-                # I also cannot use expanduser(), as that again would be for the wrong OS.
-                # All lowercase "users" is correct, as it is the default path for the user's home directory in wine.
+                # On Windows, ${USERNAME} is used, but here we are on Linux/macOS.
+                # Avoid os.path.expanduser() since it applies to the host OS, not wine.
+                # In wine, the default home dir uses lowercase "users".
             # I now have a "windows" path (but in posix form, with forward slashes).
             # Make it into a host OS path.
             if path.startswith("C:/") or path.startswith("c:/"):
