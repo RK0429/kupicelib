@@ -107,9 +107,11 @@ __all__ = [
     "clock_function",
 ]
 
+import concurrent.futures
 import inspect  # Library used to get the arguments of the callback function
 import logging
 import shutil
+from concurrent.futures import Future, ThreadPoolExecutor
 from pathlib import Path
 from time import sleep
 from time import thread_time as clock
@@ -208,7 +210,12 @@ class SimRunner(AnyRunner):
                 self.output_folder.mkdir()
 
         self.parallel_sims = parallel_sims
-        self.active_tasks: List[RunTask] = []
+        # Executor for parallel simulations
+        self._executor: ThreadPoolExecutor = concurrent.futures.ThreadPoolExecutor(
+            max_workers=self.parallel_sims
+        )
+        # track pairs of (task, future)
+        self.active_tasks: List[Tuple[RunTask, Future]] = []
         self.completed_tasks: List[RunTask] = []
         self._iterator_counter = 0  # Note: Nested iterators are not supported
 
@@ -234,10 +241,14 @@ class SimRunner(AnyRunner):
 
     def __del__(self):
         """Class Destructor : Closes Everything."""
-        # _logger.debug("Waiting for all spawned sim_tasks to finish.")
-        # Kill all pending simulations
+        # Wait for all pending simulations to finish
         self.wait_completion(abort_all_on_timeout=True)
-        # _logger.debug("Exiting SimRunner")
+        # Shutdown executor, cancelling any pending tasks
+        try:
+            self._executor.shutdown(wait=False, cancel_futures=True)
+        except TypeError:
+            # older Python versions may not support cancel_futures
+            self._executor.shutdown(wait=False)
 
     def set_simulator(self, spice_tool: Type[Simulator]) -> None:
         """Manually overriding the simulator to be used.
@@ -480,7 +491,7 @@ class SimRunner(AnyRunner):
         # callback
         actual_callback = callback if callback is not None else (lambda raw, log: None)
 
-        # Launch the simulation task
+        # Launch the simulation task via ThreadPoolExecutor
         t = RunTask(
             simulator=self.simulator,
             runno=self.runno,
@@ -492,13 +503,13 @@ class SimRunner(AnyRunner):
             verbose=self.verbose,
             exe_log=exe_log,
         )
-        self.active_tasks.append(t)
-        t.start()
+        future = self._executor.submit(t)
+        self.active_tasks.append((t, future))
         _logger.debug(
-            "RunTask started: runno=%d, netlist_file=%s",
+            "RunTask submitted: runno=%d, netlist_file=%s",
             t.runno,
-            t.netlist_file)
-        sleep(0.01)  # Give slack for the thread to start
+            t.netlist_file,
+        )
         return t
 
     def run_now(
@@ -562,11 +573,8 @@ class SimRunner(AnyRunner):
             verbose=self.verbose,
             exe_log=exe_log,
         )
-        t.start()
-        sleep(0.01)  # Give slack for the thread to start
-        # Give one second slack in relation to the task timeout
-        assert timeout is not None, "timeout must not be None"
-        t.join(timeout + 1)
+        # Run synchronously
+        t()
         _logger.debug(
             "RunTask (run_now) completed: retcode=%d, raw_file=%s, log_file=%s",
             t.retcode, t.raw_file, t.log_file,
@@ -597,20 +605,21 @@ class SimRunner(AnyRunner):
                 self.completed_tasks))
         i = 0
         while i < len(self.active_tasks):
-            if self.active_tasks[i].is_alive():
+            task, future = self.active_tasks[i]
+            if not future.done():
                 i += 1
             else:
-                if self.active_tasks[i].retcode == 0:
+                if task.retcode == 0:
                     self.okSim += 1
                 else:
-                    # simulation failed
                     self.failSim += 1
-                task = self.active_tasks.pop(i)
+                self.active_tasks.pop(i)
                 self.completed_tasks.append(task)
                 _logger.debug(
                     "Task %d moved from active to completed (retcode=%d)",
                     task.runno,
-                    task.retcode)
+                    task.retcode,
+                )
 
     def kill_all_ltspice(self) -> None:
         """.. deprecated:: 1.0 Use `kill_all_spice()` instead.
@@ -644,7 +653,7 @@ class SimRunner(AnyRunner):
         :rtype: float or None
         """
         alarm: Optional[float] = None
-        for task in self.active_tasks:
+        for task, future in self.active_tasks:
             # Determine appropriate timeout value for this task
             timeout_val = task.timeout if task.timeout is not None else self.timeout
             if timeout_val is None:
