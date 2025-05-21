@@ -176,7 +176,8 @@ class SimRunner(AnyRunner):
         verbose: bool = False,
         output_folder: Optional[str] = None,
     ):
-        # The '*' in the parameter list forces the user to use named parameters for the rest of the parameters.
+        # The '*' in the parameter list forces the user to use named parameters for the
+        # rest of the parameters.
         # This is a good practice to avoid confusion.
         self.verbose = verbose
         self.timeout = timeout
@@ -312,7 +313,7 @@ class SimRunner(AnyRunner):
             )
         else:
             raise TypeError(
-                "'netlist' parameter shall be a SpiceEditor, pathlib.Path or a plain str"
+                "'netlist' parameter must be a SpiceEditor, pathlib.Path, or a str"
             )
 
         return run_netlist_file
@@ -338,7 +339,7 @@ class SimRunner(AnyRunner):
         if len(args) > 2:
             if callback_args is None:
                 raise ValueError(
-                    "Callback function has more than two arguments, but no callback_args are given"
+                    "Callback has more than two arguments; callback_args is None"
                 )
             if isinstance(callback_args, dict):
                 for pos, param in enumerate(args):
@@ -584,7 +585,7 @@ class SimRunner(AnyRunner):
         for proc in psutil.process_iter():
             # check whether the process name matches
             if proc.name() == process_name:
-                _logger.info("killing Spice", proc.pid)
+                _logger.info(f"killing Spice {proc.pid}")
                 proc.kill()
 
     def _maximum_stop_time(self):
@@ -593,15 +594,16 @@ class SimRunner(AnyRunner):
         :return: Maximum timeout time or None, if there is no timeout defined.
         :rtype: float or None
         """
-        alarm = None
+        alarm: Optional[float] = None
         for task in self.active_tasks:
-            tout = task.timeout if task.timeout is not None else self.timeout
-            if tout is not None:
-                stop = task.start_time + tout
-                if alarm is None:
-                    alarm = stop
-                elif stop > alarm:
-                    alarm = stop
+            if task.timeout is not None:
+                candidate = task.start_time + task.timeout  # type: ignore
+            elif self.timeout is not None:
+                candidate = task.start_time + self.timeout  # type: ignore
+            else:
+                continue
+            if alarm is None or candidate > alarm:
+                alarm = candidate
         return alarm
 
     def wait_completion(self, timeout=None, abort_all_on_timeout=False) -> bool:
@@ -639,7 +641,7 @@ class SimRunner(AnyRunner):
         return self.failSim == 0
 
     @staticmethod
-    def _del_file_if_exists(workfile: Path):
+    def _del_file_if_exists(workfile: Optional[Path]):
         """Deletes a file if it exists.
 
         :param workfile: File to be deleted
@@ -701,7 +703,7 @@ class SimRunner(AnyRunner):
 
         deprecated:: 1.0 Use `cleanup_files()` instead.
         """
-        self.cleanup_files()  # Alias for backward compatibility, this will be deleted in the future
+        self.cleanup_files()  # alias for backward compatibility
 
     def __iter__(self):
         self._iterator_counter = (
@@ -711,7 +713,7 @@ class SimRunner(AnyRunner):
 
     def __next__(self):
         while True:
-            self.update_completed()  # Updates the active_tasks and completed_tasks lists
+            self.update_completed()  # update active and completed tasks
             # First go through the completed tasks
             if self._iterator_counter < len(self.completed_tasks):
                 ret = self.completed_tasks[self._iterator_counter]
