@@ -63,141 +63,24 @@ class LTspice(Simulator):
     # defaults:
     spice_exe = []
     process_name = ""
-
-    if sys.platform == "linux" or sys.platform == "darwin":
-        # Linux: look for wine and ltspice under wine.
-        # MacOS: give preference to wine. If not found: look for native LTspice
-
-        # Anything specified in environment variables?
-        spice_folder = os.environ.get("LTSPICEFOLDER")
-        spice_executable = os.environ.get("LTSPICEEXECUTABLE")
-
-        if spice_folder and spice_executable:
-            spice_exe = ["wine", os.path.join(spice_folder, spice_executable)]
-            process_name = spice_executable
-        elif spice_folder:
-            spice_exe = ["wine", os.path.join(spice_folder, "/XVIIx64.exe")]
-            process_name = "XVIIx64.exe"
-        elif spice_executable:
-            default_folder = os.path.expanduser(
-                "~/.wine/drive_c/Program Files/LTC/LTspiceXVII"
-            )
-            spice_exe = ["wine", os.path.join(default_folder, spice_executable)]
-            process_name = spice_executable
-        else:
-            # This is still "linux or darwin"
-            # no environment variables was given. Do a search.
-            for exe in _spice_exe_win_paths:
-                # make the file path wine compatible
-                # Note that wine also accepts paths like 'C:\users\myuser\...'.
-                # BUT, if I do that, I would not be able to check for the presence of
-                # the exe.
-                # So: expand everything.
-                # Linux would use this:
-                # '/home/myuser/.wine/drive_c/users/myuser/AppData/...'
-                # for _spice_exe_win_paths[0]
-                # '/home/myuser/.wine/drive_c/Program Files/...'
-                # for _spice_exe_win_paths[2]
-                # MacOS would use this:
-                # '/Users/myuser/.wine/drive_c/users/myuser/AppData/...'
-                # for _spice_exe_win_paths[0]
-                # '/Users/myuser/.wine/drive_c/Program Files/...'
-                # for _spice_exe_win_paths[2]
-                # Note: _spice_exe_win_paths[0] and [1] have two
-                # expansions of the user name.
-                if exe.startswith("~"):
-                    exe = "C:/users/" + os.path.expandvars("${USER}" + exe[1:])
-                # Now I have a "windows" path (but with forward slashes). Make it into a
-                # path under wine.
-                exe = os.path.expanduser(exe.replace("C:/", "~/.wine/drive_c/"))
-
-                if os.path.exists(exe):
-                    spice_exe = ["wine", exe]
-                    # Note that one easy method of killing a wine process is to
-                    # run "wineserver -k".
-                    # We kill via psutil.kill(), so it works for non-wine as well.
-
-                    break
-            else:
-                # The else block only runs if the loop completes without a break.
-                # For MacOS, try the native LTspice as last resort
-                if sys.platform == "darwin":
-                    exe = "/Applications/LTspice.app/Contents/MacOS/LTspice"
-                    if os.path.exists(exe):
-                        spice_exe = [exe]
-
-    else:  # Windows (well, also aix, wasi, emscripten,... where it will fail.)
-        for exe in _spice_exe_win_paths:
-            if exe.startswith("~"):
-                # expand here, as I use _spice_exe_win_paths also for linux, and
-                # expanding earlier will fail
-                exe = os.path.expanduser(exe)
-            if os.path.exists(exe):
-                spice_exe = [exe]
-                break
-
-    # The following variables are not needed anymore. This also makes sphinx
-    # not mention them in the documentation.
-    del exe
-    if sys.platform == "linux" or sys.platform == "darwin":
-        del spice_folder
-        del spice_executable
-
-    # fall through
-    if len(spice_exe) == 0:
-        spice_exe = []
-        process_name = ""
-    else:
-        process_name = Simulator.guess_process_name(spice_exe[0])
-        _logger.debug(f"Found LTspice installed in: '{spice_exe}' ")
-
     ltspice_args = {
         "-alt": ["-alt"],  # Set solver to Alternate.
-        "-ascii": [
-            "-ascii"
-        ],  # Use ASCII.raw files. Seriously degrades program performance.
-        # 'batch': ['-b <path>'],  # Used for batch mode.
-        # E.g. "ltspice.exe -b deck.cir" leaves the .raw file.
+        # Use ASCII.raw files. Seriously degrades program performance.
+        "-ascii": ["-ascii"],
         "-big": ["-big"],  # Start as a maximized window.
         "-encrypt": ["-encrypt"],
-        # Encrypt a model library. For 3rd parties wishing to allow use
-        # of libraries without revealing implementation details.
-        # Not used by AnalogDevices models.
-        "-fastaccess": [
-            "-FastAccess"
-        ],  # Batch conversion of a binary.rawfile to Fast Access format.
+        "-fastaccess": ["-FastAccess"],  # Convert raw file to FastAccess format.
         "-FixUpSchematicFonts": ["-FixUpSchematicFonts"],
-        # Convert font size of very old user-authored schematic text
-        # to the modern default.
         "-FixUpSymbolFonts": ["-FixUpSymbolFonts"],
-        # Convert font size of very old user-authored symbols to
-        # the modern default.
-        "-ini": [
-            "- ini",
-            "<path>",
-        ],  # Specify an .ini file to use other than %APPDATA%\LTspice.ini
-        "-I": [
-            "-I<path>"
-        ],  # Specify a path to insert in the symbol and file search paths.
-        # Must be the last specified option.
-        # No space between "-I" and < path > is allowed.
+        "-ini": ["-ini", "<path>"],  # Specify alternative LTspice.ini.
+        "-I": ["-I<path>"],  # Insert library search path (last option).
         "-max": ["-max"],  # Synonym for -big
-        "-netlist": ["-netlist"],  # Batch conversion of a schematic to a netlist.
+        "-netlist": ["-netlist"],  # Generate netlist from schematic.
         "-norm": ["-norm"],  # Set solver to Normal.
-        "-PCBnetlist": [
-            "-PCBnetlist"
-        ],  # Batch conversion of a schematic to a PCB format netlist.
-        # 'run': ['-Run', '-b', '{path}'],  # Start simulating the schematic
-        # opened on the command line without pressing the Run button.
-        "-SOI": [
-            "-SOI"
-        ],  # Allow MOSFET's to have up to 7 nodes even in subcircuit expansion.
-        "-sync": ["-sync"],  # Update component libraries
-        # '-uninstall': ['-uninstall'],  # Executes one uninstallation step.
-        # Not used in this implementation.
+        "-PCBnetlist": ["-PCBnetlist"],  # Generate PCB format netlist.
+        "-SOI": ["-SOI"],  # Allow up to 7 MOSFET nodes.
+        "-sync": ["-sync"],  # Update component libraries.
     }
-    """:meta private:"""
-
     _default_run_switches = ["-Run", "-b"]
 
     @classmethod
@@ -216,47 +99,36 @@ class LTspice(Simulator):
 
     @classmethod
     def valid_switch(cls, switch: str, path: str = "") -> list:
-        """Validates a command line switch. The following options are available for
-        Windows/wine LTspice:
+        """Validate a command line switch.
 
-        * `-alt`: Set solver to Alternate. * `-ascii`: Use ASCII.raw files. Seriously
-        degrades program performance. * `-encrypt`: Encrypt a model library.For 3rd
-        parties wishing to allow people to use libraries without revealing
-        implementation details. Not used by AnalogDevices models. * `-fastaccess`: Batch
-        conversion of a binary.rawfile to Fast Access format. * `-FixUpSchematicFonts`:
-        Convert the font size field of very old user - authored schematic text to the
-        modern default. * `-FixUpSymbolFonts`: Convert the font size field of very old
-        user - authored symbols to the modern default. See Changelog.txt for application
-        hints. * `-ini <path>`: Specify an .ini file to use other than
-        %APPDATA%\\LTspice.ini * `-I<path>`: Specify a path to insert in the symbol and
-        file search paths. Must be the last specified option. * `-netlist`: Batch
-        conversion of a schematic to a netlist. * `-normal`: Set solver to Normal. *
-        `-PCBnetlistBatch`: Conversion of a schematic to a PCB format netlist. * `-SOI`:
-        Allow MOSFET's to have up to 7 nodes even in subcircuit expansion. * `-sync`:
-        Update component libraries
+        Available options for Windows/wine LTspice:
+          - -alt: Set solver to Alternate.
+          - -ascii: Use ASCII.raw files (slow!).
+          - -encrypt: Encrypt a model library.
+          - -fastaccess: Convert raw file to FastAccess format.
+          - -FixUpSchematicFonts: Update old schematic text fonts.
+          - -FixUpSymbolFonts: Update old symbol fonts.
+          - -ini <path>: Specify alternative LTspice.ini file.
+          - -I<path>: Insert library search path (last option).
+          - -max: Start maximized (synonym for -big).
+          - -netlist: Generate netlist from schematic.
+          - -norm: Set solver to Normal.
+          - -PCBnetlist: Generate PCB format netlist.
+          - -SOI: Allow up to 7 MOSFET nodes.
+          - -sync: Update component libraries.
 
-        The following parameters will already be filled in by kupicelib, and cannot be
-        set:
+        Always included (cannot be set):
+          - -Run: Start simulation in batch mode.
+          - -b: Batch mode.
 
-        * `-Run`: Start simulating the schematic opened on the command line without
-        pressing the Run button. * `-b`: Run in batch mode.
-
-        MacOS native LTspice accepts no command line switches (yet), use it under wine
-        for full support.
-
-        :param switch: switch to be added.
-        :type switch: str
-        :param path: path to the file related to the switch being given.
-        :type path: str, optional
-        :return: Nothing
+        MacOS native LTspice supports only batch mode (-b).
         """
 
         # See if the MacOS simulator is used. If so, check if I use the native simulator
         if cls.using_macos_native_sim():
-            # native LTspice has no command line switches (except '-b').
+            # native LTspice has only '-b' switch
             raise ValueError(
-                "MacOS native LTspice does not support command line switches. "
-                "Use it under wine for full support."
+                "MacOS native LTspice supports only batch mode ('-b')."
             )
 
         # format check
@@ -268,7 +140,7 @@ class LTspice(Simulator):
         if switch[0] != "-":
             switch = "-" + switch
 
-        # will be set anyway?
+        # default run switches
         if switch in cls._default_run_switches:
             _logger.info(f"Switch {switch} is already in the default switches")
             return []
@@ -278,7 +150,11 @@ class LTspice(Simulator):
             switches = [switch.replace("<path>", path) for switch in switches]
             return switches
         else:
-            raise ValueError(f"Invalid Switch '{switch}'")
+            valid_keys = ", ".join(sorted(cls.ltspice_args.keys()))
+            raise ValueError(
+                f"Invalid switch '{switch}'. "
+                f"Valid switches are: {valid_keys}"
+            )
 
     @classmethod
     def run(
@@ -469,3 +345,63 @@ class LTspice(Simulator):
         msg = "Failed to create netlist"
         _logger.error(msg)
         raise RuntimeError(msg)
+
+    @classmethod
+    def _detect_executable(cls):
+        """Detect and set spice_exe and process_name based on platform."""
+        if sys.platform in ("linux", "darwin"):
+            cls._detect_unix_executable()
+        else:
+            cls._detect_windows_executable()
+
+    @classmethod
+    def _detect_unix_executable(cls):
+        """Detect on Linux/Mac using wine and environment variables."""
+        spice_folder = os.environ.get("LTSPICEFOLDER")
+        spice_executable = os.environ.get("LTSPICEEXECUTABLE")
+        if spice_folder and spice_executable:
+            cls.spice_exe = ["wine", os.path.join(spice_folder, spice_executable)]
+            cls.process_name = spice_executable
+            return
+        if spice_folder:
+            cls.spice_exe = ["wine", os.path.join(spice_folder, "/XVIIx64.exe")]
+            cls.process_name = "XVIIx64.exe"
+            return
+        if spice_executable:
+            default_folder = os.path.expanduser(
+                "~/.wine/drive_c/Program Files/LTC/LTspiceXVII"
+            )
+            cls.spice_exe = ["wine", os.path.join(default_folder, spice_executable)]
+            cls.process_name = spice_executable
+            return
+        for exe in cls._spice_exe_win_paths:
+            path = exe
+            if path.startswith("~"):
+                path = "C:/users/" + os.path.expandvars("${USER}" + path[1:])
+            path = os.path.expanduser(path.replace("C:/", "~/.wine/drive_c/"))
+            if os.path.exists(path):
+                cls.spice_exe = ["wine", path]
+                cls.process_name = cls.guess_process_name(path)
+                return
+        if sys.platform == "darwin":
+            exe = "/Applications/LTspice.app/Contents/MacOS/LTspice"
+            if os.path.exists(exe):
+                cls.spice_exe = [exe]
+                cls.process_name = cls.guess_process_name(exe)
+
+    @classmethod
+    def _detect_windows_executable(cls):
+        """Detect on Windows using default executable paths."""
+        for exe in cls._spice_exe_win_paths:
+            path = exe
+            if path.startswith("~"):
+                path = os.path.expanduser(path)
+            if os.path.exists(path):
+                cls.spice_exe = [path]
+                cls.process_name = cls.guess_process_name(path)
+                return
+
+
+# initialize LTspice executable detection
+LTspice._detect_executable()
+_logger.debug(f"Found LTspice installed in: '{LTspice.spice_exe}'")
