@@ -391,8 +391,8 @@ class SimRunner(AnyRunner):
             Setting this parameter to False will force the simulation to start immediately, irrespective of the number
             of simulations already active.
             By default, the SimRunner class uses only four processors. This number can be overridden by setting
-            the parameter ´parallel_sims´ to a different number.
-            If there are more than ´parallel_sims´ simulations being done, the new one will be placed on hold till one
+            the parameter `parallel_sims` to a different number.
+            If there are more than `parallel_sims` simulations being done, the new one will be placed on hold till one
             of the other simulations are finished.
         :type wait_resource: bool, optional
         :param callback:
