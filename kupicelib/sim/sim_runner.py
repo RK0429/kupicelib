@@ -464,10 +464,10 @@ class SimRunner(AnyRunner):
             sleep(0.1)  # Give Time for other simulations to end
         else:
             _logger.error(
-                "Timeout waiting for resources for simulation %d" % self.runno
+                f"Timeout waiting for resources for simulation {self.runno}"
             )
             if self.verbose:
-                _logger.warning("Timeout on launching simulation %d." % self.runno)
+                _logger.warning(f"Timeout on launching simulation {self.runno}.")
             return None
 
     def run_now(
