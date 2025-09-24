@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# coding=utf-8
 
 # -------------------------------------------------------------------------------
 #
@@ -23,12 +22,11 @@
 LTSpice log file."""
 
 import re
-from typing import Dict, List, Union
 
 from ..utils.detect_encoding import detect_encoding
 
 
-def opLogReader(filename: str) -> Dict[str, Dict[str, Dict[str, Union[float, str]]]]:
+def opLogReader(filename: str) -> dict[str, dict[str, dict[str, float | str]]]:
     """This function is exclusively dedicated to retrieving operation point parameters
     of Semiconductor Devices. This is handled separately from the main LogReader class
     because of its specialization and therefore not judged to be of interest to the
@@ -79,45 +77,40 @@ def opLogReader(filename: str) -> Dict[str, Dict[str, Dict[str, Union[float, str
     :return: Dictionary containing the information as described above.
     :rtype: dict
     """
-    dataset: Dict[str, Dict[str, Dict[str, Union[float, str]]]] = {}
+    dataset: dict[str, dict[str, dict[str, float | str]]] = {}
     is_title = re.compile(r"^\s*--- (.*) ---\s*$")
     encoding = detect_encoding(filename)
-    log = open(filename, "r", encoding=encoding)
-    where: Union[str, None] = None
+    where: str | None = None
     n_devices = 0
     line = None
-    devices: List[str] = []
+    devices: list[str] = []
 
-    for line in log:
-        if line.startswith("Semiconductor Device Operating Points:"):
-            break
-
-    if line is not None and line.startswith("Semiconductor Device Operating Points:"):
+    with open(filename, encoding=encoding) as log:
         for line in log:
-            match = is_title.search(line)
-            if match is not None:
-                where = match.group(1)
-                if where is not None:  # Ensure where is not None before using lower()
-                    dataset[where.lower()] = (
-                        {}
-                    )  # Creates a dictionary for each component type
-            else:
-                cols = re.split(r"\s+", line.rstrip("\r\n"))
-                if len(cols) > 1 and (
-                    cols[0].endswith(":") or cols[0] == "Gmb"
-                ):  # The last 'or condition solves an
-                    # LTSpice bug where the Gmb parameter is not suffixed by :  - Thanks
-                    # to Amitkumar for finding this.
-                    if cols[0] == "Name:":
-                        devices = cols[1:]
-                        n_devices = len(devices)
-                        if (
-                            where is not None
-                        ):  # Ensure where is not None before using lower()
-                            for dev in cols[1:]:
-                                dataset[where.lower()][dev] = {}
-                    else:
-                        if (
+            if line.startswith("Semiconductor Device Operating Points:"):
+                break
+
+        if line is not None and line.startswith("Semiconductor Device Operating Points:"):
+            for line in log:
+                match = is_title.search(line)
+                if match is not None:
+                    where = match.group(1)
+                    if where is not None:  # Ensure where is not None before using lower()
+                        dataset[where.lower()] = {}
+                else:
+                    cols = re.split(r"\s+", line.rstrip("\r\n"))
+                    if len(cols) > 1 and (
+                        cols[0].endswith(":") or cols[0] == "Gmb"
+                    ):  # The last 'or condition solves an
+                        # LTSpice bug where the Gmb parameter is not suffixed by :
+                        # Thanks to Amitkumar for finding this.
+                        if cols[0] == "Name:":
+                            devices = cols[1:]
+                            n_devices = len(devices)
+                            if where is not None:
+                                for dev in cols[1:]:
+                                    dataset[where.lower()][dev] = {}
+                        elif (
                             n_devices > 0
                             and len(cols) == (n_devices + 1)
                             and where is not None
@@ -125,9 +118,8 @@ def opLogReader(filename: str) -> Dict[str, Dict[str, Dict[str, Union[float, str
                             param = cols[0].rstrip(":")
                             for i, val in enumerate(cols[1:]):
                                 try:
-                                    value: Union[float, str] = float(val)
+                                    value: float | str = float(val)
                                 except ValueError:
                                     value = val
                                 dataset[where.lower()][devices[i]][param] = value
-    log.close()
     return dataset

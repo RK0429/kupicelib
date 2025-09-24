@@ -1,6 +1,4 @@
 #!/usr/bin/env python
-# coding=utf-8
-# flake8: noqa: E501
 
 # -------------------------------------------------------------------------------
 #
@@ -99,12 +97,12 @@ __author__ = "Nuno Canto Brum <nuno.brum@gmail.com>"
 __copyright__ = "Copyright 2020, Fribourg Switzerland"
 
 __all__ = [
-    "SimRunner",
-    "SimRunnerTimeoutError",
-    "SimRunnerConfigError",
     "AnyRunner",
     "ProcessCallback",
     "RunTask",
+    "SimRunner",
+    "SimRunnerConfigError",
+    "SimRunnerTimeoutError",
     "clock_function",
 ]
 
@@ -112,23 +110,12 @@ import concurrent.futures
 import inspect  # Library used to get the arguments of the callback function
 import logging
 import shutil
+from collections.abc import Callable, Iterator
 from concurrent.futures import Future, ThreadPoolExecutor
 from pathlib import Path
 from time import sleep
 from time import thread_time as clock
-from typing import (
-    Any,
-    Callable,
-    Dict,
-    Iterator,
-    List,
-    Optional,
-    Protocol,
-    Tuple,
-    Type,
-    Union,
-    cast,
-)
+from typing import Any, Protocol, cast
 
 from ..editor.base_editor import BaseEditor
 from ..sim.run_task import RunTask, clock_function
@@ -139,10 +126,7 @@ _logger = logging.getLogger("kupicelib.SimRunner")
 END_LINE_TERM = "\n"
 
 # Define a callback type alias for readability
-CallbackType = Union[
-    Type[ProcessCallback],
-    Callable[[Path, Path], Any],
-]
+CallbackType = type[ProcessCallback] | Callable[[Path, Path], Any]
 
 
 class SimRunnerTimeoutError(TimeoutError):
@@ -156,16 +140,16 @@ class SimRunnerConfigError(Exception):
 class AnyRunner(Protocol):
     def run(
         self,
-        netlist: Union[str, Path, BaseEditor],
+        netlist: str | Path | BaseEditor,
         *,
         wait_resource: bool = True,
-        callback: Optional[Union[Type[ProcessCallback], Callable]] = None,
-        callback_args: Optional[Union[tuple, dict]] = None,
-        switches: Optional[List[str]] = None,
-        timeout: Optional[float] = None,
-        run_filename: Optional[str] = None,
+        callback: type[ProcessCallback] | Callable | None = None,
+        callback_args: tuple | dict | None = None,
+        switches: list[str] | None = None,
+        timeout: float | None = None,
+        run_filename: str | None = None,
         exe_log: bool = False,
-    ) -> Optional[RunTask]: ...
+    ) -> RunTask | None: ...
 
     def wait_completion(self, timeout=None, abort_all_on_timeout=False) -> bool: ...
 
@@ -198,17 +182,17 @@ class SimRunner(AnyRunner):
         parallel_sims: int = 4,
         timeout: float = 600.0,
         verbose: bool = False,
-        output_folder: Optional[str] = None,
+        output_folder: str | None = None,
     ):
         # The '*' in the parameter list forces the user to use named parameters for the
         # rest of the parameters.
         # This is a good practice to avoid confusion.
         self.verbose = verbose
         self.timeout = timeout
-        self.cmdline_switches: List[str] = []
+        self.cmdline_switches: list[str] = []
 
         # Define output_folder attribute with type annotation once
-        self.output_folder: Optional[Path] = None
+        self.output_folder: Path | None = None
         if output_folder:
             self.output_folder = Path(
                 output_folder
@@ -222,8 +206,8 @@ class SimRunner(AnyRunner):
             max_workers=self.parallel_sims
         )
         # track pairs of (task, future)
-        self.active_tasks: List[Tuple[RunTask, Future]] = []
-        self.completed_tasks: List[RunTask] = []
+        self.active_tasks: list[tuple[RunTask, Future]] = []
+        self.completed_tasks: list[RunTask] = []
         self._iterator_counter = 0  # Note: Nested iterators are not supported
 
         self.run_count: int = 0  # number of total runs
@@ -261,7 +245,7 @@ class SimRunner(AnyRunner):
             # older Python versions may not support cancel_futures
             self._executor.shutdown(wait=False)
 
-    def set_simulator(self, spice_tool: Type[Simulator]) -> None:
+    def set_simulator(self, spice_tool: type[Simulator]) -> None:
         """Manually overriding the simulator to be used.
 
         :param spice_tool: String containing the path to the spice tool to be used, or
@@ -295,7 +279,7 @@ class SimRunner(AnyRunner):
         if path is not None:
             self.cmdline_switches.append(path)
 
-    def _on_output_folder(self, afile: Union[str, Path]) -> Path:
+    def _on_output_folder(self, afile: str | Path) -> Path:
         if self.output_folder:
             return self.output_folder / Path(afile).name
         else:
@@ -303,15 +287,9 @@ class SimRunner(AnyRunner):
 
     def _to_output_folder(self, afile: Path, *, copy: bool, new_name: str = "") -> Path:
         if self.output_folder:
-            if new_name:
-                ddst = self.output_folder / new_name
-            else:
-                ddst = self.output_folder
+            ddst = self.output_folder / new_name if new_name else self.output_folder
 
-            if copy:
-                dest = shutil.copy(afile, ddst)
-            else:
-                dest = shutil.move(afile, ddst)
+            dest = shutil.copy(afile, ddst) if copy else shutil.move(afile, ddst)
             return Path(dest)
         else:
             if new_name:
@@ -320,7 +298,7 @@ class SimRunner(AnyRunner):
             else:
                 return afile
 
-    def _run_file_name(self, netlist: Union[str, Path]) -> str:
+    def _run_file_name(self, netlist: str | Path) -> str:
         if not isinstance(netlist, Path):
             netlist = Path(netlist)
         if netlist.suffix == ".qsch":
@@ -330,7 +308,7 @@ class SimRunner(AnyRunner):
         return f"{netlist.stem}_{self.run_count}{netlist.suffix}"
 
     def _prepare_sim(
-        self, netlist: Union[str, Path, BaseEditor], run_filename: Optional[str]
+        self, netlist: str | Path | BaseEditor, run_filename: str | None
     ) -> Path:
         """Internal function."""
         # update number of simulation
@@ -345,7 +323,7 @@ class SimRunner(AnyRunner):
             run_netlist_file = self._on_output_folder(run_filename)
             netlist.save_netlist(run_netlist_file)
 
-        elif isinstance(netlist, (Path, str)):
+        elif isinstance(netlist, Path | str):
             if run_filename is None:
                 run_filename = self._run_file_name(netlist)
             if isinstance(netlist, str):
@@ -362,9 +340,9 @@ class SimRunner(AnyRunner):
 
     @staticmethod
     def validate_callback_args(
-        callback: Optional[Union[Type[ProcessCallback], Callable]],
-        callback_args: Optional[Union[tuple, dict]],
-    ) -> Optional[Dict[str, Any]]:
+        callback: type[ProcessCallback] | Callable | None,
+        callback_args: tuple | dict | None,
+    ) -> dict[str, Any] | None:
         """It validates that the callback_args are matching the callback function.
 
         Note that the first two parameters of the callback functions need to be the raw
@@ -385,17 +363,15 @@ class SimRunner(AnyRunner):
                 )
             if isinstance(callback_args, dict):
                 for pos, param in enumerate(args):
-                    if pos > 1:
-                        if param not in callback_args:
-                            raise ValueError(
-                                "Callback argument '%s' not found in callback_args"
-                                % param
-                            )
+                    if pos > 1 and param not in callback_args:
+                        raise ValueError(
+                            f"Callback argument '{param}' not found in callback_args"
+                        )
 
             if len(args) - 2 != len(callback_args):
                 raise ValueError(
-                    "Callback function has %d arguments, but %d callback_args are given"
-                    % (len(args), len(callback_args))
+                    "Callback function has "
+                    f"{len(args)} arguments, but {len(callback_args)} callback_args are given"
                 )
             if isinstance(callback_args, tuple):
                 # Convert into a dictionary
@@ -420,16 +396,16 @@ class SimRunner(AnyRunner):
 
     def run(
         self,
-        netlist: Union[str, Path, BaseEditor],
+        netlist: str | Path | BaseEditor,
         *,
         wait_resource: bool = True,
-        callback: Optional[CallbackType] = None,
-        callback_args: Optional[Union[tuple, dict]] = None,
-        switches: Optional[List[str]] = None,
-        timeout: Optional[float] = None,
-        run_filename: Optional[str] = None,
+        callback: CallbackType | None = None,
+        callback_args: tuple | dict | None = None,
+        switches: list[str] | None = None,
+        timeout: float | None = None,
+        run_filename: str | None = None,
         exe_log: bool = False,
-    ) -> Optional[RunTask]:
+    ) -> RunTask | None:
         """Executes a simulation run with the conditions set by the user. Conditions are
         set by the set_parameter, set_component_value or add_instruction functions.
 
@@ -523,13 +499,13 @@ class SimRunner(AnyRunner):
 
     def run_now(
         self,
-        netlist: Union[str, Path, BaseEditor],
+        netlist: str | Path | BaseEditor,
         *,
-        switches: Optional[List[str]] = None,
-        run_filename: Optional[str] = None,
-        timeout: Optional[float] = None,
+        switches: list[str] | None = None,
+        run_filename: str | None = None,
+        timeout: float | None = None,
         exe_log: bool = False,
-    ) -> Tuple[Optional[Path], Optional[Path]]:
+    ) -> tuple[Path | None, Path | None]:
         """Executes a simulation run with the conditions set by the user. Conditions are
         set by the set_parameter, set_component_value or add_instruction functions.
 
@@ -655,14 +631,14 @@ class SimRunner(AnyRunner):
                 _logger.info(f"killing Spice {proc.pid}")
                 proc.kill()
 
-    def _maximum_stop_time(self) -> Optional[float]:
+    def _maximum_stop_time(self) -> float | None:
         """This function will return the maximum timeout time of all active tasks.
 
         :return: Maximum timeout time or None, if there is no timeout defined.
         :rtype: float or None
         """
-        alarm: Optional[float] = None
-        for task, future in self.active_tasks:
+        alarm: float | None = None
+        for task, _future in self.active_tasks:
             # Determine appropriate timeout value for this task
             timeout_val = task.timeout if task.timeout is not None else self.timeout
             if timeout_val is None:
@@ -675,7 +651,7 @@ class SimRunner(AnyRunner):
 
     def wait_completion(
             self,
-            timeout: Optional[float] = None,
+            timeout: float | None = None,
             abort_all_on_timeout: bool = False) -> bool:
         """This function will wait for the execution of all scheduled simulations to
         complete.
@@ -697,7 +673,7 @@ class SimRunner(AnyRunner):
             timeout,
             abort_all_on_timeout)
         self.update_completed()
-        stop_time: Optional[float] = None
+        stop_time: float | None = None
         if timeout is not None:
             stop_time = clock_function() + timeout
         while len(self.active_tasks) > 0:
@@ -705,19 +681,16 @@ class SimRunner(AnyRunner):
             self.update_completed()
             if timeout is None:
                 stop_time = self._maximum_stop_time()
-            if (
-                stop_time is not None
-            ):  # This can happen if timeout was set as none everywhere
-                if clock_function() > stop_time:
-                    if abort_all_on_timeout:
-                        self.kill_all_spice()
-                    return False
+            if stop_time is not None and clock_function() > stop_time:
+                if abort_all_on_timeout:
+                    self.kill_all_spice()
+                return False
 
         _logger.debug("wait_completion returning %s", self.failed_simulations == 0)
         return self.failed_simulations == 0
 
     @staticmethod
-    def _del_file_if_exists(workfile: Optional[Path]):
+    def _del_file_if_exists(workfile: Path | None):
         """Deletes a file if it exists.
 
         :param workfile: File to be deleted

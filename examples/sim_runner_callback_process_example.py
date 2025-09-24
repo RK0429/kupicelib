@@ -1,10 +1,10 @@
-# coding=utf-8
 
+import sys
+
+from kupicelib import SimRunner, SpiceEditor
 from kupicelib.sim.process_callback import (
     ProcessCallback,  # Importing the ProcessCallback class type
 )
-from kupicelib import SimRunner, SpiceEditor
-import sys
 
 sys.path.insert(0, "..")  # This is to allow the import from the kupicelib folder
 
@@ -19,13 +19,12 @@ class CallbackProc(ProcessCallback):
     def callback(raw_file, log_file):
         print(
             "Handling the simulation data of "
-            "%s"
+            f"{raw_file}"
             ", log file "
-            "%s"
-            "" % (raw_file, log_file)
+            f"{log_file}"
         )
         # Doing some processing here
-        return "Parsed Result of " "%s" "" % raw_file + ", log file " "%s" "" % log_file
+        return "Parsed Result of " f"{raw_file}" + ", log file " f"{log_file}"
 
 
 if __name__ == "__main__":
@@ -62,9 +61,7 @@ if __name__ == "__main__":
             netlist["V1"].value = supply_voltage
             netlist["V2"].value = -supply_voltage
             # overriding the automatic netlist naming
-            run_netlist_file = "{}_{}_{}.net".format(
-                netlist.netlist_file.stem, opamp, supply_voltage
-            )
+            run_netlist_file = f"{netlist.netlist_file.stem}_{opamp}_{supply_voltage}.net"
             runner.run(netlist, run_filename=run_netlist_file, callback=CallbackProc)
 
     for result in runner:

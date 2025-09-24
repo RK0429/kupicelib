@@ -54,7 +54,7 @@ for opamp in (
         )  # run, and log console output fo file
 
 for raw, log in runner:
-    print("Raw file: %s, Log file: %s" % (raw, log))
+    print(f"Raw file: {raw}, Log file: {log}")
     # do something with the data
     # raw_data = RawRead(raw)
     # log_data = LTSpiceLogReader(log)

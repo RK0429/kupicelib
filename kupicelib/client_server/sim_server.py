@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# coding=utf-8
 
 import io
 import logging
@@ -18,14 +17,14 @@ from pathlib import Path
 #  ╚══════╝╚═╝     ╚═╝ ╚═════╝╚══════╝╚══════╝╚═╝╚═════╝
 #
 # Name:        sim_server.py
-# Purpose:     A simulation server that can execute simulations by request of a client located in a different machine.
+# Purpose:     A simulation server that can execute simulations by request of a client
+#              located in a different machine.
 #
 # Author:      Nuno Brum (nuno.brum@gmail.com)
 #
 # Created:     23-02-2023
 # Licence:     refer to the LICENSE file
 # -------------------------------------------------------------------------------
-from typing import Tuple
 from xmlrpc.client import Binary
 from xmlrpc.server import SimpleXMLRPCServer
 
@@ -34,7 +33,7 @@ from kupicelib.client_server.srv_sim_runner import ServerSimRunner
 _logger = logging.getLogger("kupicelib.SimServer")
 
 
-class SimServer(object):
+class SimServer:
     """This class implements a server that can run simulations by request of a client
     located in a different machine.
 
@@ -162,7 +161,7 @@ class SimServer(object):
         _logger.debug(f"Server: Returning status {ret}")
         return ret
 
-    def get_files(self, session_id, runno) -> Tuple[str, Binary]:
+    def get_files(self, session_id, runno) -> tuple[str, Binary]:
         if runno in self.sessions[session_id]:
 
             for task_info in self.simulation_manager.completed_tasks:

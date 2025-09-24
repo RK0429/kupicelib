@@ -1,4 +1,3 @@
-import os
 
 from kupicelib import SimRunner, SpiceEditor
 from kupicelib.sim.sim_stepping import SimStepper
@@ -6,7 +5,7 @@ from kupicelib.simulators.ltspice_simulator import LTspice
 
 
 def processing_data(raw_file, log_file):
-    print("Handling the simulation data of %s" % log_file)
+    print(f"Handling the simulation data of {log_file}")
 
 
 runner = SimRunner(parallel_sims=4, output_folder="./temp2", simulator=LTspice)

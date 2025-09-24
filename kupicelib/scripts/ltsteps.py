@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# coding=utf-8
 
 # -------------------------------------------------------------------------------
 #
@@ -11,7 +10,8 @@
 #  ╚══════╝╚═╝     ╚═╝ ╚═════╝╚══════╝╚══════╝╚═╝╚═════╝
 #
 # Name:        ltsteps.py
-# Purpose:     Process LTSpice log files and align data for usage in a spreadsheet tool such as Excel, or Calc.
+# Purpose:     Process LTSpice log files and align data for spreadsheet tools
+#              such as Excel or Calc.
 #
 # Author:      Nuno Brum (nuno.brum@gmail.com)
 #
@@ -104,8 +104,8 @@ def main():
         filename = sys.argv[1]
         print("Using filename:", filename)
     else:
-        # TODO: This should be changed to use the argparse module. The --last option should be added to indicate
-        # that the last file should be used.
+        # TODO: Replace optparse with argparse. Add a --last option to select the
+        # most recent file automatically.
         filename = None
         newer_date = 0
         for f in os.listdir():
@@ -120,7 +120,7 @@ def main():
         exit(-1)
 
     if not valid_extension(filename):
-        print("Invalid extension in filename '%s'" % filename)
+        print(f"Invalid extension in filename '{filename}'")
         print("This tool only supports the following extensions :'.txt','.log','.mout'")
         exit(-1)
 
@@ -137,7 +137,7 @@ def main():
         exit(-1)
 
     if fname_out is not None:
-        print("Creating File %s" % fname_out)
+        print(f"Creating File {fname_out}")
         if filename.endswith("txt"):
             _logger.debug("Processing Data File")
             reformat_LTSpice_export(filename, fname_out)

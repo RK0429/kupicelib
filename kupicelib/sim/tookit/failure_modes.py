@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# coding=utf-8
 
 # -------------------------------------------------------------------------------
 #
@@ -20,7 +19,8 @@
 # -------------------------------------------------------------------------------
 
 from collections import OrderedDict
-from typing import Any, Dict, Iterable, Optional, Type, Union
+from collections.abc import Iterable
+from typing import Any
 
 from ...editor.base_editor import BaseEditor, ComponentNotFoundError
 from ..simulator import Simulator
@@ -45,9 +45,9 @@ class FailureMode(SimAnalysis):
 
     def __init__(
         self,
-        circuit_file: Union[str, BaseEditor],
-        simulator: Optional[Type[Simulator]] = None,
-        runner: Optional[AnyRunner] = None,
+        circuit_file: str | BaseEditor,
+        simulator: type[Simulator] | None = None,
+        runner: AnyRunner | None = None,
     ):
         SimAnalysis.__init__(self, circuit_file, runner)
         self.simulator = simulator
@@ -58,7 +58,7 @@ class FailureMode(SimAnalysis):
         self.bipolars = self.editor.get_components("Q")
         self.mosfets = self.editor.get_components("M")
         self.subcircuits = self.editor.get_components("X")
-        self.user_failure_modes: Dict[str, Dict[str, Any]] = OrderedDict()
+        self.user_failure_modes: dict[str, dict[str, Any]] = OrderedDict()
 
     def add_failure_circuit(self, component, sub_circuit):
         if not component.startswith("X"):

@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# coding=utf-8
 
 # -------------------------------------------------------------------------------
 #
@@ -64,7 +63,10 @@ def main():
 
     usage = "usage: %prog [options] LOG_FILE TRACE"
     opts = OptionParser(usage=usage, version="%prog 0.1")
-    # opts.add_option('v', "var", action="store", type="string", dest="trace", help="The trace to be used in the histogram")
+    # opts.add_option(
+    #     'v', "var", action="store", type="string", dest="trace",
+    #     help="The trace to be used in the histogram",
+    # )
     opts.add_option(
         "-s",
         "--sigma",
@@ -89,10 +91,12 @@ def main():
         action="append",
         type="string",
         dest="filters",
-        help="Filter condition writen in python. More than one expression can be added but each expression "
-        "should be preceded by -c.\n" +
-        "EXAMPLE: -c V(N001)>4 -c parameter==1 -c I(V1)<0.5"
-        "Note: whe parsing log files, the > and < operators are not supported.",
+        help=(
+            "Filter condition written in Python. Provide multiple expressions by "
+            "repeating -c.\n"
+            "Example: -c V(N001)>4 -c parameter==1 -c I(V1)<0.5"
+            "Note: when parsing log files, the > and < operators are not supported."
+        ),
     )
     opts.add_option(
         "-f",
@@ -102,8 +106,10 @@ def main():
         dest="format",
         help="Format string for the X axis. Example: -f %3.4f",
     )
-    # opts.add_option('-p', "--scaling",action="store", type="string", dest="prescaling",
-    # help="Prescaling function to be applied to the input value.")
+    # opts.add_option(
+    #     '-p', "--scaling", action="store", type="string", dest="prescaling",
+    #     help="Prescaling function to be applied to the input value.",
+    # )
     opts.add_option(
         "-t",
         "--title",
@@ -127,15 +133,20 @@ def main():
         dest="clipboard",
         help="If the data from the clipboard is to be used.",
     )
-    # opts.add_option('-x', "--xname", action="store", dest="xname", help="Name for the variable displayed")
+    # opts.add_option(
+    #     '-x', "--xname", action="store", dest="xname",
+    #     help="Name for the variable displayed",
+    # )
     opts.add_option(
         "-o",
         "--output",
         action="store",
         type="string",
         dest="imagefile",
-        help="Output the image to a file. Argument is the name of the image File with png extension.\n"
-        "Example: -o image.png",
+        help=(
+            "Output the image to a file. Argument is the PNG image name.\n"
+            "Example: -o image.png"
+        ),
     )
     opts.add_option(
         "-1",
@@ -155,10 +166,7 @@ def main():
         except ImportError:
             print("Failed to load clipboard package. Use PiP to install it.")
             exit(1)
-        if len(args) > 0:
-            TRACE = args[-1]
-        else:
-            TRACE = "var"
+        TRACE = args[-1] if len(args) > 0 else "var"
         text = clipboard.paste()
         for line in text.split("\n"):
             try:
@@ -191,8 +199,7 @@ def main():
                 log = LTSpiceLogReader(logfile)
             except EncodingDetectError:
                 print(
-                    "Failed to load file '%s'. Use ltsteps first to convert to tlog format" %
-                    logfile)
+                    f"Failed to load file '{logfile}'. Use ltsteps first to convert to tlog format")
                 exit(-1)
             else:
                 if options.filters is None:
@@ -209,52 +216,51 @@ def main():
                                 "Unsupported comparison operator in reading .log files."
                             )
                             print(
-                                "For enhanced comparators convert the file to tlog using LTsteps script"
+                                "For enhanced comparators convert the file to tlog "
+                                "using the ltsteps script"
                             )
                     log.steps_with_conditions(**filters)
                     values = log.get_measure_values_at_steps(TRACE, options.filters)
 
         if len(values) == 0:
             encoding = detect_encoding(logfile)
-            print("Loading file '%s' with encoding '%s'" % (logfile, encoding))
-            log = open(logfile, "r", encoding=encoding)
-            header = log.readline().rstrip("\r\n")
-            for sep in ["\t", ";", ","]:
-                if sep in header:
-                    break
-            else:
-                sep = None
+            print(f"Loading file '{logfile}' with encoding '{encoding}'")
+            with open(logfile, encoding=encoding) as log:
+                header = log.readline().rstrip("\r\n")
+                for sep in ["\t", ";", ","]:
+                    if sep in header:
+                        break
+                else:
+                    sep = None
 
-            vars = header.split(sep)
-            if len(vars) > 1:
-                try:
-                    sav_col = vars.index(TRACE)
-                except ValueError:
-                    log.close()
-                    print("File '%s' doesn't have trace '%s'" % (logfile, TRACE))
-                    print("LOG FILE contains %s" % vars)
-                    exit(-1)
-            else:
-                sav_col = 0
+                vars = header.split(sep)
+                if len(vars) > 1:
+                    try:
+                        sav_col = vars.index(TRACE)
+                    except ValueError:
+                        print(f"File '{logfile}' doesn't have trace '{TRACE}'")
+                        print(f"LOG FILE contains {vars}")
+                        exit(-1)
+                else:
+                    sav_col = 0
 
-            if (options.filters is None) or (len(options.filters) == 0):
-                for line in log:
-                    vs = line.split(sep)
-                    values.append(try_convert_value(vs[sav_col]))
-            else:
-                for line in log:
-                    env = {
-                        var: try_convert_value(value)
-                        for var, value in zip(vars, line.split(sep))
-                    }
+                if (options.filters is None) or (len(options.filters) == 0):
+                    for line in log:
+                        vs = line.split(sep)
+                        values.append(try_convert_value(vs[sav_col]))
+                else:
+                    for line in log:
+                        env = {
+                            var: try_convert_value(value)
+                            for var, value in zip(vars, line.split(sep), strict=False)
+                        }
 
-                    for expression in options.filters:
-                        test = eval(expression, None, env)
-                        if test is False:
-                            break
-                    else:
-                        values.append(try_convert_value(env[TRACE]))
-            log.close()
+                        for expression in options.filters:
+                            test = eval(expression, None, env)
+                            if test is False:
+                                break
+                        else:
+                            values.append(try_convert_value(env[TRACE]))
 
     if len(values) == 0:
         print("No elements found")
@@ -289,20 +295,21 @@ def main():
             except (ValueError, TypeError):
                 opts.error("Invalid range setting")
                 exit(-1)
-        if options.format:
-            fmt = options.format
-        else:
-            fmt = "%f"
+        fmt = options.format or "%f"
+        format_spec = fmt.lstrip("%")
 
-        print("Collected %d elements" % len(values))
-        print("Distributing in %d bins" % options.nbins)
-        print("Minimum is " + fmt % mn)
-        print("Maximum is " + fmt % mx)
-        print("Mean is " + fmt % mu)
-        print("Standard Deviation is " + fmt % sd)
+        def fmt_value(value: float) -> str:
+            return format(value, format_spec)
+
+        print(f"Collected {len(values)} elements")
+        print(f"Distributing in {options.nbins} bins")
+        print(f"Minimum is {fmt_value(mn)}")
+        print(f"Maximum is {fmt_value(mx)}")
+        print(f"Mean is {fmt_value(mu)}")
+        print(f"Standard Deviation is {fmt_value(sd)}")
         print(
-            ("Sigma %d boundaries are " + fmt + " and " + fmt)
-            % (options.sigma, sigmin, sigmax)
+            f"Sigma {options.sigma} boundaries are {fmt_value(sigmin)} "
+            f"and {fmt_value(sigmax)}"
         )
         n, bins, patches = plt.hist(
             x,

@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# coding=utf-8
 # -------------------------------------------------------------------------------
 #
 #  ███████╗██████╗ ██╗ ██████╗███████╗██╗     ██╗██████╗
@@ -18,7 +17,8 @@
 # Licence:     refer to the LICENSE file
 # -------------------------------------------------------------------------------
 import logging
-from typing import Any, Callable, Dict, List, Optional, Type, Union
+from collections.abc import Callable
+from typing import Any
 
 from ...editor.base_editor import BaseEditor
 from ...log.logfile_data import LogfileData
@@ -32,7 +32,7 @@ class QuickSensitivityAnalysis(ToleranceDeviations):
     """Class to automate Sensitivity simulations."""
 
     def __init__(
-        self, circuit_file: Union[str, BaseEditor], runner: Optional[AnyRunner] = None
+        self, circuit_file: str | BaseEditor, runner: AnyRunner | None = None
     ):
         super().__init__(circuit_file, runner)
 
@@ -45,10 +45,10 @@ class QuickSensitivityAnalysis(ToleranceDeviations):
             val, dev = self.get_component_value_deviation_type(comp)
             new_val = val
             if dev.typ == DeviationType.tolerance:
-                new_val = "{satol(%s,%g,%d)}" % (val, dev.max_val, no)
+                new_val = f"{{satol({val},{dev.max_val:g},{no})}}"
             elif dev.typ == DeviationType.minmax:
                 used_value = dev.min_val if use_min else dev.max_val
-                new_val = "{sammx(%s,%g,%d)}" % (val, used_value, no)
+                new_val = f"{{sammx({val},{used_value:g},{no})}}"
 
             if new_val != val:
                 self.set_component_value(comp, new_val)
@@ -65,13 +65,15 @@ class QuickSensitivityAnalysis(ToleranceDeviations):
                 ".func satol(nom,tol,idx) nom*if(run==idx,1+tol,1)"
             )
         self.editor.add_instruction(".func sammx(nom,val,idx) if(run==idx,val,nom)")
-        self.editor.add_instruction(".step param run -1 %d 1" % self.last_run_number)
+        self.editor.add_instruction(
+            f".step param run -1 {self.last_run_number} 1"
+        )
         self.editor.set_parameter("run", -1)  # in case the step is commented.
         self.testbench_prepared = True
 
     def get_sensitivity_data(
         self, ref: str, measure: str
-    ) -> Union[float, Dict[str, float], None]:
+    ) -> float | dict[str, float] | None:
         """Returns the sensitivity data for a given component and measurement in terms
         of percentage of the total error.
 
@@ -90,13 +92,13 @@ class QuickSensitivityAnalysis(ToleranceDeviations):
             component
         """
         if (
-            self.testbench_prepared
-            and self.testbench_executed
+            (self.testbench_prepared
+            and self.testbench_executed)
             or self.analysis_executed
         ):
             log_data: LogfileData = self.read_logfiles()
             nominal_data = log_data.get_measure_value(measure, run=-1)
-            error_data: List[float] = []
+            error_data: list[float] = []
             for idx in range(len(self.elements_analysed)):
                 step_data = log_data.get_measure_value(measure, run=idx)
                 # Convert data to float to ensure proper subtraction
@@ -125,16 +127,17 @@ class QuickSensitivityAnalysis(ToleranceDeviations):
                 return error_data[idx] / total_error * 100 if total_error != 0 else 0
         else:
             _logger.warning(
-                "The analysis was not executed. Please run the run_analysis(...) or run_testbench(...)"
-                " before calling this method")
+                "The analysis was not executed. Run run_analysis(...) or "
+                "run_testbench(...) before calling this method."
+            )
             return None
 
     def run_analysis(
         self,
-        callback: Optional[Union[Type[ProcessCallback], Callable[..., Any]]] = None,
-        callback_args: Optional[Union[tuple, dict]] = None,
-        switches: Optional[Any] = None,
-        timeout: Optional[float] = None,
+        callback: type[ProcessCallback] | Callable[..., Any] | None = None,
+        callback_args: tuple | dict | None = None,
+        switches: Any | None = None,
+        timeout: float | None = None,
         exe_log: bool = True,
     ):
         self.clear_simulation_data()
@@ -204,7 +207,7 @@ class QuickSensitivityAnalysis(ToleranceDeviations):
             bit_setting = 2**run
             bit_updated = bit_setting ^ last_bit_setting
             bit_index = 0
-            print("bit updated: %d" % bit_updated)
+            print(f"bit updated: {bit_updated}")
             while bit_updated != 0:
                 if bit_updated & 1:
                     ref = self.elements_analysed[bit_index]
@@ -253,7 +256,7 @@ class QuickSensitivityAnalysis(ToleranceDeviations):
         # Force already the reading of logfiles
         log_data: LogfileData = self.read_logfiles()
         # if applicable, the run parameter shall be transformed into an int
-        runs: List[Any] = []
+        runs: list[Any] = []
 
         # Access dataset safely
         if hasattr(log_data, "dataset"):

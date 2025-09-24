@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# coding=utf-8
 
 # -------------------------------------------------------------------------------
 #
@@ -34,10 +33,6 @@ test_kupicelib.py
 run ./test/unittests/test_kupicelib
 """
 
-from kupicelib.sim.sim_runner import RunTask, SimRunner
-from kupicelib.raw.raw_read import RawRead
-from kupicelib.log.ltsteps import LTSpiceLogReader
-from kupicelib.editor.spice_editor import SpiceEditor
 import os  # platform independent paths
 
 # ------------------------------------------------------------------------------
@@ -45,11 +40,16 @@ import os  # platform independent paths
 import sys  # python path handling
 import unittest  # performs test
 
+from kupicelib.editor.spice_editor import SpiceEditor
+from kupicelib.log.ltsteps import LTSpiceLogReader
+from kupicelib.raw.raw_read import RawRead
+from kupicelib.sim.sim_runner import RunTask, SimRunner
+
 #
 # Module libs
 
 sys.path.append(
-    os.path.abspath((os.path.dirname(os.path.abspath(__file__)) + "/../"))
+    os.path.abspath(os.path.dirname(os.path.abspath(__file__)) + "/../")
 )  # add project root to lib search path
 
 
@@ -95,7 +95,7 @@ class test_kupicelib(unittest.TestCase):
 
         def processing_data(raw_file, log_file):
             print(
-                "Handling the simulation data of %s, log file %s" % (raw_file, log_file)
+                f"Handling the simulation data of {raw_file}, log file {log_file}"
             )
             self.sim_files.append((raw_file, log_file))
 
@@ -128,9 +128,7 @@ class test_kupicelib(unittest.TestCase):
                 editor.set_component_value("V1", supply_voltage)
                 editor.set_component_value("V2", -supply_voltage)
                 # overriding the automatic netlist naming
-                run_netlist_file = "{}_{}_{}.net".format(
-                    editor.circuit_file.name, opamp, supply_voltage
-                )
+                run_netlist_file = f"{editor.circuit_file.name}_{opamp}_{supply_voltage}.net"
                 runner.run(
                     editor,
                     run_filename=run_netlist_file,
@@ -229,7 +227,7 @@ class test_kupicelib(unittest.TestCase):
             raw, log = runner.run(
                 netlist, exe_log=hide_exe_print_statements
             ).wait_results()
-            print("Raw file '%s' | Log File '%s'" % (raw, log))
+            print(f"Raw file '{raw}' | Log File '{log}'")
         runner.wait_completion()
         # Sim Statistics
         print(
@@ -249,12 +247,12 @@ class test_kupicelib(unittest.TestCase):
 
         def callback_function(raw_file, log_file):
             print(
-                "Handling the simulation data of %s, log file %s" % (raw_file, log_file)
+                f"Handling the simulation data of {raw_file}, log file {log_file}"
             )
 
-        # Forcing to use only one simulation at a time so that the bias file is created before
-        # the next simulation is called. Alternatively, wait_completion() can be called after each run
-        # or use run_now and call the callback_function manually.
+        # Force single-run execution so the bias file exists before the next
+        # simulation starts. Alternatively call wait_completion() after each
+        # run or execute run_now and trigger the callback manually.
         runner = SimRunner(
             output_folder=temp_dir, simulator=ltspice_simulator, parallel_sims=1
         )
@@ -266,15 +264,15 @@ class test_kupicelib(unittest.TestCase):
             SE.reset_netlist()  # Reset the netlist to the original status
             tduration = tstop - tstart
             SE.add_instruction(
-                ".tran {}".format(tduration),
+                f".tran {tduration}",
             )
             if tstart != 0:
-                SE.add_instruction(".loadbias {}".format(bias_file))
+                SE.add_instruction(f".loadbias {bias_file}")
                 # Put here your parameter modifications
                 # runner.set_parameters(param1=1, param2=2, param3=3)
-            bias_file = "sim_loadbias_%d.txt" % tstop
+            bias_file = f"sim_loadbias_{tstop}.txt"
             SE.add_instruction(
-                ".savebias {} internal time={}".format(bias_file, tduration)
+                f".savebias {bias_file} internal time={tduration}"
             )
             tstart = tstop
             runner.run(
@@ -540,7 +538,7 @@ class test_kupicelib(unittest.TestCase):
             4e-3,
             5e-3,
         )
-        for m, t in zip(meas, time):
+        for m, t in zip(meas, time, strict=False):
             log_value = log.get_measure_value(m)
             raw_value = vout.get_point_at(t)
             print(log_value, raw_value, log_value - raw_value)
@@ -578,7 +576,7 @@ class test_kupicelib(unittest.TestCase):
             4e-3,
             5e-3,
         )
-        for m, t in zip(meas, time):
+        for m, t in zip(meas, time, strict=False):
             print(m)
             for step, step_dict in enumerate(raw.steps):
                 log_value = log.get_measure_value(m, step)
@@ -613,13 +611,19 @@ class test_kupicelib(unittest.TestCase):
                     abs(vout1),
                     abs(h),
                     places=5,
-                    msg=f"{raw_file}: Difference between theoretical value ans simulation at point {point}",
+                    msg=(
+                        f"{raw_file}: Difference between theoretical value and "
+                        f"simulation at point {point}"
+                    ),
                 )
                 self.assertAlmostEqual(
                     angle(vout1),
                     angle(h),
                     places=5,
-                    msg=f"{raw_file}: Difference between theoretical value ans simulation at point {point}",
+                    msg=(
+                        f"{raw_file}: Difference between theoretical value and "
+                        f"simulation at point {point}"
+                    ),
                 )
 
         print("Starting test_ac_analysis")

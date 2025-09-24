@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# coding=utf-8
 # -------------------------------------------------------------------------------
 #
 #  ███████╗██████╗ ██╗ ██████╗███████╗██╗     ██╗██████╗
@@ -19,8 +18,8 @@
 # -------------------------------------------------------------------------------
 
 import logging
+from collections.abc import Callable
 from enum import IntEnum
-from typing import Callable, Dict, Optional, Tuple, Type, Union
 
 from ..process_callback import ProcessCallback
 from .worst_case import DeviationType, WorstCaseAnalysis
@@ -77,26 +76,26 @@ class FastWorstCaseAnalysis(WorstCaseAnalysis):
     def run_testbench(
         self,
         *,
-        runs_per_sim: Optional[int] = None,  # This parameter is ignored
+        runs_per_sim: int | None = None,  # This parameter is ignored
         wait_resource: bool = True,  # This parameter is ignored
-        callback: Optional[Union[Type[ProcessCallback], Callable]] = None,
-        callback_args: Optional[Union[tuple, dict]] = None,
+        callback: type[ProcessCallback] | Callable | None = None,
+        callback_args: tuple | dict | None = None,
         switches=None,
-        timeout: Optional[float] = None,
-        run_filename: Optional[str] = None,
+        timeout: float | None = None,
+        run_filename: str | None = None,
         exe_log: bool = False,
     ) -> None:
         raise NotImplementedError("run_testbench() is not implemented in this class")
 
     def run_analysis(
         self,
-        callback: Optional[Union[Type[ProcessCallback], Callable]] = None,
-        callback_args: Optional[Union[tuple, dict]] = None,
+        callback: type[ProcessCallback] | Callable | None = None,
+        callback_args: tuple | dict | None = None,
         switches=None,
-        timeout: Optional[float] = None,
+        timeout: float | None = None,
         exe_log: bool = True,
-        measure: Optional[str] = None,
-    ) -> Tuple[float, float, Dict[str, float], float, Dict[str, float]]:
+        measure: str | None = None,
+    ) -> tuple[float, float, dict[str, float], float, dict[str, float]]:
         """As described in the class description, this method will perform a worst case
         analysis using a faster algorithm."""
         assert measure is not None, "The measure argument must be defined"
@@ -245,12 +244,11 @@ class FastWorstCaseAnalysis(WorstCaseAnalysis):
             last_measure = new_measure
             _logger.info("Component %s: %g", ref, component_deltas[ref])
             idx += 1
-        # Check which components have a positive impact on the final result, that is, increasing the component value
-        # increases the final result
+        # Identify components where increasing the value raises the final result.
         max_setting = {ref: component_deltas[ref] > 0 for ref in component_deltas}
 
-        # Set all components with a positive impact to the maximum value and all components with a negative impact to
-        # the minimum value
+        # Use the maximum value for positive contributors and the minimum for
+        # components that reduce the final result.
         component_changed = False
         for ref in max_setting:
             if not max_setting[

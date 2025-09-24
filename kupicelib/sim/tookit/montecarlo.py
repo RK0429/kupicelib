@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# coding=utf-8
 # -------------------------------------------------------------------------------
 #
 #  ███████╗██████╗ ██╗ ██████╗███████╗██╗     ██╗██████╗
@@ -20,7 +19,7 @@
 
 import logging
 import random
-from typing import Callable, Optional, Type, Union
+from collections.abc import Callable
 
 from ...log.logfile_data import LogfileData
 from ..process_callback import ProcessCallback
@@ -82,26 +81,20 @@ class Montecarlo(ToleranceDeviations):
             )  # get there present value
             new_val = val
             if dev.typ == DeviationType.tolerance:
-                tolstr = ("%g" % dev.max_val).rstrip("0").rstrip(".")
+                tolstr = (f"{dev.max_val:g}").rstrip("0").rstrip(".")
                 if dev.distribution == "uniform":
-                    new_val = "{utol(%s,%s)}" % (
-                        val,
-                        tolstr,
-                    )  # calculate expression for new value
+                    new_val = f"{{utol({val},{tolstr})}}"  # calculate expression for new value
                     tol_uni_func = True
                 elif dev.distribution == "normal":
-                    new_val = "{ntol(%s,%s)}" % (val, tolstr)
+                    new_val = f"{{ntol({val},{tolstr})}}"
                     tol_norm_func = True
             elif dev.typ == DeviationType.minmax:
                 if dev.distribution == "uniform":
-                    new_val = "{urng(%s, %s,%s)}" % (
-                        val,
-                        dev.min_val,
-                        dev.max_val,
-                    )  # calculate expression for new value
+                    # Calculate expression for the new uniform value.
+                    new_val = f"{{urng({val}, {dev.min_val},{dev.max_val})}}"
                     min_max_uni_func = True
                 elif dev.distribution == "normal":
-                    new_val = "{nrng(%s,%s,%s)}" % (val, dev.min_val, dev.max_val)
+                    new_val = f"{{nrng({val},{dev.min_val},{dev.max_val})}}"
                     min_max_norm_func = True
 
             if new_val != val:  # Only update the value if it has changed
@@ -113,25 +106,21 @@ class Montecarlo(ToleranceDeviations):
             new_val = val
             if dev.typ == DeviationType.tolerance:
                 if dev.distribution == "uniform":
-                    new_val = "{utol(%s,%g)}" % (val, dev.max_val)
+                    new_val = f"{{utol({val},{dev.max_val:g})}}"
                     tol_uni_func = True
                 elif dev.distribution == "normal":
-                    new_val = "{ntol(%g,%g)}" % (val, dev.max_val)
+                    new_val = f"{{ntol({val:g},{dev.max_val:g})}}"
                     tol_norm_func = True
             elif dev.typ == DeviationType.minmax:
                 if dev.distribution == "uniform":
-                    new_val = "{urng(%s,%g,%g)}" % (
-                        val,
-                        (dev.max_val + dev.min_val) / 2,
-                        (dev.max_val - dev.min_val) / 2,
-                    )
+                    center = (dev.max_val + dev.min_val) / 2
+                    half_range = (dev.max_val - dev.min_val) / 2
+                    new_val = f"{{urng({val},{center:g},{half_range:g})}}"
                     min_max_uni_func = True
                 elif dev.distribution == "normal":
-                    new_val = "{nrng(%s,%g,%g)}" % (
-                        val,
-                        (dev.max_val + dev.min_val) / 2,
-                        (dev.max_val - dev.min_val) / 6,
-                    )
+                    center = (dev.max_val + dev.min_val) / 2
+                    sigma = (dev.max_val - dev.min_val) / 6
+                    new_val = f"{{nrng({val},{center:g},{sigma:g})}}"
                     min_max_norm_func = True
             else:
                 continue
@@ -159,11 +148,16 @@ class Montecarlo(ToleranceDeviations):
                     ".func nrng(nom,mean,df6) if(run<0, nom, mean*(1+gauss(df6)))"
                 )
         elif self.runner.simulator.__name__ == "Qspice":
-            # if gauss function is needed
-            #  => This is finally not needed because Qspice has a built-in gauss function (non-documented)
-            # if tol_norm_func or min_max_norm_func:
-            #   self.editor.add_instruction(".func random_not0() {(random()+1e-7)/(1+1e-7)}")
-            #   self.editor.add_instruction(".func gauss(sigma) {sqrt(-2*ln(random_not0()))*cos(2*pi*random())*sigma}")
+            # If a gauss function were needed we could define helpers, but
+            # QSPICE already provides an undocumented gauss implementation.
+            # Example helpers (kept for reference):
+            #   self.editor.add_instruction(
+            #       ".func random_not0() {(random()+1e-7)/(1+1e-7)}"
+            #   )
+            #   self.editor.add_instruction(
+            #       ".func gauss(sigma) {sqrt(-2*ln(random_not0()))*"
+            #       "cos(2*pi*random())*sigma}"
+            #   )
             if tol_uni_func:
                 self.editor.add_instruction(
                     ".func utol(nom,tol) {if(run<0, nom, nom*(1+tol*(2*random()-1)))}"
@@ -190,7 +184,9 @@ class Montecarlo(ToleranceDeviations):
         self.last_run_number = kwargs.get(
             "num_runs", self.last_run_number if self.last_run_number != 0 else 1000
         )
-        self.editor.add_instruction(".step param run -1 %d 1" % self.last_run_number)
+        self.editor.add_instruction(
+            f".step param run -1 {self.last_run_number} 1"
+        )
         self.editor.set_parameter("run", -1)
         self.testbench_prepared = True
 
@@ -220,10 +216,10 @@ class Montecarlo(ToleranceDeviations):
 
     def run_analysis(
         self,
-        callback: Optional[Union[Type[ProcessCallback], Callable]] = None,
-        callback_args: Optional[Union[tuple, dict]] = None,
+        callback: type[ProcessCallback] | Callable | None = None,
+        callback_args: tuple | dict | None = None,
         switches=None,
-        timeout: Optional[float] = None,
+        timeout: float | None = None,
         exe_log: bool = True,
         num_runs: int = 1000,
     ):
@@ -236,7 +232,7 @@ class Montecarlo(ToleranceDeviations):
         """
         self.elements_analysed.clear()
         self.clear_simulation_data()
-        for run in range(num_runs):
+        for _run in range(num_runs):
             self._reset_netlist()  # reset the netlist
             self.play_instructions()  # play the instructions
             # Preparing the variation on components

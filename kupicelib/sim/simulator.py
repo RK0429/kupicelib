@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# coding=utf-8
 
 # -------------------------------------------------------------------------------
 #
@@ -27,7 +26,7 @@ import subprocess
 import sys
 from abc import ABC, abstractmethod
 from pathlib import Path, PureWindowsPath
-from typing import Any, List, Optional, Union
+from typing import Any, ClassVar
 
 _logger = logging.getLogger("kupicelib.Simulator")
 
@@ -101,7 +100,7 @@ class Simulator(ABC):
     ``from kupicelib.sim.simulator import run_function`` instruction.
     """
 
-    spice_exe: List[str] = []
+    spice_exe: ClassVar[list[str]] = []
     """The executable. If using a loader (like wine), make sure that the last in the
     array is the real simulator.
 
@@ -118,7 +117,7 @@ class Simulator(ABC):
     """:meta private:"""
 
     # the default lib paths, as used by get_default_library_paths
-    _default_lib_paths: List[str] = []
+    _default_lib_paths: ClassVar[list[str]] = []
 
     @classmethod
     def create_from(cls, path_to_exe, process_name=None):
@@ -136,10 +135,7 @@ class Simulator(ABC):
         plib_path_to_exe = None
         exe_parts = []
         if isinstance(path_to_exe, Path) or os.path.exists(path_to_exe):
-            if isinstance(path_to_exe, Path):
-                plib_path_to_exe = path_to_exe
-            else:
-                plib_path_to_exe = Path(path_to_exe)
+            plib_path_to_exe = path_to_exe if isinstance(path_to_exe, Path) else Path(path_to_exe)
             exe_parts = [plib_path_to_exe.as_posix()]
         else:
             if (
@@ -194,9 +190,9 @@ class Simulator(ABC):
     @abstractmethod
     def run(
         cls,
-        netlist_file: Union[str, Path],
-        cmd_line_switches: Optional[List[Any]] = None,
-        timeout: Optional[float] = None,
+        netlist_file: str | Path,
+        cmd_line_switches: list[Any] | None = None,
+        timeout: float | None = None,
         stdout=None,
         stderr=None,
         exe_log: bool = False,
@@ -234,7 +230,7 @@ class Simulator(ABC):
         return False
 
     @classmethod
-    def get_default_library_paths(cls) -> List[str]:
+    def get_default_library_paths(cls) -> list[str]:
         """Return the directories that contain the standard simulator's libraries, as
         derived from the simulator's executable path and platform. spice_exe must be set
         before calling this method.
@@ -247,11 +243,10 @@ class Simulator(ABC):
         paths = []
         myexe = None
         # get the executable
-        if cls.spice_exe and len(cls.spice_exe) > 0:
+        if cls.spice_exe and os.path.exists(cls.spice_exe[-1]):
             # TODO: this will fail if the simulator executable is not in the last
             # element of the list. Maybe make this more robust.
-            if os.path.exists(cls.spice_exe[-1]):
-                myexe = cls.spice_exe[-1]
+            myexe = cls.spice_exe[-1]
         _logger.debug(
             f"Using Spice executable path '{myexe}' "
             "to determine the correct library paths."
@@ -269,8 +264,8 @@ class Simulator(ABC):
 
     @staticmethod
     def expand_and_check_local_dir(
-        path: str, exe_path: Optional[str] = None
-    ) -> Optional[str]:
+        path: str, exe_path: str | None = None
+    ) -> str | None:
         """Expands a directory path to become an absolute path, while taking into
         account a potential use under wine (under MacOS and Linux). Will also check if
         that directory exists. The path must either be an absolute path or start with ~.

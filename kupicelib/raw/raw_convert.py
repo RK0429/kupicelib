@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# coding=utf-8
 
 # -------------------------------------------------------------------------------
 #
@@ -140,7 +139,7 @@ def main():
         data_size = len(data[data.__iter__().__next__()])
         for i in range(data_size):
             text += (
-                options.separator.join([str(data[col][i]) for col in data.keys()])
+                options.separator.join([str(data[col][i]) for col in data])
                 + "\n"
             )
         if options.clipboard:

@@ -1,4 +1,3 @@
-# coding=utf-8
 # -------------------------------------------------------------------------------
 #
 #  ███████╗██████╗ ██╗ ██████╗███████╗██╗     ██╗██████╗
@@ -26,7 +25,7 @@ from abc import ABC, abstractmethod
 from collections import OrderedDict
 from math import floor, log
 from pathlib import Path
-from typing import List, Union
+from typing import ClassVar
 
 from ..sim.simulator import Simulator
 
@@ -99,14 +98,12 @@ def format_eng(value) -> str:
     :rtype: str
     """
     if value == 0.0:
-        return "{:g}".format(
-            value
-        )  # This avoids a problematic log(0), and the int and float conversions
+        return f"{value:g}"  # This avoids a problematic log(0), and the int and float conversions
     e = floor(log(abs(value), 1000))
     if -5 <= e < 0:
         suffix = "fpnum"[e]
     elif e == 0:
-        return "{:g}".format(value)
+        return f"{value:g}"
     elif e == 1:
         suffix = "k"
     elif e == 2:
@@ -116,8 +113,8 @@ def format_eng(value) -> str:
     elif e == 4:
         suffix = "t"
     else:
-        return "{:E}".format(value)
-    return "{:g}{:}".format(value * 1000**-e, suffix)
+        return f"{value:E}"
+    return f"{value * 1000**-e:g}{suffix}"
 
 
 def scan_eng(value: str) -> float:
@@ -168,7 +165,7 @@ def scan_eng(value: str) -> float:
     return f
 
 
-def to_float(value, accept_invalid: bool = True) -> Union[float, str]:
+def to_float(value, accept_invalid: bool = True) -> float | str:
     _MULT = {
         "f": 1e-15,
         "p": 1e-12,
@@ -179,15 +176,16 @@ def to_float(value, accept_invalid: bool = True) -> Union[float, str]:
         "m": 1e-3,
         "M": 1e-3,
         "k": 1e3,
-        "K": 1e3,  # For much of the world, K is the same as k. That is a sad fact of life. K is Kelvin in SI
+        "K": 1e3,  # In practice many users treat K as k, even though K is Kelvin in SI
         "Meg": 1e6,
         "g": 1e9,
         "t": 1e12,
-        # These units can be used as decimal points in the number definition. Ex: 10R5 is 10.5 Ohms. In LTSpice
-        # the units can be used in any number definition. For example 10H5 is 10.5 Henrys but also can be used in
-        # resistors value definition. LTSpice doesn't care about the unit in the component value definition.
+        # These units can be used as decimal points in the number definition. For
+        # example 10R5 is 10.5 Ohms. In LTSpice the units can appear in any number
+        # definition. For example 10H5 is 10.5 Henry and also acceptable in resistor
+        # value definitions.
         "Ω": 1,  # This is the Ohm symbol. It is supported by LTspice
-        "R": 1,  # This also represents the Ohm symbol. Can be used a decimal point. Ex: 10R2 is 10.2 Ohms
+        "R": 1,  # This also represents the Ohm symbol (e.g. 10R2 is 10.2 Ohms)
         "V": 1,  # Volts
         "A": 1,  # Amperes (Current)
         "F": 1,  # Farads (Capacitance)
@@ -261,7 +259,7 @@ class ParameterNotFoundError(Exception):
         super().__init__(f'Parameter "{parameter}" not found')
 
 
-class Primitive(object):
+class Primitive:
     """Holds the information of a primitive element in the netlist.
 
     This is a base class for the Component and is used to hold the information of the
@@ -286,7 +284,7 @@ class Component(Primitive):
         super().__init__(line)
         self.reference = ""
         self.attributes: OrderedDict = OrderedDict()
-        self.ports: List[str] = []
+        self.ports: list[str] = []
         self.parent = parent
 
     @property
@@ -345,7 +343,7 @@ class Component(Primitive):
         self.parent.set_component_parameters(self.reference, **param_dict)
 
     @property
-    def value(self) -> Union[float, int, str]:
+    def value(self) -> float | int | str:
         """The Value.
 
         :getter: Returns the value as a number. If the value is not a number, it will
@@ -354,10 +352,10 @@ class Component(Primitive):
         return to_float(self.value_str, accept_invalid=True)
 
     @value.setter
-    def value(self, value: Union[str, int, float]):
+    def value(self, value: str | int | float):
         if self.parent.is_read_only():
             raise ValueError("Editor is read-only")
-        if isinstance(value, (int, float)):
+        if isinstance(value, int | float):
             self.value_str = format_eng(value)
         else:
             self.value_str = value
@@ -394,14 +392,14 @@ class BaseEditor(ABC):
     """This defines the primitives (protocol) to be used for both SpiceEditor and
     AscEditor classes."""
 
-    custom_lib_paths: List[str] = []
+    custom_lib_paths: ClassVar[list[str]] = []
     """The custom library paths. Not to be modified, only set via
     `set_custom_library_paths()`. This is a class variable, so it will be shared between
     all instances.
 
     :meta hide-value:
     """
-    simulator_lib_paths: List[str] = []
+    simulator_lib_paths: ClassVar[list[str]] = []
     """This is initialised with typical locations found for your simulator. You can (and
     should, if you use wine), call `prepare_for_simulator()` once you've set the
     executable paths. This is a class variable, so it will be shared between all
@@ -427,7 +425,7 @@ class BaseEditor(ABC):
         ...
 
     @abstractmethod
-    def save_netlist(self, run_netlist_file: Union[str, Path]) -> None:
+    def save_netlist(self, run_netlist_file: str | Path) -> None:
         """Saves the current state of the netlist to a file.
 
         :param run_netlist_file: File name of the netlist file.
@@ -436,7 +434,7 @@ class BaseEditor(ABC):
         """
         ...
 
-    def write_netlist(self, run_netlist_file: Union[str, Path]) -> None:
+    def write_netlist(self, run_netlist_file: str | Path) -> None:
         """.. deprecated:: 1.x Use `save_netlist()` instead.
 
         Writes the netlist to a file. This is an alias to save_netlist.
@@ -513,7 +511,8 @@ class BaseEditor(ABC):
         """
         ...
 
-    def set_parameter(self, param: str, value: Union[str, int, float]) -> None:
+    @abstractmethod
+    def set_parameter(self, param: str, value: str | int | float) -> None:
         """Adds a parameter to the SPICE netlist.
 
         Usage: ::
@@ -549,7 +548,7 @@ class BaseEditor(ABC):
             self.set_parameter(param, kwargs[param])
 
     @abstractmethod
-    def set_component_value(self, device: str, value: Union[str, int, float]) -> None:
+    def set_component_value(self, device: str, value: str | int | float) -> None:
         """Changes the value of a component, such as a Resistor, Capacitor or Inductor.
         For components inside sub-circuits, use the sub-circuit designator prefix with
         ':' as separator (Example X1:R1) Usage: ::
@@ -889,7 +888,7 @@ class BaseEditor(ABC):
         return False
 
 
-class HierarchicalComponent(object):
+class HierarchicalComponent:
     """Helper class to allow setting parameters when using object oriented access."""
 
     def __init__(self, component: Component, parent: BaseEditor, reference: str):

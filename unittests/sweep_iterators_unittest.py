@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# coding=utf-8
 
 # -------------------------------------------------------------------------------
 #
@@ -18,22 +17,23 @@
 # Licence:     refer to the LICENSE file
 # -------------------------------------------------------------------------------
 
-from kupicelib.utils.sweep_iterators import (  # Python Script under test
-    sweep,
-    sweep_log,
-    sweep_log_n,
-    sweep_n,
-)
 import os  # platform independent paths
 
 # Python Libs
 import sys  # python path handling
 import unittest  # performs test
 
+from kupicelib.utils.sweep_iterators import (  # Python Script under test
+    sweep,
+    sweep_log,
+    sweep_log_n,
+    sweep_n,
+)
+
 #
 # Module libs
 sys.path.append(
-    os.path.abspath((os.path.dirname(os.path.abspath(__file__)) + "/../"))
+    os.path.abspath(os.path.dirname(os.path.abspath(__file__)) + "/../")
 )  # add project root to lib search path
 
 # ------------------------------------------------------------------------------
@@ -112,13 +112,13 @@ class test_sweep_iterators(unittest.TestCase):
                 3.981071705534973,
                 6.309573444801934,
                 10.0,
-            ],
+            ], strict=False,
         ):
 
             self.assertAlmostEqual(a, b)
         for a, b in zip(
             list(sweep_log_n(10, 1, 5)),
-            [10.0, 5.623413251903491, 3.1622776601683795, 1.7782794100389228, 1],
+            [10.0, 5.623413251903491, 3.1622776601683795, 1.7782794100389228, 1], strict=False,
         ):
             self.assertAlmostEqual(a, b)
 

@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# coding=utf-8
 # -------------------------------------------------------------------------------
 #
 #  ███████╗██████╗ ██╗ ██████╗███████╗██╗     ██╗██████╗
@@ -18,9 +17,10 @@
 # Licence:     refer to the LICENSE file
 # -------------------------------------------------------------------------------
 from abc import ABC, abstractmethod
+from collections.abc import Callable
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Callable, Dict, List, Optional, Tuple, Type, Union
+from typing import Any
 
 from ...editor.base_editor import BaseEditor, scan_eng
 from ...log.logfile_data import LogfileData, LTComplex
@@ -66,21 +66,21 @@ class ToleranceDeviations(SimAnalysis, ABC):
     devices_with_deviation_allowed = ("R", "C", "L", "V", "I")
 
     def __init__(
-        self, circuit_file: Union[str, BaseEditor], runner: Optional[AnyRunner] = None
+        self, circuit_file: str | BaseEditor, runner: AnyRunner | None = None
     ):
         super().__init__(circuit_file, runner)
         self.default_tolerance = {
             prefix: ComponentDeviation.none()
             for prefix in self.devices_with_deviation_allowed
         }
-        self.device_deviations: Dict[str, ComponentDeviation] = {}
-        self.parameter_deviations: Dict[str, ComponentDeviation] = {}
+        self.device_deviations: dict[str, ComponentDeviation] = {}
+        self.parameter_deviations: dict[str, ComponentDeviation] = {}
         self.testbench_prepared = False
         self.testbench_executed = False
         self.analysis_executed = False
         self.last_run_number = 0
-        self.simulation_results: Dict[str, Any] = {}
-        self.elements_analysed: List[str] = []
+        self.simulation_results: dict[str, Any] = {}
+        self.elements_analysed: list[str] = []
 
     def reset_tolerances(self):
         """Clears all the settings for the simulation."""
@@ -147,7 +147,7 @@ class ToleranceDeviations(SimAnalysis, ABC):
 
     def get_component_value_deviation_type(
         self, ref: str
-    ) -> Tuple[Union[str, float], ComponentDeviation]:
+    ) -> tuple[str | float, ComponentDeviation]:
         if ref[0] not in self.devices_with_deviation_allowed:
             raise ValueError("The reference must be a valid component type")
         value = self.editor.get_component_value(ref)
@@ -171,7 +171,7 @@ class ToleranceDeviations(SimAnalysis, ABC):
 
     def get_parameter_value_deviation_type(
         self, param: str
-    ) -> Tuple[Any, ComponentDeviation]:
+    ) -> tuple[Any, ComponentDeviation]:
         value = self.editor.get_parameter(param)
         return value, self.parameter_deviations[param]
 
@@ -192,11 +192,11 @@ class ToleranceDeviations(SimAnalysis, ABC):
         *,
         runs_per_sim: int = 512,
         wait_resource: bool = True,
-        callback: Optional[Union[Type[ProcessCallback], Callable[..., Any]]] = None,
-        callback_args: Optional[Union[Tuple[Any, ...], Dict[str, Any]]] = None,
-        switches: Optional[List[str]] = None,
-        timeout: Optional[float] = None,
-        run_filename: Optional[str] = None,
+        callback: type[ProcessCallback] | Callable[..., Any] | None = None,
+        callback_args: tuple[Any, ...] | dict[str, Any] | None = None,
+        switches: list[str] | None = None,
+        timeout: float | None = None,
+        run_filename: str | None = None,
         exe_log: bool = False,
     ):
         """Runs the simulations.
@@ -227,11 +227,11 @@ class ToleranceDeviations(SimAnalysis, ABC):
         else:
             self.play_instructions()
         self.editor.remove_instruction(
-            ".step param run -1 %d 1" % self.last_run_number
+            f".step param run -1 {self.last_run_number} 1"
         )  # removes this instruction
         self.clear_simulation_data()
-        # calculate the ideal number of runs per simulation to avoid orphan runs. This is to avoid having a simulation
-        # with only one run. Which poses a problem for .step instruction
+        # Calculate the ideal number of runs per simulation to avoid orphan
+        # runs. A single-run simulation causes issues with the .step instruction.
         total_number_of_runs = (
             self.last_run_number + 2
         )  # the +2 is to account for the run -1 and the last run
@@ -244,7 +244,7 @@ class ToleranceDeviations(SimAnalysis, ABC):
             if last_no > self.last_run_number:
                 last_no = self.last_run_number
 
-            run_stepping = ".step param run {} {} 1".format(sim_no, last_no)
+            run_stepping = f".step param run {sim_no} {last_no} 1"
             self.editor.add_instruction(run_stepping)
             # Check if AnyRunner.run supports exe_log parameter, if not, remove it
             # This is a workaround for compatibility with older versions
@@ -293,7 +293,7 @@ class ToleranceDeviations(SimAnalysis, ABC):
         self.testbench_executed = True
         return None
 
-    def add_log(self, run_task: RunTask) -> Optional[LogfileData]:
+    def add_log(self, run_task: RunTask) -> LogfileData | None:
         """Reads a log file and adds it to the simulation_results.
 
         It does so making sure that the run number is correctly set.
@@ -353,25 +353,28 @@ class ToleranceDeviations(SimAnalysis, ABC):
         super().read_logfiles()
         # The code below makes the run measure (if it exists) available on the stepset.
         # Note: this was only tested with LTSpice
-        if hasattr(self.log_data, "stepset") and len(self.log_data.stepset) == 0:
-            if hasattr(self.log_data, "dataset"):
-                dataset = self.log_data.dataset
-                if "runm" in dataset and len(dataset["runm"]) > 0:
-                    if isinstance(dataset["runm"][0], LTComplex):
-                        self.log_data.stepset = {
-                            "run": [round(val.real) for val in dataset["runm"]]
-                        }
-                    else:
-                        self.log_data.stepset = {"run": dataset["runm"]}
+        if (
+            hasattr(self.log_data, "stepset")
+            and len(self.log_data.stepset) == 0
+            and hasattr(self.log_data, "dataset")
+        ):
+            dataset = self.log_data.dataset
+            if "runm" in dataset and len(dataset["runm"]) > 0:
+                if isinstance(dataset["runm"][0], LTComplex):
+                    self.log_data.stepset = {
+                        "run": [round(val.real) for val in dataset["runm"]]
+                    }
                 else:
-                    # auto assign a step starting from 0 and incrementing by 1
-                    # will use the size of the first element found in the dataset
-                    if dataset and len(dataset) > 0:
-                        any_meas = next(iter(dataset.values()))
-                        self.log_data.stepset = {"run": list(range(len(any_meas)))}
+                    self.log_data.stepset = {"run": dataset["runm"]}
+            else:
+                # auto assign a step starting from 0 and incrementing by 1
+                # will use the size of the first element found in the dataset
+                if dataset and len(dataset) > 0:
+                    any_meas = next(iter(dataset.values()))
+                    self.log_data.stepset = {"run": list(range(len(any_meas)))}
 
-                if hasattr(self.log_data, "step_count"):
-                    self.log_data.step_count = len(self.log_data.stepset)
+            if hasattr(self.log_data, "step_count"):
+                self.log_data.step_count = len(self.log_data.stepset)
 
         self.simulation_results["log_data"] = self.log_data
         return self.log_data
@@ -379,10 +382,10 @@ class ToleranceDeviations(SimAnalysis, ABC):
     @abstractmethod
     def run_analysis(
         self,
-        callback: Optional[Union[Type[ProcessCallback], Callable[..., Any]]] = None,
-        callback_args: Optional[Union[Tuple[Any, ...], Dict[str, Any]]] = None,
-        switches: Optional[List[str]] = None,
-        timeout: Optional[float] = None,
+        callback: type[ProcessCallback] | Callable[..., Any] | None = None,
+        callback_args: tuple[Any, ...] | dict[str, Any] | None = None,
+        switches: list[str] | None = None,
+        timeout: float | None = None,
         exe_log: bool = True,
     ):
         """The override of this method should set the self.analysis_executed to True."""

@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# coding=utf-8
 
 # -------------------------------------------------------------------------------
 #
@@ -11,8 +10,8 @@
 #  ╚══════╝╚═╝     ╚═╝ ╚═════╝╚══════╝╚══════╝╚═╝╚═════╝
 #
 # Name:        ltsteps.py
-# Purpose:     Process LTSpice output files and align data for usage in a spread-
-#              sheet tool such as Excel, or Calc.
+# Purpose:     Process LTSpice output files and align data for spreadsheet tools
+#              such as Excel or Calc.
 #
 # Author:      Nuno Brum (nuno.brum@gmail.com)
 #
@@ -86,7 +85,7 @@ import dataclasses
 import logging
 import os.path
 import re
-from typing import Any, Dict, List, Optional, TypeVar, Union
+from typing import Any, TypeVar
 
 from ..utils.detect_encoding import detect_encoding
 from .logfile_data import LogfileData, try_convert_value
@@ -122,23 +121,23 @@ def reformat_LTSpice_export(export_file: str, tabular_file: str):
     :return: Nothing
     """
     encoding = detect_encoding(export_file)
-    fin = open(export_file, "r", encoding=encoding)
-    fout = open(tabular_file, "w", encoding=encoding)
-
-    headers = fin.readline()
-    # writing header
-    go_header = True
-    run_no = "0"  # Changed from int to str as the regex will return a string
-    param_values = ""
-    regx = re.compile(
-        r"Step Information: ([\w=\d\. \-]+) +\((?:Run|Step): (\d*)/\d*\)\n"
-    )
-    for line in fin:
-        if line.startswith("Step Information:"):
-            match = regx.match(line)
-            if match:
-                step, run_no = match.groups()
-                params = []
+    with open(export_file, encoding=encoding) as fin, open(
+        tabular_file, "w", encoding=encoding
+    ) as fout:
+        headers = fin.readline()
+        # writing header
+        go_header = True
+        run_no = "0"  # Changed from int to str as the regex will return a string
+        param_values = ""
+        regx = re.compile(
+            r"Step Information: ([\w=\d\. \-]+) +\((?:Run|Step): (\d*)/\d*\)\n"
+        )
+        for line in fin:
+            if line.startswith("Step Information:"):
+                match = regx.match(line)
+                if match:
+                    step, run_no = match.groups()
+                    params = []
                 for param in step.split():
                     params.append(param.split("=")[1])
                 param_values = "\t".join(params)
@@ -148,18 +147,18 @@ def reformat_LTSpice_export(export_file: str, tabular_file: str):
                     for param in step.split():
                         header_keys.append(param.split("=")[0])
                     param_header = "\t".join(header_keys)
-                    msg = "Run\t%s\t%s" % (param_header, headers)
+                    msg = f"Run\t{param_header}\t{headers}"
                     fout.write(msg)
                     _logger.debug(msg)
                     go_header = False
         else:
-            fout.write("%s\t%s\t%s" % (run_no, param_values, line))
+            fout.write(f"{run_no}\t{param_values}\t{line}")
 
     fin.close()
     fout.close()
 
 
-class LTSpiceExport(object):
+class LTSpiceExport:
     """Opens and reads LTSpice export data when using the "Export data as text" in the
     File Menu on the waveform window.
 
@@ -184,47 +183,45 @@ class LTSpiceExport(object):
 
     def __init__(self, export_filename: str):
         self.encoding = detect_encoding(export_filename)
-        fin = open(export_filename, "r", encoding=self.encoding)
-        file_header = fin.readline()
+        with open(export_filename, encoding=self.encoding) as fin:
+            file_header = fin.readline()
 
-        self.headers = file_header.split("\t")
-        # Set to read header
-        go_header = True
+            self.headers = file_header.split("\t")
+            # Set to read header
+            go_header = True
 
-        curr_dic: Dict[str, Any] = {}
-        self.dataset: Dict[str, List[Any]] = {}
+            curr_dic: dict[str, Any] = {}
+            self.dataset: dict[str, list[Any]] = {}
 
-        regx = re.compile(r"Step Information: ([\w=\d\. -]+) +\(Run: (\d*)/\d*\)\n")
-        for line in fin:
-            if line.startswith("Step Information:"):
-                match = regx.match(line)
-                if match:
-                    step, run_no = match.groups()
-                    curr_dic["runno"] = run_no
-                    for param in step.split():
-                        key, value = param.split("=")
-                        curr_dic[key] = try_convert_value(value)
+            regx = re.compile(r"Step Information: ([\w=\d\. -]+) +\(Run: (\d*)/\d*\)\n")
+            for line in fin:
+                if line.startswith("Step Information:"):
+                    match = regx.match(line)
+                    if match:
+                        step, run_no = match.groups()
+                        curr_dic["runno"] = run_no
+                        for param in step.split():
+                            key, value = param.split("=")
+                            curr_dic[key] = try_convert_value(value)
 
-                    if go_header:
-                        go_header = False  # This is executed only once
-                        for key in self.headers:
-                            self.dataset[key.lower()] = []  # Initializes an empty list
+                        if go_header:
+                            go_header = False  # This is executed only once
+                            for key in self.headers:
+                                self.dataset[key.lower()] = []
 
-                        for key in curr_dic:
-                            self.dataset[key.lower()] = []  # Initializes an empty list
+                            for key in curr_dic:
+                                self.dataset[key.lower()] = []
 
-            else:
-                values = line.split("\t")
+                else:
+                    values = line.split("\t")
 
-                for key in curr_dic:
-                    self.dataset[key.lower()].append(curr_dic[key])
+                    for key in curr_dic:
+                        self.dataset[key.lower()].append(curr_dic[key])
 
-                for i in range(len(values)):
-                    self.dataset[self.headers[i].lower()].append(
-                        try_convert_value(values[i])
-                    )
-
-        fin.close()
+                    for i in range(len(values)):
+                        self.dataset[self.headers[i].lower()].append(
+                            try_convert_value(values[i])
+                        )
 
 
 @dataclasses.dataclass
@@ -263,7 +260,7 @@ class FourierData:
     dc_component: float
     phd: float  # Partial Harmonic Distortion
     thd: float  # Total Harmonic Distortion
-    harmonics: List[HarmonicData]
+    harmonics: list[HarmonicData]
     step: int
 
     @property
@@ -313,12 +310,12 @@ class LTSpiceLogReader(LogfileData):
         self,
         log_filename: str,
         read_measures: bool = True,
-        step_set: Optional[Dict[str, List[Any]]] = None,
-        encoding: Optional[str] = None,
+        step_set: dict[str, list[Any]] | None = None,
+        encoding: str | None = None,
     ):
         super().__init__(step_set)
         self.logname = log_filename
-        self.fourier: Dict[str, List[FourierData]] = {}
+        self.fourier: dict[str, list[FourierData]] = {}
         if encoding is None:
             self.encoding = detect_encoding(
                 log_filename, r"^((.*\n)?Circuit:|([\s\S]*)--- Expanded Netlist ---)"
@@ -336,17 +333,22 @@ class LTSpiceLogReader(LogfileData):
         # fcut: v(vout)=vmax/sqrt(2) AT 252.921
         # fcutac=8.18166e+006 FROM 1.81834e+006 TO 1e+007 => AC Find Computation
         regx = re.compile(
-            # r"^(?P<name>\w+)(:\s+.*)?=(?P<value>[\d(inf)\.E+\-\(\)dB,°]+)(( FROM (?P<from>[\d\.E+-]*) TO (?P<to>[\d\.E+-]*))|( at (?P<at>[\d\.E+-]*)))?",
-            r"^(?P<name>\w+)(:\s+.*)?=(?P<value>[\d(inf)E+\-\(\)dB,°(-/\w]+)( FROM (?P<from>[\d\.E+-]*) TO (?P<to>[\d\.E+-]*)|( at (?P<at>[\d\.E+-]*)))?",
+            # r"^(?P<name>\w+)(:\s+.*)?=(?P<value>[\d(inf)\.E+\-\(\)dB,°]+)"
+            # r"(( FROM (?P<from>[\d\.E+-]*) TO (?P<to>[\d\.E+-]*))"
+            # r"|( at (?P<at>[\d\.E+-]*)))?",
+            r"^(?P<name>\w+)(:\s+.*)?="
+            r"(?P<value>[\d(inf)E+\-\(\)dB,°(-/\w]+)"
+            r"( FROM (?P<from>[\d\.E+-]*) TO (?P<to>[\d\.E+-]*)"
+            r"|( at (?P<at>[\d\.E+-]*)))?",
             re.IGNORECASE,
         )
 
         _logger.debug(f"Processing LOG file:{log_filename}")
-        with open(log_filename, "r", encoding=self.encoding) as fin:
+        with open(log_filename, encoding=self.encoding) as fin:
             line = fin.readline()
             # init variables, just in case. Not needed really, but helps debugging
-            signal: Optional[str] = None
-            n_periods: Union[int, float] = 0
+            signal: str | None = None
+            n_periods: int | float = 0
             dc_component: float = 0.0
 
             while line:
@@ -356,11 +358,9 @@ class LTSpiceLogReader(LogfileData):
                 elif line.startswith("N-Period"):
                     # Read number of periods
                     n_periods_str = line.strip("\r\n").split("=")[-1].strip()
-                    if n_periods_str == "all":
-                        n_periods = -1
-                    else:
-                        # Now it's a float, which is compatible with the expected type
-                        n_periods = float(n_periods_str)
+                    n_periods = (
+                        -1 if n_periods_str == "all" else float(n_periods_str)
+                    )
                 elif line.startswith("Fourier components of"):
                     # Read signal name
                     line = line.strip("\r\n")
@@ -373,9 +373,9 @@ class LTSpiceLogReader(LogfileData):
                     # Skip next header line
                     fin.readline()
                     # Read Harmonics table
-                    phd: Optional[float] = None
-                    thd: Optional[float] = None
-                    harmonics: List[HarmonicData] = []
+                    phd: float | None = None
+                    thd: float | None = None
+                    harmonics: list[HarmonicData] = []
                     while True:
                         line = fin.readline().strip("\r\n")
                         if line.startswith("Total Harmonic"):
@@ -459,7 +459,7 @@ class LTSpiceLogReader(LogfileData):
                             ]  # need to be a list for compatibility
                 line = fin.readline()
 
-            meas_name: Optional[str] = None
+            meas_name: str | None = None
 
             headers = []  # Initializing an empty parameters
             measurements = []
@@ -470,8 +470,9 @@ class LTSpiceLogReader(LogfileData):
                         # store the info
                         if len(measurements):
                             _logger.debug(
-                                "Storing Measurement %s (count %d)"
-                                % (meas_name, len(measurements))
+                                "Storing Measurement %s (count %d)",
+                                meas_name,
+                                len(measurements),
                             )
                             self.measure_count += len(measurements)
                             for k, title in enumerate(headers):
@@ -483,7 +484,7 @@ class LTSpiceLogReader(LogfileData):
                     meas_name = line[
                         13:
                     ]  # text which is after "Measurement: ". len("Measurement: ") -> 13
-                    _logger.debug("Reading Measurement %s" % line[13:])
+                    _logger.debug(f"Reading Measurement {line[13:]}")
                 else:
                     tokens = line.split("\t")
                     if len(tokens) >= 2:
@@ -497,23 +498,25 @@ class LTSpiceLogReader(LogfileData):
                         except ValueError:
                             if len(tokens) >= 3 and (
                                 tokens[2] == "FROM" or tokens[2] == "at"
+                            ) and meas_name is not None:
+                                tokens[2] = meas_name + "_" + tokens[2]
+                            if (
+                                len(tokens) >= 4
+                                and tokens[3] == "TO"
+                                and meas_name is not None
                             ):
-                                if meas_name is not None:
-                                    tokens[2] = meas_name + "_" + tokens[2]
-                            if len(tokens) >= 4 and tokens[3] == "TO":
-                                if meas_name is not None:
-                                    tokens[3] = meas_name + "_TO"
-                            headers = [meas_name] + tokens[2:]
+                                tokens[3] = meas_name + "_TO"
+                            headers = [meas_name, *tokens[2:]]
                             measurements = []
                     else:
-                        _logger.debug("->" + line)
+                        _logger.debug("->%s", line)
 
                 line = fin.readline()  # advance to the next line
 
             # storing the last data into the dataset
             if meas_name:
                 _logger.debug(
-                    "Storing Measurement %s (count %d)" % (meas_name, len(measurements))
+                    "Storing Measurement %s (count %d)", meas_name, len(measurements)
                 )
             if len(measurements):
                 self.measure_count += len(measurements)
@@ -522,10 +525,11 @@ class LTSpiceLogReader(LogfileData):
                         measure[k] for measure in measurements
                     ]
 
-            _logger.debug("%d measurements" % len(self.dataset))
+            _logger.debug("%d measurements", len(self.dataset))
             _logger.info(
-                "Identified %d steps, read %d measurements"
-                % (self.step_count, self.measure_count)
+                "Identified %d steps, read %d measurements",
+                self.step_count,
+                self.measure_count,
             )
 
     def export_data(
@@ -594,7 +598,8 @@ class LTSpiceLogReader(LogfileData):
                 fout.write("\n\nHarmonic Analysis\n")
                 fout.write("\t".join(self.stepset.keys()) + "\t")
                 fout.write(
-                    "Signal\tN-Periods\tHarmonic\tFrequency\tFourier\tNormalized\tPhase\tNormalized\n"
+                    "Signal\tN-Periods\tHarmonic\tFrequency\tFourier\t"
+                    "Normalized\tPhase\tNormalized\n"
                 )
                 for signal in self.fourier:
                     for analysis in self.fourier[signal]:

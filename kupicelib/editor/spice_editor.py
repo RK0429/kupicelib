@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# coding=utf-8
 # -------------------------------------------------------------------------------
 #
 #  ███████╗██████╗ ██╗ ██████╗███████╗██╗     ██╗██████╗
@@ -20,8 +19,9 @@ import logging
 import os
 import re
 from collections import OrderedDict
+from collections.abc import Callable, Iterator
 from pathlib import Path
-from typing import Any, Callable, Iterator, List, Optional, Tuple, Type, Union
+from typing import Any, Optional, Union
 
 from ..log.logfile_data import try_convert_value
 from ..simulators.ltspice_simulator import LTspice
@@ -86,17 +86,24 @@ REPLACE_REGEXS = {
     # Voltage Dependent Current Source
     "H": r"^(?P<designator>H§?\w+)(?P<nodes>(\s+\S+){2})\s+(?P<value>.*)$",
     # This implementation replaces everything after the 2 first nets
-    "I": r"^(?P<designator>I§?\w+)(?P<nodes>(\s+\S+){2})\s+(?P<value>.*?)"
-    # Independent Current Source
-    r"(?P<params>(\s+\w+\s*=\s*[\w\{\}\(\)\-\+\*\/%\.]+)*)$",
+    "I": (
+        r"^(?P<designator>I§?\w+)(?P<nodes>(\s+\S+){2})\s+(?P<value>.*?)"
+        r"(?P<params>(\s+\w+\s*=\s*[\w\{\}\(\)\-\+\*\/%\.]+)*)$"
+    ),
     # This implementation replaces everything after the 2 first nets
     "J": r"^(?P<designator>J§?\w+)(?P<nodes>(\s+\S+){3})\s+(?P<value>\w+)"
     + PARAM_RGX
     + ".*?$",  # JFET
     # Mutual Inductance
-    "K": r"^(?P<designator>K§?\w+)(?P<nodes>(\s+\S+){2,4})\s+(?P<value>[\+\-]?[0-9\.E+-]+[kmuµnpgt]?).*$",
+    "K": (
+        r"^(?P<designator>K§?\w+)(?P<nodes>(\s+\S+){2,4})\s+"
+        r"(?P<value>[\+\-]?[0-9\.E+-]+[kmuµnpgt]?).*$"
+    ),
     # Inductance
-    "L": r"^(?P<designator>L§?\w+)(?P<nodes>(\s+\S+){2})\s+(?P<value>({)?(?(5).*}|([0-9\.E+-]+(Meg|[kmuµnpgt])?H?))).*$",
+    "L": (
+        r"^(?P<designator>L§?\w+)(?P<nodes>(\s+\S+){2})\s+"
+        r"(?P<value>({)?(?(5).*}|([0-9\.E+-]+(Meg|[kmuµnpgt])?H?))).*$"
+    ),
     "M": r"^(?P<designator>M§?\w+)(?P<nodes>(\s+\S+){3,4})\s+(?P<value>\w+)"
     + PARAM_RGX
     + ".*?$",  # MOSFET
@@ -106,11 +113,13 @@ REPLACE_REGEXS = {
     "Q": r"^(?P<designator>Q§?\w+)(?P<nodes>(\s+\S+){3,4})\s+(?P<value>\w+)"
     + PARAM_RGX
     + ".*?$",  # Bipolar
-    "R": r"^(?P<designator>R§?\w+)(?P<nodes>(\s+\S+){2})(?P<model>\s+\w+)?\s+"
-    + "(R=)?"
-    + VALUE_RGX(FLOAT_RGX + r"(Meg|[kRmuµnpfgt])?\d*")
-    + PARAM_RGX
-    + ".*?$",  # Resistor
+    "R": (
+        r"^(?P<designator>R§?\w+)(?P<nodes>(\s+\S+){2})(?P<model>\s+\w+)?\s+"
+        "(R=)?"
+        + VALUE_RGX(FLOAT_RGX + r"(Meg|[kRmuµnpfgt])?\d*")
+        + PARAM_RGX
+        + ".*?$"
+    ),  # Resistor
     # Voltage Controlled Switch
     "S": r"^(?P<designator>S§?\w+)(?P<nodes>(\s+\S+){4})\s+(?P<value>.*)$",
     # Lossless Transmission
@@ -131,9 +140,11 @@ REPLACE_REGEXS = {
     + r"\\?$",  # Sub-circuit. The value is the last before any key-value parameters
     # This is structured differently than the others as it will accept any number of nodes.
     # But it only supports 1 value without any spaces in it (unlike V for example).
-    # ex: XU1 NC_01 NC_02 NC_03 NC_04 NC_05 level2 Avol=1Meg GBW=10Meg Slew=10Meg Ilimit=25m Rail=0 Vos=0 En=0 Enk=0 In=0 Ink=0 Rin=500Meg
-    #     XU1 in out1 -V +V out1 OPAx189 bla_v2 =1% bla_sp1=1 bla_sp2 = 1
-    #     XU1 in out1 -V +V out1 GND OPAx189_float
+    # Example netlists:
+    # - XU1 NC_01 NC_02 NC_03 NC_04 NC_05 level2 Avol=1Meg GBW=10Meg
+    #   Slew=10Meg Ilimit=25m Rail=0 Vos=0 En=0 Enk=0 In=0 Ink=0 Rin=500Meg
+    # - XU1 in out1 -V +V out1 OPAx189 bla_v2 =1% bla_sp1=1 bla_sp2 = 1
+    # - XU1 in out1 -V +V out1 GND OPAx189_float
     "Z": r"^(?P<designator>Z§?\w+)(?P<nodes>(\s+\S+){3})\s+(?P<value>\w+).*$",
     # MESFET and IBGT. TODO: Parameters substitution not supported
     "@": r"^(?P<designator>@§?\d+)(?P<nodes>(\s+\S+){2})\s?(?P<params>(.*)*)$",
@@ -142,23 +153,29 @@ REPLACE_REGEXS = {
     # r'(?:\s+fend=(\d+\w+))?(?:\s+oct=(\d+))?(?:\s+fcoarse=(\d+\w+))?(?:\s+nmax=(\d+\w+))?'
     # r'\s+(\d+)\s+(\d+\w+)\s+(\d+)(?:\s+pp0=(\d+\.\d+))?(?:\s+pp1=(\d+\.\d+))?(?:\s+f0=(\d+\w+))?'
     # r'(?:\s+f1=(\d+\w+))?(?:\s+tavgmin=(\d+\w+))?(?:\s+tsettle=(\d+\w+))?(?:\s+acmag=(\d+))?$'
-    "Ã": r"^(?P<designator>Ã\w+)(?P<nodes>(\s+\S+){16})\s+(?P<value>.*)"
-    + PARAM_RGX
-    + ".*?$",  # QSPICE Unique component Ã
-    "¥": r"^(?P<designator>¥\w+)(?P<nodes>(\s+\S+){16})\s+(?P<value>.*)"
-    + PARAM_RGX
-    + ".*?$",  # QSPICE Unique component ¥
-    "€": r"^(?P<designator>€\w+)(?P<nodes>(\s+\S+){32})\s+(?P<value>.*)"
-    + PARAM_RGX
-    + ".*?$",  # QSPICE Unique component €
+    "Ã": (
+        r"^(?P<designator>Ã\w+)(?P<nodes>(\s+\S+){16})\s+(?P<value>.*)" + PARAM_RGX + ".*?$"
+    ),  # QSPICE Unique component Ã
+    "¥": (
+        r"^(?P<designator>¥\w+)(?P<nodes>(\s+\S+){16})\s+(?P<value>.*)" + PARAM_RGX + ".*?$"
+    ),  # QSPICE Unique component ¥
+    "€": (
+        r"^(?P<designator>€\w+)(?P<nodes>(\s+\S+){32})\s+(?P<value>.*)" + PARAM_RGX + ".*?$"
+    ),  # QSPICE Unique component €
     "£": r"^(?P<designator>£\w+)(?P<nodes>(\s+\S+){64})\s+(?P<value>.*)"
     + PARAM_RGX
     + ".*?$",  # QSPICE Unique component £
     "Ø": r"^(?P<designator>Ø\w+)(?P<nodes>(\s+\S+){1,99})\s+(?P<value>.*)"
     + PARAM_RGX
     + ".*?$",  # QSPICE Unique component Ø
-    "×": r"^(?P<designator>×\w+)(?P<nodes>(\s+\S+){4,16})\s+(?P<value>.*)(?P<params>(\w+\s+){1,8})\s*\\?$",  # QSPICE proprietaty component ×
-    "Ö": r"^(?P<designator>Ö\w+)(?P<nodes>(\s+\S+){5})\s+(?P<params>.*)\s*\\?$",  # LTspice proprietary component Ö
+    "\N{MULTIPLICATION SIGN}": (
+        r"^(?P<designator>\N{MULTIPLICATION SIGN}\w+)"
+        r"(?P<nodes>(\s+\S+){4,16})\s+(?P<value>.*)"
+        r"(?P<params>(\w+\s+){1,8})\s*\\?$"
+    ),  # QSPICE proprietary component (multiplication sign)
+    "Ö": (
+        r"^(?P<designator>Ö\w+)(?P<nodes>(\s+\S+){5})\s+(?P<params>.*)\s*\\?$"
+    ),  # LTspice proprietary component Ö
 }
 
 SUBCKT_CLAUSE_FIND = r"^.SUBCKT\s+"
@@ -173,7 +190,8 @@ lib_inc_regex = re.compile(r"^\.(LIB|INC)\s+(.*)$", re.IGNORECASE)
 
 # The following variable deprecated, and here only so that people can find it.
 # It is replaced by SpiceEditor.set_custom_library_paths().
-# Since I cannot keep it operational easily, I do not use the deprecated decorator or the magic from https://stackoverflow.com/a/922693.
+# Since I cannot keep it operational easily, I do not use the deprecated
+# decorator or the magic from https://stackoverflow.com/a/922693.
 #
 # LibSearchPaths = []
 
@@ -207,7 +225,7 @@ def get_line_command(line) -> str:
     elif isinstance(line, SpiceCircuit):
         return ".SUBCKT"
     else:
-        raise SyntaxError('Unrecognized command in line "{}"'.format(line))
+        raise SyntaxError(f'Unrecognized command in line "{line}"')
     return "*"  # Default return - treat as comment if unable to identify
 
 
@@ -221,7 +239,7 @@ def _first_token_upped(line):
     while i < len(line) and line[i] in (" ", "\t"):
         i += 1
     j = i
-    while i < len(line) and not (line[i] in (" ", "\t")):
+    while i < len(line) and line[i] not in (" ", "\t"):
         i += 1
     return line[j:i].upper()
 
@@ -281,11 +299,13 @@ class SpiceComponent(Component):
         """
         self.line = self.parent.netlist[line_no]
         prefix = self.line[0]
-        regex = component_replace_regexs.get(prefix, None)
+        regex = component_replace_regexs.get(prefix)
         if regex is None:
+            allowed_letters = ",".join(REPLACE_REGEXS.keys())
             error_msg = (
-                f"Component must start with one of these letters: {','.join(REPLACE_REGEXS.keys())}\n"
-                f"Got {self.line}")
+                "Component must start with one of these letters: "
+                f"{allowed_letters}\nGot {self.line}"
+            )
             _logger.error(error_msg)
             raise NotImplementedError(error_msg)
         match = regex.match(self.line)
@@ -317,7 +337,7 @@ class SpiceComponent(Component):
         return self.attributes["value"]
 
     @value_str.setter
-    def value_str(self, value: Union[str, int, float]):
+    def value_str(self, value: str | int | float):
         # docstring inherited from Component
         if self.parent.is_read_only():
             raise ValueError("Editor is read-only")
@@ -351,7 +371,7 @@ class SpiceCircuit(BaseEditor):
     parameters and components from edits made at a higher level.
     """
 
-    simulator_lib_paths: List[str] = LTspice.get_default_library_paths()
+    simulator_lib_paths: list[str] = LTspice.get_default_library_paths()
     """This is initialised with typical locations found for LTspice. You can (and
     should, if you use wine), call `prepare_for_simulator()` once you've set the
     executable paths. This is a class variable, so it will be shared between all
@@ -362,9 +382,9 @@ class SpiceCircuit(BaseEditor):
 
     def __init__(self, parent: Optional["SpiceCircuit"] = None):
         super().__init__()
-        self.netlist: List[Union[str, "SpiceCircuit"]] = []
+        self.netlist: list[str | SpiceCircuit] = []
         self._readonly = False
-        self.modified_subcircuits: dict[str, "SpiceCircuit"] = {}
+        self.modified_subcircuits: dict[str, SpiceCircuit] = {}
         self.parent = parent
         self.encoding = "utf-8"  # Default encoding to handle file operations
 
@@ -384,7 +404,7 @@ class SpiceCircuit(BaseEditor):
             line_upcase = _first_token_upped(line)
             if line_upcase == substr_upper:
                 return line_no
-        error_msg = "line starting with '%s' not found in netlist" % substr
+        error_msg = f"line starting with '{substr}' not found in netlist"
         _logger.error(error_msg)
         raise ComponentNotFoundError(error_msg)
 
@@ -442,7 +462,7 @@ class SpiceCircuit(BaseEditor):
                         sub._write_lines(f)
                 f.write(command)
 
-    def _get_param_named(self, param_name) -> Tuple[int, Union[re.Match, None]]:
+    def _get_param_named(self, param_name) -> tuple[int, re.Match | None]:
         """Internal function.
 
         Do not use. Returns a line starting with command and matching the search with
@@ -480,7 +500,7 @@ class SpiceCircuit(BaseEditor):
                     param_names.append(param_name.upper())
         return sorted(param_names)
 
-    def get_subcircuit_names(self) -> List[str]:
+    def get_subcircuit_names(self) -> list[str]:
         """Returns a list of the names of the sub-circuits in the netlist.
 
         :return: list of sub-circuit names
@@ -503,9 +523,8 @@ class SpiceCircuit(BaseEditor):
         """
 
         for line in self.netlist:
-            if isinstance(line, SpiceCircuit):
-                if line.name() == name:
-                    return line
+            if isinstance(line, SpiceCircuit) and line.name() == name:
+                return line
         if self.parent is not None:
             return self.parent.get_subcircuit_named(name)
         return None
@@ -563,17 +582,19 @@ class SpiceCircuit(BaseEditor):
             # The search was not successful
             raise ComponentNotFoundError(f'Sub-circuit "{subcircuit_name}" not found')
 
-    def _get_component_line_and_regex(self, reference: str) -> Tuple[int, re.Match]:
+    def _get_component_line_and_regex(self, reference: str) -> tuple[int, re.Match]:
         """Internal function.
 
         Do not use.
         """
         prefix = reference[0]
-        regex = component_replace_regexs.get(prefix, None)
+        regex = component_replace_regexs.get(prefix)
         if regex is None:
+            allowed_letters = ",".join(REPLACE_REGEXS.keys())
             error_msg = (
-                f"Component must start with one of these letters: {','.join(REPLACE_REGEXS.keys())}\n"
-                f"Got {reference}")
+                "Component must start with one of these letters: "
+                f"{allowed_letters}\nGot {reference}"
+            )
             _logger.error(error_msg)
             raise NotImplementedError(error_msg)
         line_no = self.get_line_starting_with(reference)
@@ -589,9 +610,9 @@ class SpiceCircuit(BaseEditor):
         # Using the first letter of the component to identify what is it
         if (
             reference[0] == "X" and SUBCKT_DIVIDER in reference
-        ):  # Replaces a component inside of a subciruit
-            # In this case the sub-circuit needs to be copied so that is copy is modified. A copy is created for each
-            # instance of a sub-circuit.
+        ):  # Replaces a component inside of a subcircuit
+            # In this case the sub-circuit needs to be copied so that a dedicated
+            # copy is modified. A copy is created for each instance of a sub-circuit.
             component_split = reference.split(SUBCKT_DIVIDER)
             subckt_instance = component_split[0]
             # reference = SUBCKT_DIVIDER.join(component_split[1:])
@@ -604,9 +625,8 @@ class SpiceCircuit(BaseEditor):
                     subckt_instance
                 )  # If not will look for it.
                 if sub_circuit_original:
-                    new_name = (
-                        sub_circuit_original.name() + "_" + subckt_instance
-                    )  # Creates a new name with the path appended
+                    new_name = f"{sub_circuit_original.name()}_{subckt_instance}"
+                    # Creates a new name with the path appended.
                     sub_circuit = sub_circuit_original.clone(new_name=new_name)
 
                     # Memorize that the copy is relative to that particular instance
@@ -623,7 +643,7 @@ class SpiceCircuit(BaseEditor):
             line_no, match = self._get_component_line_and_regex(reference)
             if attribute in ("value", "model"):
                 # They are actually the same thing just the model is not converted.
-                if isinstance(value, (int, float)):
+                if isinstance(value, int | float):
                     value = format_eng(value)
                 start = match.start("value")
                 end = match.end("value")
@@ -680,7 +700,7 @@ class SpiceCircuit(BaseEditor):
                 raise SyntaxError("Netlist with missing .END or .ENDS statements")
         elif hasattr(self, "netlist_file") and self.netlist_file.exists():
             with open(
-                self.netlist_file, "r", encoding=self.encoding, errors="replace"
+                self.netlist_file, encoding=self.encoding, errors="replace"
             ) as f:
                 # Creates an iterator object to consume the file
                 finished = self._add_lines(f)
@@ -690,7 +710,7 @@ class SpiceCircuit(BaseEditor):
                 #     for _ in lines:  # Consuming the rest of the file.
                 #         pass  # print("Ignoring %s" % _)
         elif hasattr(self, "netlist_file"):
-            _logger.error("Netlist file not found: {}".format(self.netlist_file))
+            _logger.error(f"Netlist file not found: {self.netlist_file}")
 
     def clone(self, **kwargs) -> "SpiceCircuit":
         """Creates a new copy of the SpiceCircuit. Changes done at the new copy do not
@@ -707,7 +727,7 @@ class SpiceCircuit(BaseEditor):
             0, "***** SpiceEditor Manipulated this sub-circuit ****" + END_LINE_TERM
         )
         clone.netlist.append("***** ENDS SpiceEditor ****" + END_LINE_TERM)
-        new_name = kwargs.get("new_name", None)
+        new_name = kwargs.get("new_name")
         if new_name is not None:
             clone.setname(new_name)
         return clone
@@ -769,8 +789,8 @@ class SpiceCircuit(BaseEditor):
         else:
             # Avoiding exception by creating an empty sub-circuit
             self.netlist.append("* SpiceEditor Created this sub-circuit")
-            self.netlist.append(".SUBCKT %s%s" % (new_name, END_LINE_TERM))
-            self.netlist.append(".ENDS %s%s" % (new_name, END_LINE_TERM))
+            self.netlist.append(f".SUBCKT {new_name}{END_LINE_TERM}")
+            self.netlist.append(f".ENDS {new_name}{END_LINE_TERM}")
 
     def get_component(self, reference: str) -> Component:
         """Returns an object representing the given reference in the schematic file.
@@ -912,7 +932,7 @@ class SpiceCircuit(BaseEditor):
         else:
             raise ParameterNotFoundError(param)
 
-    def set_parameter(self, param: str, value: Union[str, int, float]) -> None:
+    def set_parameter(self, param: str, value: str | int | float) -> None:
         """Sets the value of a parameter in the netlist. If the parameter is not found,
         it is added to the netlist.
 
@@ -936,10 +956,7 @@ class SpiceCircuit(BaseEditor):
         if self.is_read_only():
             raise ValueError("Editor is read-only")
         param_line, match = self._get_param_named(param)
-        if isinstance(value, (int, float)):
-            value_str = format_eng(value)
-        else:
-            value_str = value
+        value_str = format_eng(value) if isinstance(value, int | float) else value
         if match:
             start, stop = match.span("value")
             line = self.netlist[param_line]
@@ -958,7 +975,7 @@ class SpiceCircuit(BaseEditor):
             )
 
     def set_component_value(
-        self, reference: str, value: Union[str, int, float]
+        self, reference: str, value: str | int | float
     ) -> None:
         """Changes the value of a component, such as a Resistor, Capacitor or Inductor.
         For components inside sub-circuits, use the sub-circuit designator prefix with
@@ -1022,7 +1039,7 @@ class SpiceCircuit(BaseEditor):
         else:
             return str(component)  # Generic fallback
 
-    def get_component_nodes(self, reference: str) -> List[str]:
+    def get_component_nodes(self, reference: str) -> list[str]:
         """Returns the nodes to which the component is attached to.
 
         :param reference: Reference of the circuit element to get the nodes.
@@ -1137,7 +1154,7 @@ class SpiceCircuit(BaseEditor):
         """
         SpiceCircuit.set_custom_library_paths(*paths)
 
-    def get_all_nodes(self) -> List[str]:
+    def get_all_nodes(self) -> list[str]:
         """Retrieves all nodes existing on a Netlist.
 
         :returns: Circuit Nodes
@@ -1157,7 +1174,7 @@ class SpiceCircuit(BaseEditor):
                             circuit_nodes.append(node)
         return circuit_nodes
 
-    def save_netlist(self, run_netlist_file: Union[str, Path]) -> None:
+    def save_netlist(self, run_netlist_file: str | Path) -> None:
         # docstring is in the parent class
         pass
 
@@ -1192,7 +1209,8 @@ class SpiceCircuit(BaseEditor):
                     i += 1
         elif get_line_command(instruction) == ".PARAM":
             raise RuntimeError(
-                'The .PARAM instruction should be added using the "set_parameter" method'
+                "The .PARAM instruction should be added using the "
+                '"set_parameter" method'
             )
 
         # check whether the instruction is already there (dummy proofing)
@@ -1213,9 +1231,10 @@ class SpiceCircuit(BaseEditor):
     def remove_instruction(self, instruction) -> None:
         # docstring is in the parent class
 
-        # TODO: Make it more intelligent so it recognizes .models, .param and .subckt
-        # Because the netlist is stored containing the end of line terminations and because they are added when they
-        # they are added to the netlist.
+        # TODO: Make it more intelligent so it recognizes .models, .param and
+        # .subckt directives.
+        # Because the netlist stores the end-of-line terminators, they must be
+        # present whenever instructions are appended to the netlist.
         if not instruction.endswith(END_LINE_TERM):
             instruction += END_LINE_TERM
         if instruction in self.netlist:
@@ -1358,7 +1377,7 @@ class SpiceEditor(SpiceCircuit):
     """
 
     def __init__(
-        self, netlist_file: Union[str, Path], encoding="autodetect", create_blank=False
+        self, netlist_file: str | Path, encoding="autodetect", create_blank=False
     ):
         super().__init__()
         self.netlist_file = Path(netlist_file)
@@ -1413,7 +1432,8 @@ class SpiceEditor(SpiceCircuit):
                     i += 1
         elif get_line_command(instruction) == ".PARAM":
             raise RuntimeError(
-                'The .PARAM instruction should be added using the "set_parameter" method'
+                "The .PARAM instruction should be added using the "
+                '"set_parameter" method'
             )
 
         # check whether the instruction is already there (dummy proofing)
@@ -1434,9 +1454,10 @@ class SpiceEditor(SpiceCircuit):
     def remove_instruction(self, instruction) -> None:
         # docstring is in the parent class
 
-        # TODO: Make it more intelligent so it recognizes .models, .param and .subckt
-        # Because the netlist is stored containing the end of line terminations and because they are added when they
-        # they are added to the netlist.
+        # TODO: Improve detection so we also match .model, .param, and .subckt
+        # directives. The netlist stores the line terminators, so we append
+        # them before inserting new instructions to keep the representation
+        # consistent.
         if not instruction.endswith(END_LINE_TERM):
             instruction += END_LINE_TERM
         if instruction in self.netlist:
@@ -1463,7 +1484,7 @@ class SpiceEditor(SpiceCircuit):
                 f'No instruction matching pattern "{search_pattern}" was found'
             )
 
-    def save_netlist(self, run_netlist_file: Union[str, Path]) -> None:
+    def save_netlist(self, run_netlist_file: str | Path) -> None:
         # docstring is in the parent class
         if isinstance(run_netlist_file, str):
             run_netlist_file = Path(run_netlist_file)
@@ -1499,7 +1520,7 @@ class SpiceEditor(SpiceCircuit):
                 raise SyntaxError("Netlist with missing .END or .ENDS statements")
         elif hasattr(self, "netlist_file") and self.netlist_file.exists():
             with open(
-                self.netlist_file, "r", encoding=self.encoding, errors="replace"
+                self.netlist_file, encoding=self.encoding, errors="replace"
             ) as f:
                 # Creates an iterator object to consume the file
                 finished = self._add_lines(f)
@@ -1509,14 +1530,14 @@ class SpiceEditor(SpiceCircuit):
                 #     for _ in lines:  # Consuming the rest of the file.
                 #         pass  # print("Ignoring %s" % _)
         elif hasattr(self, "netlist_file"):
-            _logger.error("Netlist file not found: {}".format(self.netlist_file))
+            _logger.error(f"Netlist file not found: {self.netlist_file}")
 
     def run(
         self,
         wait_resource: bool = True,
-        callback: Optional[Union[Type, Callable[[Path, Path], Any]]] = None,
-        timeout: Optional[float] = None,
-        run_filename: Optional[str] = None,
+        callback: type | Callable[[Path, Path], Any] | None = None,
+        timeout: float | None = None,
+        run_filename: str | None = None,
         simulator=None,
     ):
         """.. deprecated:: 1.0 Use the `run` method from the `SimRunner` class instead.

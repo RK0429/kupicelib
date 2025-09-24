@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# coding=utf-8
 
 # -------------------------------------------------------------------------------
 #
@@ -18,15 +17,16 @@
 # Licence:     refer to the LICENSE file
 # -------------------------------------------------------------------------------
 
-from kupicelib.editor.spice_editor import component_replace_regexs
-from kupicelib.editor.base_editor import to_float
-import kupicelib
 import os
 import sys
 import unittest
 
+import kupicelib
+from kupicelib.editor.base_editor import to_float
+from kupicelib.editor.spice_editor import component_replace_regexs
+
 sys.path.append(
-    os.path.abspath((os.path.dirname(os.path.abspath(__file__)) + "/../"))
+    os.path.abspath(os.path.dirname(os.path.abspath(__file__)) + "/../")
 )  # add project root to lib search path
 
 
@@ -238,16 +238,16 @@ class SpiceEditor_Test(unittest.TestCase):
         )
 
     def equalFiles(self, file1, file2):
-        with open(file1, "r") as f1:
+        with open(file1) as f1:
             lines1 = f1.readlines()
-        with open(file2, "r") as f2:
+        with open(file2) as f2:
             lines2 = f2.readlines()
         self.assertEqual(
             len(lines1),
             len(lines2),
             "Files have different number of lines\n" f"File1:{file1} and File2:{file2}",
         )
-        for i, lines in enumerate(zip(lines1, lines2)):
+        for i, lines in enumerate(zip(lines1, lines2, strict=False)):
             self.assertEqual(
                 lines[0], lines[1], f"Line {i}\nFile1:{file1} and File2:{file2}"
             )
@@ -608,7 +608,7 @@ class SpiceEditor_Test(unittest.TestCase):
         self.assertEqual(22, params["M"])
         # updating channel length and width (twice width)
         actual_width = params["W"]
-        self.edt3["XOPAMP:M11"].params = dict(W=2 * actual_width)
+        self.edt3["XOPAMP:M11"].params = {"W": 2 * actual_width}
         self.edt3["XOPAMP:M12"].set_params(L=4e-6)
         updated_params = self.edt3["XOPAMP:M11"].params
         print(updated_params)

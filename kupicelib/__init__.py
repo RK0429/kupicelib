@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 
 # Convenience direct imports
 from .editor.asc_editor import AscEditor
@@ -10,19 +9,19 @@ from .sim.sim_runner import SimRunner
 
 # Define public API to avoid unused import errors
 __all__ = [
-    "RawRead",
-    "SpiceReadException",
-    "RawWrite",
-    "Trace",
-    "SpiceEditor",
-    "SpiceCircuit",
-    "SpiceComponent",
     "AscEditor",
     "QschEditor",
+    "RawRead",
+    "RawWrite",
     "SimRunner",
+    "SpiceCircuit",
+    "SpiceComponent",
+    "SpiceEditor",
+    "SpiceReadException",
+    "Trace",
+    "add_log_handler",
     "all_loggers",
     "set_log_level",
-    "add_log_handler",
 ]
 
 

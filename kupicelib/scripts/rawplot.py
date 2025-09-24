@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# coding=utf-8
 
 # -------------------------------------------------------------------------------
 #
@@ -62,10 +61,7 @@ def main():
         trace_names = LTR.get_trace_names()
 
     traces = [LTR.get_trace(trace) for trace in trace_names]
-    if LTR.axis is not None:
-        steps_data = LTR.get_steps()
-    else:
-        steps_data = [0]
+    steps_data = LTR.get_steps() if LTR.axis is not None else [0]
     print("Steps read are :", list(steps_data))
 
     n_axis = len(traces)
@@ -82,10 +78,7 @@ def main():
         if "log" in LTR.flags:
             ax.set_xscale("log")
         for step_i in steps_data:
-            if LTR.axis:
-                x = LTR.get_axis(step_i)
-            else:
-                x = arange(LTR.nPoints)
+            x = LTR.get_axis(step_i) if LTR.axis else arange(LTR.nPoints)
             y = traces[i].get_wave(step_i)
             label = f"{trace.name}:{steps_data[step_i]})"
             if "complex" in LTR.flags:

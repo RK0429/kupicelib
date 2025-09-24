@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# coding=utf-8
 
 # -------------------------------------------------------------------------------
 #
@@ -33,10 +32,6 @@ test_kupicelib.py
 run ./test/unittests/test_kupicelib
 """
 
-from kupicelib.sim.sim_runner import SimRunner
-from kupicelib.raw.raw_read import RawRead
-from kupicelib.log.qspice_log_reader import QspiceLogReader
-from kupicelib.editor.spice_editor import SpiceEditor
 import os  # platform independent paths
 
 # ------------------------------------------------------------------------------
@@ -44,11 +39,16 @@ import os  # platform independent paths
 import sys  # python path handling
 import unittest  # performs test
 
+from kupicelib.editor.spice_editor import SpiceEditor
+from kupicelib.log.qspice_log_reader import QspiceLogReader
+from kupicelib.raw.raw_read import RawRead
+from kupicelib.sim.sim_runner import SimRunner
+
 #
 # Module libs
 
 sys.path.append(
-    os.path.abspath((os.path.dirname(os.path.abspath(__file__)) + "/../"))
+    os.path.abspath(os.path.dirname(os.path.abspath(__file__)) + "/../")
 )  # add project root to lib search path
 
 
@@ -90,7 +90,7 @@ class test_kupicelib(unittest.TestCase):
 
         def processing_data(raw_file, log_file):
             print(
-                "Handling the simulation data of %s, log file %s" % (raw_file, log_file)
+                f"Handling the simulation data of {raw_file}, log file {log_file}"
             )
             self.sim_files.append((raw_file, log_file))
 
@@ -108,9 +108,7 @@ class test_kupicelib(unittest.TestCase):
             editor.set_component_value("V1", supply_voltage)
             editor.set_component_value("V2", -supply_voltage)
             # overriding the automatic netlist naming
-            run_netlist_file = "{}_{}.net".format(
-                editor.circuit_file.name, supply_voltage
-            )
+            run_netlist_file = f"{editor.circuit_file.name}_{supply_voltage}.net"
             runner.run(editor, run_filename=run_netlist_file, callback=processing_data)
 
         runner.wait_completion()
@@ -169,7 +167,7 @@ class test_kupicelib(unittest.TestCase):
             # runner.runs_to_do = range(2)
             netlist.set_parameters(ANA=res)
             raw, log = runner.run(netlist).wait_results()
-            print("Raw file '%s' | Log File '%s'" % (raw, log))
+            print(f"Raw file '{raw}' | Log File '{log}'")
         # Sim Statistics
         runner.wait_completion()
         print(
@@ -188,7 +186,7 @@ class test_kupicelib(unittest.TestCase):
         # Old legacy class that merged SpiceEditor and SimRunner
         def callback_function(raw_file, log_file):
             print(
-                "Handling the simulation data of %s, log file %s" % (raw_file, log_file)
+                f"Handling the simulation data of {raw_file}, log file {log_file}"
             )
 
         runner = SimRunner(output_folder="temp" + "temp/", simulator=qspice_simulator)
@@ -199,15 +197,15 @@ class test_kupicelib(unittest.TestCase):
         for tstop in (2, 5, 8, 10):
             tduration = tstop - tstart
             SE.add_instruction(
-                ".tran {}".format(tduration),
+                f".tran {tduration}",
             )
             if tstart != 0:
-                SE.add_instruction(".loadbias {}".format(bias_file))
+                SE.add_instruction(f".loadbias {bias_file}")
                 # Put here your parameter modifications
                 # runner.set_parameters(param1=1, param2=2, param3=3)
-            bias_file = test_dir + "sim_loadbias_%d.txt" % tstop
+            bias_file = f"{test_dir}sim_loadbias_{tstop}.txt"
             SE.add_instruction(
-                ".savebias {} internal time={}".format(bias_file, tduration)
+                f".savebias {bias_file} internal time={tduration}"
             )
             tstart = tstop
             runner.run(SE, callback=callback_function)
@@ -395,7 +393,7 @@ class test_kupicelib(unittest.TestCase):
 
         for trace, value_expected in zip(
             ("V(in)", "V(out)", "I(R1)", "I(R2)", "I(Vin)"),
-            (1.0, 0.5, 5e-05, 5e-05, 5e-05),
+            (1.0, 0.5, 5e-05, 5e-05, 5e-05), strict=False,
         ):
             value_read = raw.get_trace(trace)[0]
             self.assertAlmostEqual(
@@ -450,7 +448,7 @@ class test_kupicelib(unittest.TestCase):
             4e-3,
             5e-3,
         )
-        for m, t in zip(meas, time):
+        for m, t in zip(meas, time, strict=False):
             log_value = log.get_measure_value(m)
             raw_value = vout.get_point_at(t)
             print(log_value, raw_value, log_value - raw_value)
@@ -486,7 +484,7 @@ class test_kupicelib(unittest.TestCase):
             4e-3,
             5e-3,
         )
-        for m, t in zip(meas, time):
+        for m, t in zip(meas, time, strict=False):
             for step, step_dict in enumerate(raw.steps):
                 log_value = log.get_measure_value(m, step)
                 raw_value = vout.get_point_at(t, step)
@@ -512,7 +510,7 @@ class test_kupicelib(unittest.TestCase):
             C1 = editor.get_component_floatvalue("C1")
         else:
             raw_file = test_dir + "AC_1.raw"
-            log_file = test_dir + "AC_1.log"
+            test_dir + "AC_1.log"
             R1 = 100
             C1 = 10e-6
         # Compute the RC AC response with the resistor and capacitor values from
@@ -554,7 +552,7 @@ class test_kupicelib(unittest.TestCase):
             C1 = editor.get_component_floatvalue("C1")
         else:
             raw_file = test_dir + "AC - STEP_1.raw"
-            log_file = test_dir + "AC - STEP_1.log"
+            test_dir + "AC - STEP_1.log"
             C1 = 159.1549e-6  # 159.1549uF
         # Compute the RC AC response with the resistor and capacitor values from
         # the netlist.

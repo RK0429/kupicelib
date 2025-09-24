@@ -1,7 +1,6 @@
 import os
 import sys
 from os.path import join as pathjoin
-from os.path import split as pathsplit
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -48,16 +47,10 @@ if trace_names == "*":
     trace_names = LTR.get_trace_names()
 
 traces = [LTR.get_trace(trace) for trace in trace_names]
-if LTR.axis is not None:
-    steps_data = LTR.get_steps()
-else:
-    steps_data = [0]
+steps_data = LTR.get_steps() if LTR.axis is not None else [0]
 print("Steps read are :", list(steps_data))
 
-if "complex" in LTR.flags:
-    n_axis = len(traces) * 2
-else:
-    n_axis = len(traces)
+n_axis = len(traces) * 2 if "complex" in LTR.flags else len(traces)
 
 fig, axis_set = plt.subplots(n_axis, 1, sharex="all")
 write_labels = True
@@ -66,20 +59,14 @@ for i, trace in enumerate(traces):
     if "complex" in LTR.flags:
         axises = axis_set[2 * i: 2 * i + 2]  # Returns two axis
     else:
-        if n_axis == 1:
-            axises = [axis_set]  # Needs to return a list
-        else:
-            axises = axis_set[i: i + 1]  # Returns just one axis but enclosed in a list
+        axises = [axis_set] if n_axis == 1 else axis_set[i : i + 1]
     magnitude = True
     for ax in axises:
         ax.grid(True)
         if "log" in LTR.flags:
             ax.set_xscale("log")
         for step_i in steps_data:
-            if LTR.axis:
-                x = LTR.get_axis(step_i)
-            else:
-                x = np.arange(LTR.nPoints)
+            x = LTR.get_axis(step_i) if LTR.axis else np.arange(LTR.nPoints)
             y = LTR.get_wave(trace.name, step_i)
             if "complex" in LTR.flags:
                 x = mag(x)

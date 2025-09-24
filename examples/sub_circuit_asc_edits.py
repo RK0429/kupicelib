@@ -1,4 +1,3 @@
-import os
 
 from kupicelib.editor.asc_editor import AscEditor
 

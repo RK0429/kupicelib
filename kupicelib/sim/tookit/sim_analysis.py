@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# coding=utf-8
 
 # -------------------------------------------------------------------------------
 #
@@ -21,8 +20,9 @@
 # -------------------------------------------------------------------------------
 
 import logging
+from collections.abc import Callable
 from functools import wraps
-from typing import Any, Callable, Dict, List, Optional, Tuple, Type, Union
+from typing import Any
 
 from ...editor.base_editor import BaseEditor
 from ...log.logfile_data import LogfileData
@@ -34,7 +34,7 @@ from ..sim_runner import AnyRunner, ProcessCallback, RunTask
 _logger = logging.getLogger("kupicelib.SimAnalysis")
 
 
-class SimAnalysis(object):
+class SimAnalysis:
     """Base class for making Monte-Carlo, Extreme Value Analysis (EVA) or Failure Mode
     and Effects Analysis. As a base class, a certain number of assertions must be made
     on the simulation results that will make the pass/fail.
@@ -45,7 +45,7 @@ class SimAnalysis(object):
     """
 
     def __init__(
-        self, circuit_file: Union[str, BaseEditor], runner: Optional[AnyRunner] = None
+        self, circuit_file: str | BaseEditor, runner: AnyRunner | None = None
     ):
         from ...editor.spice_editor import SpiceEditor
 
@@ -55,9 +55,9 @@ class SimAnalysis(object):
         else:
             self.editor = circuit_file
         self._runner = runner
-        self.simulations: List[Optional[RunTask]] = []
+        self.simulations: list[RunTask | None] = []
         self.last_run_number = 0
-        self.received_instructions: List[Tuple[str, ...]] = []
+        self.received_instructions: list[tuple[str, ...]] = []
         self.instructions_added = False
         self.log_data = LogfileData()
 
@@ -81,13 +81,13 @@ class SimAnalysis(object):
         self,
         *,
         wait_resource: bool = True,
-        callback: Optional[Union[Type[ProcessCallback], Callable[..., Any]]] = None,
-        callback_args: Optional[Union[Tuple[Any, ...], Dict[str, Any]]] = None,
-        switches: Optional[Any] = None,
-        timeout: Optional[float] = None,
-        run_filename: Optional[str] = None,
+        callback: type[ProcessCallback] | Callable[..., Any] | None = None,
+        callback_args: tuple[Any, ...] | dict[str, Any] | None = None,
+        switches: Any | None = None,
+        timeout: float | None = None,
+        run_filename: str | None = None,
         exe_log: bool = True,
-    ) -> Optional[RunTask]:
+    ) -> RunTask | None:
         """Runs the simulations.
 
         See runner.run() method for details on arguments.
@@ -184,9 +184,9 @@ class SimAnalysis(object):
         return self.simulations[item]
 
     @staticmethod
-    def read_logfile(run_task: RunTask) -> Optional[LogfileData]:
+    def read_logfile(run_task: RunTask) -> LogfileData | None:
         """Reads the log file and returns a dictionary with the results."""
-        log_reader_cls: Type[Union[LTSpiceLogReader, QspiceLogReader]]
+        log_reader_cls: type[LTSpiceLogReader | QspiceLogReader]
         if run_task.simulator.__name__ == "LTspice":
             log_reader_cls = LTSpiceLogReader
         elif run_task.simulator.__name__ == "Qspice":
@@ -243,5 +243,5 @@ class SimAnalysis(object):
     ):
         """Configures a measurement to be done in the simulation."""
         self.editor.add_instruction(
-            ".meas {} {} {}".format(meas_type, meas_name, meas_expression)
+            f".meas {meas_type} {meas_name} {meas_expression}"
         )

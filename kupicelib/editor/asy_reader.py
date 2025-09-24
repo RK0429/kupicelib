@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# coding=utf-8
 # -------------------------------------------------------------------------------
 #
 #  ███████╗██████╗ ██╗ ██████╗███████╗██╗     ██╗██████╗
@@ -21,7 +20,6 @@ import logging
 import re
 from collections import OrderedDict
 from pathlib import Path
-from typing import Dict, Union, Optional
 
 from ..utils.detect_encoding import EncodingDetectError, detect_encoding
 from .base_schematic import (
@@ -42,17 +40,17 @@ SCALE_X = 6.25
 SCALE_Y = -6.25
 
 
-class AsyReader(object):
+class AsyReader:
     """Symbol parser."""
 
-    def __init__(self, asy_file: Union[Path, str], encoding="autodetect"):
+    def __init__(self, asy_file: Path | str, encoding="autodetect"):
         super().__init__()
         self.version: str = "4"  # Store version as string
         self.symbol_type = None
         self.pins = []
         self.lines = []
         self.shapes = []
-        self.attributes: Dict[str, str] = OrderedDict()  # Store attributes as strings
+        self.attributes: dict[str, str] = OrderedDict()  # Store attributes as strings
         self._asy_file_path = Path(asy_file)
         self.windows = []
         pin = None
@@ -69,7 +67,7 @@ class AsyReader(object):
         else:
             self.encoding = encoding
 
-        with open(self._asy_file_path, "r", encoding=self.encoding) as asc_file:
+        with open(self._asy_file_path, encoding=self.encoding) as asc_file:
             _logger.info(f"Parsing ASY file {self._asy_file_path}")
             for line_text in asc_file:
                 if line_text.startswith("WINDOW"):
@@ -221,16 +219,21 @@ class AsyReader(object):
                     else:
                         # Text in asy not supported however non-critical and not
                         # neccesary to crash the program.
-                        _logger.warning(
-                            f"Cosmetic text in ASY format not supported, text skipped. ASY file: {self._asy_file_path}"
+                        warning_msg = (
+                            "Cosmetic text in ASY format not supported, text skipped. "
+                            f"ASY file: {self._asy_file_path}"
                         )
+                        _logger.warning(warning_msg)
                 else:
-                    # In order to avoid crashing the program, 1) add the missing if statement above and
-                    # 2) ontact the author to add support for the missing primitive.
+                    # In order to avoid crashing the program, 1) add the missing if
+                    # statement above and 2) contact the author to add support for the
+                    # missing primitive.
                     raise NotImplementedError(
-                        f"Primitive not supported for ASY file \n"
-                        f'"{line_text}"'
-                        f"in file: {self._asy_file_path}. Contact the author to add support.")
+                        "Primitive not supported for ASY file\n"
+                        f'"{line_text}" '
+                        f"in file: {self._asy_file_path}. Contact the author to add "
+                        "support."
+                    )
             if pin is not None:
                 self.pins.append(pin)
 
@@ -330,7 +333,7 @@ class AsyReader(object):
         # Prefix is guaranteed to be uppercase
         return self.symbol_type == "BLOCK" or self.attributes.get("Prefix") == "X"
 
-    def get_library(self) -> Optional[str]:
+    def get_library(self) -> str | None:
         """Returns the library name of the model.
 
         If not found, returns None.
@@ -372,7 +375,7 @@ class AsyReader(object):
                 return self.attributes[attr]
         raise ValueError("No Value or Value2 attribute found")
 
-    def get_value(self) -> Union[int, float, str]:
+    def get_value(self) -> int | float | str:
         """Returns the value of the component.
 
         If not found, returns None. If found it tries to convert the value to a number.

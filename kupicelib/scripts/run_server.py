@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# coding=utf-8
 
 import argparse
 
@@ -30,11 +29,12 @@ from kupicelib.client_server.sim_server import SimServer
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Run the LTSpice Server. This is a command line interface to the SimServer class."
-        "The SimServer class is used to run simulations in parallel using a server-client architecture."
-        "The server is a machine that runs the SimServer class and the client is a machine that runs the "
-        "SimClient class."
-        "The argument is the simulator to be used (LTSpice, NGSpice, XYCE, etc.)")
+        description=(
+            "Run the LTSpice server. This CLI wraps SimServer to execute "
+            "simulations in parallel via a server-client architecture. "
+            "Specify the simulator to use (LTSpice, NGSpice, XYCE, etc.)."
+        )
+    )
     parser.add_argument(
         "simulator",
         type=str,

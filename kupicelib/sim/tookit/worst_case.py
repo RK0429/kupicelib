@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# coding=utf-8
 # -------------------------------------------------------------------------------
 #
 #  ███████╗██████╗ ██╗ ██████╗███████╗██╗     ██╗██████╗
@@ -19,7 +18,7 @@
 # -------------------------------------------------------------------------------
 
 import logging
-from typing import Callable, Dict, Tuple, Type, Union
+from collections.abc import Callable
 
 from ...log.logfile_data import LogfileData
 from ..process_callback import ProcessCallback
@@ -65,17 +64,10 @@ class WorstCaseAnalysis(ToleranceDeviations):
             return False  # no need to set the deviation
         new_val = val
         if dev.typ == DeviationType.tolerance:
-            new_val = "{wc(%s,%g,%d)}" % (
-                val,
-                dev.max_val,
-                index,
-            )  # calculate expression for new value
+            new_val = f"{{wc({val},{dev.max_val:g},{index})}}"
         elif dev.typ == DeviationType.minmax:
-            new_val = "{wc1(%s,%g,%g,%d)}" % (
-                val,
-                dev.min_val,
-                dev.max_val,
-                index,
+            new_val = (
+                f"{{wc1({val},{dev.min_val:g},{dev.max_val:g},{index})}}"
             )  # calculate expression for new value
 
         if new_val != val:
@@ -94,13 +86,11 @@ class WorstCaseAnalysis(ToleranceDeviations):
             val, dev = self.get_parameter_value_deviation_type(ref)
             new_val = val
             if dev.typ == DeviationType.tolerance:
-                new_val = "{wc(%s,%g,%d)}" % (
-                    val,
-                    dev.max_val,
-                    index,
-                )  # calculate expression for new value
+                new_val = f"{{wc({val},{dev.max_val:g},{index})}}"
             elif dev.typ == DeviationType.minmax:
-                new_val = "{wc1(%s,%g,%g,%d)}" % (val, dev.min_val, dev.max_val, index)
+                new_val = (
+                    f"{{wc1({val},{dev.min_val:g},{dev.max_val:g},{index})}}"
+                )
             if new_val != val:
                 self.editor.set_parameter(ref, new_val)
             index += 1
@@ -108,9 +98,10 @@ class WorstCaseAnalysis(ToleranceDeviations):
 
         for prefix in self.default_tolerance:
             for ref in self.get_components(prefix):
-                if ref not in self.device_deviations:
-                    if self._set_component_deviation(ref, index):
-                        index += 1
+                if ref not in self.device_deviations and self._set_component_deviation(
+                    ref, index
+                ):
+                    index += 1
 
         self.editor.add_instruction(
             ".func binary(run,idx) {floor(run/(2**idx))-2*floor(run/(2**(idx+1)))}"
@@ -122,16 +113,18 @@ class WorstCaseAnalysis(ToleranceDeviations):
             ".func wc1(nom,min,max,idx) {if(run<0, nom, if(binary(run,idx),max,min))}"
         )
         self.last_run_number = 2**index - 1
-        self.editor.add_instruction(".step param run -1 %d 1" % self.last_run_number)
+        self.editor.add_instruction(
+            f".step param run -1 {self.last_run_number} 1"
+        )
         self.editor.set_parameter("run", -1)  # in case the step is commented.
         self.testbench_prepared = True
 
     def run_analysis(
         self,
-        callback: Union[Type[ProcessCallback], Callable[..., object], None] = None,
-        callback_args: Union[Tuple[object, ...], Dict[str, object], None] = None,
+        callback: type[ProcessCallback] | Callable[..., object] | None = None,
+        callback_args: tuple[object, ...] | dict[str, object] | None = None,
         switches=None,
-        timeout: Union[float, None] = None,
+        timeout: float | None = None,
         exe_log: bool = True,
     ):
         """This method runs the analysis without updating the netlist.
@@ -281,7 +274,7 @@ class WorstCaseAnalysis(ToleranceDeviations):
 
     def make_sensitivity_analysis(
         self, measure: str, ref: str = "*"
-    ) -> Union[Dict[str, Tuple[float, float]], Tuple[float, float], None]:
+    ) -> dict[str, tuple[float, float]] | tuple[float, float] | None:
         """Makes a sensitivity analysis for a given measurement and reference component.
         The sensitivity is a percentage of the component error contribution over the
         total error. As supplement a second value is given that is the standard
@@ -302,8 +295,8 @@ class WorstCaseAnalysis(ToleranceDeviations):
             tuples.
         """
         if (
-            self.testbench_prepared
-            and self.testbench_executed
+            (self.testbench_prepared
+            and self.testbench_executed)
             or self.analysis_executed
         ):
             # Read the log files
@@ -348,6 +341,7 @@ class WorstCaseAnalysis(ToleranceDeviations):
                 return sens / total * 100, sigma / total * 100
         else:
             _logger.warning(
-                "The analysis was not executed. Please run the run_analysis(...) or run_testbench(...)"
-                " before calling this method")
+                "The analysis was not executed. Run run_analysis(...) or "
+                "run_testbench(...) before calling this method."
+            )
             return None

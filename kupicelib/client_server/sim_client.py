@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# coding=utf-8
 
 import io
 import logging
@@ -27,8 +26,8 @@ import time
 import xmlrpc.client
 import zipfile
 from collections import OrderedDict
+from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import Iterable, List, Optional, Union
 
 _logger = logging.getLogger("kupicelib.SimClient")
 
@@ -62,7 +61,7 @@ class JobInformation:
 #         return self.client.__next__()
 
 
-class SimClient(object):
+class SimClient:
     """Class used for launching simulations in a Spice Simulation Server. A Spice
     Simulation Server is a machine running a script with an active SimServer object.
 
@@ -171,7 +170,7 @@ class SimClient(object):
             return False
 
     def run(
-        self, circuit, dependencies: Optional[List[Union[str, pathlib.Path]]] = None
+        self, circuit, dependencies: list[str | pathlib.Path] | None = None
     ) -> int:
         """Sends the netlist identified with the argument "circuit" to the server, and
         it receives a run identifier (runno). Since the server can receive requests from
@@ -217,7 +216,7 @@ class SimClient(object):
             _logger.error(f"Client: Circuit {circuit} doesn't exit")
             return -1
 
-    def get_runno_data(self, runno) -> Union[str, None]:
+    def get_runno_data(self, runno) -> str | None:
         """Returns the simulation output data inside a zip file name.
 
         :rtype: str

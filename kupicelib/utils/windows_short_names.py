@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # -------------------------------------------------------------------------------
 #
 #  ███████╗██████╗ ██╗ ██████╗███████╗██╗     ██╗██████╗
@@ -27,9 +26,10 @@ _GetShortPathNameW = ctypes.windll.kernel32.GetShortPathNameW
 _GetShortPathNameW.argtypes = [wintypes.LPCWSTR, wintypes.LPWSTR, wintypes.DWORD]
 _GetShortPathNameW.restype = wintypes.DWORD
 
-# GetShortPathName is used by first calling it without a destination buffer. It will return the number of characters
-# you need to make the destination buffer. You then call it again with a buffer of that size. If, due to a TOCTTOU
-# problem, the return value is still larger, keep trying until you've got it right. So:
+# GetShortPathName is first called without a destination buffer so it can report
+# the required size. Allocate a buffer with that length and call it again. If a
+# TOCTTOU race still produces a larger result, increase the buffer size and
+# retry until the call succeeds.
 
 
 def get_short_path_name(long_name):

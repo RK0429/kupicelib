@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# coding=utf-8
 
 """Helper script to be able to insert validated code into the README.md file."""
 import os
@@ -11,7 +10,8 @@ from shutil import copyfile
 filename = sys.argv[1]
 print(f'Reading "{filename}"', end="...")
 try:
-    readme_md = open(filename).readlines()
+    with open(filename, encoding="utf-8") as readme_file:
+        readme_md = readme_file.readlines()
 except FileNotFoundError:
     print("File not found")
     exit(1)
@@ -41,7 +41,8 @@ while line_no < len(readme_md):
                 print(f"Updating code on lines {block_start + 1}:{line_no + 1}")
                 include_relpath = m.group("path")
                 include_path = os.path.abspath(os.path.join(os.curdir, include_relpath))
-                include_text = open(include_path, "r", encoding="utf-8").readlines()
+                with open(include_path, encoding="utf-8") as include_file:
+                    include_text = include_file.readlines()
                 # if there is a localization, isolate only the part identified by loc
                 # the part starts with "# -- Start of <loc> --" and ends with "# -- End of <loc> --"
                 # where <loc> is the text within the square brackets [] in the readme.md
@@ -50,8 +51,8 @@ while line_no < len(readme_md):
                     # This is crude but it works. It removes the leading \s[ and the
                     # trailing ]
                     loc_text = loc[2:-1]
-                    start_tag = "-- Start of %s --" % loc_text
-                    end_tag = "-- End of %s --" % loc_text
+                    start_tag = f"-- Start of {loc_text} --"
+                    end_tag = f"-- End of {loc_text} --"
                     include_ident = -1
                     for line1 in include_text:
                         if start_tag in line1:
@@ -84,5 +85,6 @@ backup_filename = filename.replace(".md", ".bak")
 print(f"Creating backup {backup_filename}")
 copyfile(filename, backup_filename)
 print(f"Writing {len(readme_md)} lines to {filename}")
-open(filename, "w").writelines(readme_md)
+with open(filename, "w", encoding="utf-8") as readme_file:
+    readme_file.writelines(readme_md)
 exit(0)

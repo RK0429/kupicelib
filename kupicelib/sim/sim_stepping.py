@@ -24,8 +24,9 @@ __author__ = "Nuno Canto Brum <nuno.brum@gmail.com>"
 __copyright__ = "Copyright 2017, Fribourg Switzerland"
 
 import logging
+from collections.abc import Callable, Iterable
 from functools import wraps
-from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, Type, Union
+from typing import Any
 
 from kupicelib.sim.process_callback import ProcessCallback
 
@@ -35,7 +36,7 @@ from .sim_runner import AnyRunner
 _logger = logging.getLogger("kupicelib.SimStepper")
 
 
-class StepInfo(object):
+class StepInfo:
     def __init__(self, what: str, elem: str, iterable: Iterable):
         self.what = what
         self.elem = elem
@@ -48,7 +49,7 @@ class StepInfo(object):
         return f"Iteration on {self.what} {self.elem} : {self.iter}"
 
 
-class SimStepper(object):
+class SimStepper:
     """This class is intended to be used for simulations with many parameter sweeps.
     This provides a more user-friendly interface than the SpiceEditor/SimRunner class
     when there are many parameters to be stepped.
@@ -87,7 +88,7 @@ class SimStepper(object):
     def __init__(self, circuit: BaseEditor, runner: AnyRunner):
         self.runner = runner
         self.netlist = circuit
-        self.iter_list: List[StepInfo] = []
+        self.iter_list: list[StepInfo] = []
 
     @wraps(BaseEditor.add_instruction)
     def add_instruction(self, instruction: str):
@@ -110,7 +111,7 @@ class SimStepper(object):
         self.netlist.set_parameters(**kwargs)
 
     @wraps(BaseEditor.set_parameter)
-    def set_parameter(self, param: str, value: Union[str, int, float]) -> None:
+    def set_parameter(self, param: str, value: str | int | float) -> None:
         self.netlist.set_parameter(param, value)
 
     @wraps(BaseEditor.set_component_values)
@@ -118,7 +119,7 @@ class SimStepper(object):
         self.netlist.set_component_values(**kwargs)
 
     @wraps(BaseEditor.set_component_value)
-    def set_component_value(self, device: str, value: Union[str, int, float]) -> None:
+    def set_component_value(self, device: str, value: str | int | float) -> None:
         self.netlist.set_component_value(device, value)
 
     @wraps(BaseEditor.set_element_model)
@@ -154,10 +155,10 @@ class SimStepper(object):
 
     def run_all(
         self,
-        callback: Optional[Union[Type[ProcessCallback], Callable]] = None,
-        callback_args: Optional[Union[Tuple[Any, ...], Dict[str, Any]]] = None,
+        callback: type[ProcessCallback] | Callable | None = None,
+        callback_args: tuple[Any, ...] | dict[str, Any] | None = None,
         switches=None,
-        timeout: Optional[float] = None,
+        timeout: float | None = None,
         use_loadbias="Auto",
         wait_completion=True,
     ) -> None:
@@ -169,7 +170,7 @@ class SimStepper(object):
         if (
             use_loadbias == "Auto" and self.total_number_of_simulations() > 10
         ) or use_loadbias == "Yes":
-            # It will choose to use .SAVEBIAS/.LOADBIAS if the number of simulaitons is higher than 10
+            # Use .SAVEBIAS/.LOADBIAS when more than 10 simulations are required.
             # TODO: Make a first simulation and storing the bias
             pass
         iter_no = 0

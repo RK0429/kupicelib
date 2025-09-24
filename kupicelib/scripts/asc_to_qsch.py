@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# coding=utf-8
 # -------------------------------------------------------------------------------
 #
 #  ███████╗██████╗ ██╗ ██████╗███████╗██╗     ██╗██████╗
@@ -54,10 +53,7 @@ def main():
         exit(-1)
 
     asc_file = args[0]
-    if len(args) > 1:
-        qsch_file = args[1]
-    else:
-        qsch_file = os.path.splitext(asc_file)[0] + ".qsch"
+    qsch_file = args[1] if len(args) > 1 else os.path.splitext(asc_file)[0] + ".qsch"
 
     search_paths = [] if options.path is None else options.path
 
@@ -65,8 +61,10 @@ def main():
     convert_asc_to_qsch(asc_file, qsch_file, search_paths)
 
 
-def convert_asc_to_qsch(asc_file, qsch_file, search_paths=[]):
+def convert_asc_to_qsch(asc_file, qsch_file, search_paths=None):
     """Converts an ASC file to a QSCH schematic."""
+    if search_paths is None:
+        search_paths = []
     symbol_stock = {}
     # Open the ASC file
     asc_editor = AscEditor(asc_file)
@@ -94,9 +92,12 @@ def convert_asc_to_qsch(asc_file, qsch_file, search_paths=[]):
     )
 
     # Adding symbols to components
-    # symbol_stock = {sym.find('LT_name').text: sym for sym in root.findall('component_symbols/symbol')}
-    # The symbol_stock has native QSpice symbols and information on how to replace the LTSpice symbols by
-    # QSpice ones. For now this is not operational
+    # symbol_stock = {
+    #     sym.find('LT_name').text: sym
+    #     for sym in root.findall('component_symbols/symbol')
+    # }
+    # The symbol_stock map holds native QSPICE symbols and suggestions for
+    # replacing LTspice symbols. This functionality is currently disabled.
     for comp in asc_editor.components.values():
         symbol_tag = symbol_stock.get(comp.symbol, None)
         if symbol_tag is None:
@@ -104,7 +105,8 @@ def convert_asc_to_qsch(asc_file, qsch_file, search_paths=[]):
             print(f"Searching for symbol {comp.symbol}...")
             # TODO: this should use the default locations from AscEditor, and use
             # search_file_in_containers, just like AscEditor does.
-            for sym_root in search_paths + [
+            for sym_root in [
+                *search_paths,
                 # os.path.curdir,  # The current script directory
                 os.path.split(asc_file)[0],  # The directory where the script is located
                 os.path.expanduser("~/AppData/Local/LTspice/lib/sym"),
@@ -218,7 +220,7 @@ def convert_asc_to_qsch(asc_file, qsch_file, search_paths=[]):
     # Save the netlist
     qsch_editor.save_netlist(qsch_file)
 
-    print("File {} converted to {}".format(asc_file, qsch_file))
+    print(f"File {asc_file} converted to {qsch_file}")
 
 
 if __name__ == "__main__":

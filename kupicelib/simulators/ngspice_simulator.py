@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# coding=utf-8
 
 # -------------------------------------------------------------------------------
 #
@@ -24,7 +23,7 @@ import os
 import shutil
 import subprocess
 from pathlib import Path
-from typing import Any, List, Optional, Union
+from typing import Any, ClassVar
 
 from ..sim.simulator import Simulator, SpiceSimulatorError, run_function
 
@@ -35,7 +34,7 @@ class NGspiceSimulator(Simulator):
     """Stores the simulator location and command line options and runs simulations."""
 
     # Placed in order of preference. The first to be found will be used.
-    _spice_exe_paths = [
+    _spice_exe_paths: ClassVar[list[str]] = [
         "C:/Apps/NGSpice64/bin/ngspice.exe",  # Windows
         "C:/Spice64/ngspice.exe",  # Windows, older style
         "/usr/local/bin/ngspice",  # MacOS and linux
@@ -44,10 +43,10 @@ class NGspiceSimulator(Simulator):
 
     # the default lib paths, as used by get_default_library_paths
     # none
-    _default_lib_paths: List[str] = []
+    _default_lib_paths: ClassVar[list[str]] = []
 
     # defaults:
-    spice_exe = []
+    spice_exe: ClassVar[list[str]] = []
     process_name: str = ""
 
     # determine the executable to use
@@ -75,7 +74,7 @@ class NGspiceSimulator(Simulator):
         process_name = Simulator.guess_process_name(spice_exe[0])
         _logger.debug(f"Found ngspice installed in: '{spice_exe}' ")
 
-    ngspice_args = {
+    ngspice_args: ClassVar[dict[str, list[str]]] = {
         # '-a'            : ['-a'],
         # '--autorun'     : ['--autorun'],  # run the loaded netlist
         # '-b'            : ['-b'],
@@ -110,7 +109,7 @@ class NGspiceSimulator(Simulator):
     }
     """:meta private:"""
 
-    _default_run_switches = ["-b", "-o", "-r", "-a"]
+    _default_run_switches: ClassVar[list[str]] = ["-b", "-o", "-r", "-a"]
     _compatibility_mode = "kiltpsa"
 
     @classmethod
@@ -139,7 +138,7 @@ class NGspiceSimulator(Simulator):
         :return: the correct formatting for the switch
         :rtype: list
         """
-        ret: List[str] = []  # This is an empty switch
+        ret: list[str] = []  # This is an empty switch
         parameter = parameter.strip()
 
         # format check
@@ -163,7 +162,10 @@ class NGspiceSimulator(Simulator):
                 and parameter.lower().startswith("ngbehavior")
             ):
                 _logger.info(
-                    f"Switch {switch} {parameter} is already in the default switches, use 'set_compatibility_mode' instead"
+                    "Switch %s %s is already in the default switches. Use "
+                    "'set_compatibility_mode' instead.",
+                    switch,
+                    parameter,
                 )
                 return ret
             switch_list = cls.ngspice_args[switch]
@@ -188,9 +190,9 @@ class NGspiceSimulator(Simulator):
     @classmethod
     def run(
         cls,
-        netlist_file: Union[str, Path],
-        cmd_line_switches: Optional[List[Any]] = None,
-        timeout: Optional[float] = None,
+        netlist_file: str | Path,
+        cmd_line_switches: list[Any] | None = None,
+        timeout: float | None = None,
         stdout=None,
         stderr=None,
         exe_log: bool = False,

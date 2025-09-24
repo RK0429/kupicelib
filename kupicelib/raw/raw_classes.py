@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# coding=utf-8
 
 # -------------------------------------------------------------------------------
 #
@@ -19,13 +18,12 @@
 # Licence:     refer to the LICENSE file
 # -------------------------------------------------------------------------------
 """Defines base classes for the RAW file data structures."""
-from typing import List, Optional, Union
 
 import numpy as np
 from numpy import complex128, float32, float64, zeros
 
 
-class DataSet(object):
+class DataSet:
     """This is the base class for storing all traces of a RAW file.
 
     Returned by the get_trace() or by the get_axis() methods. Normally the user doesn't
@@ -92,10 +90,10 @@ class Axis(DataSet):
         self, name: str, whattype: str, datalen: int, numerical_type: str = "double"
     ):
         super().__init__(name, whattype, datalen, numerical_type)
-        self.step_info: Optional[List[dict]] = None
-        self.step_offsets: List[Optional[int]] = []
+        self.step_info: list[dict] | None = None
+        self.step_offsets: list[int | None] = []
 
-    def _set_steps(self, step_info: List[dict]):
+    def _set_steps(self, step_info: list[dict]):
         self.step_info = step_info
 
         self.step_offsets = [None for _ in range(len(step_info))]
@@ -113,7 +111,7 @@ class Axis(DataSet):
         if k != len(self.step_info):
             raise SpiceReadException(
                 "The file a different number of steps than expected.\n"
-                + "Expecting %d got %d" % (len(self.step_offsets), k)
+                f"Expecting {len(self.step_offsets)} got {k}"
             )
 
     def step_offset(self, step: int) -> int:
@@ -175,12 +173,13 @@ class Axis(DataSet):
         :return: time axis
         :rtype: numpy.array
         """
-        assert (
-            self.name == "time"
-        ), "This function is only applicable to transient analysis, where a bug exists on the time signal"
+        assert self.name == "time", (
+            "This function is only applicable to transient analysis, where a bug"
+            " exists on the time signal"
+        )
         return self.get_wave(step)
 
-    def get_point(self, n: int, step: int = 0) -> Union[float, complex]:
+    def get_point(self, n: int, step: int = 0) -> float | complex:
         """Get a point from the dataset.
 
         :param n: position on the vector
@@ -192,14 +191,14 @@ class Axis(DataSet):
         """
         return self.data[n + self.step_offset(step)]
 
-    def __getitem__(self, item) -> Union[float, complex]:
+    def __getitem__(self, item) -> float | complex:
         """This is only here for compatibility with previous code."""
         assert (
             self.step_info is None
         ), "Indexing should not be used with stepped data. Use get_point or get_wave"
         return self.data.__getitem__(item)
 
-    def get_position(self, t, step: int = 0) -> Union[int, float]:
+    def get_position(self, t, step: int = 0) -> int | float:
         """Returns the position of a point in the axis. If the point doesn't exist, an
         interpolation is done between the two closest points. For example, if the point
         requested is 1.0001ms and the closest points that exist in the axis are
@@ -213,10 +212,7 @@ class Axis(DataSet):
         :returns: The position of parameter /t/ in the axis
         :rtype: int, float
         """
-        if self.name == "time":
-            timex = self.get_time_axis(step)
-        else:
-            timex = self.get_wave(step)
+        timex = self.get_time_axis(step) if self.name == "time" else self.get_wave(step)
         for i, x in enumerate(timex):
             if x == t:
                 return i
@@ -265,7 +261,7 @@ class TraceRead(DataSet):
         super().__init__(name, whattype, datalen, numerical_type)
         self.axis = axis
 
-    def get_point(self, n: int, step: int = 0) -> Union[float, complex]:
+    def get_point(self, n: int, step: int = 0) -> float | complex:
         """Implementation of the [] operator.
 
         :param n: item in the array
@@ -285,7 +281,7 @@ class TraceRead(DataSet):
         else:
             return self.data[self.axis.step_offset(step) + n]
 
-    def __getitem__(self, item) -> Union[float, complex]:
+    def __getitem__(self, item) -> float | complex:
         """This is only here for compatibility with previous code."""
         assert (
             self.axis is None or self.axis.step_info is None
@@ -316,7 +312,7 @@ class TraceRead(DataSet):
                     self.axis.step_offset(step): self.axis.step_offset(step + 1)
                 ]
 
-    def get_point_at(self, t, step: int = 0) -> Union[float, complex]:
+    def get_point_at(self, t, step: int = 0) -> float | complex:
         """Get a point from the trace at the point specified by the /t/ argument. If the
         point doesn't exist on the axis, the data is interpolated using a linear
         regression between the two adjacent points.
@@ -328,7 +324,7 @@ class TraceRead(DataSet):
         """
         pos = self.axis.get_position(t, step)
         # Use direct type names rather than parameterized generics
-        if isinstance(pos, (float, np.float32, np.float64)):
+        if isinstance(pos, float | np.float32 | np.float64):
             offset = self.axis.step_offset(step)
             i = int(pos)
             last_item = self.get_len(step) - 1
@@ -367,7 +363,7 @@ class TraceRead(DataSet):
         return len(self.data)
 
 
-class DummyTrace(object):
+class DummyTrace:
     """Dummy Trace for bypassing traces while reading."""
 
     def __init__(self, name, whattype, datalen, numerical_type="real"):

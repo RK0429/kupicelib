@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# coding=utf-8
 
 # -------------------------------------------------------------------------------
 #
@@ -18,14 +17,15 @@
 # Licence:     refer to the LICENSE file
 # -------------------------------------------------------------------------------
 
-import kupicelib
 import logging
 import os
 import sys
 import unittest
 
+import kupicelib
+
 sys.path.append(
-    os.path.abspath((os.path.dirname(os.path.abspath(__file__)) + "/../"))
+    os.path.abspath(os.path.dirname(os.path.abspath(__file__)) + "/../")
 )  # add project root to lib search path
 
 
@@ -54,9 +54,9 @@ kupicelib.set_log_level(logging.INFO)
 
 
 def equalFiles(testcase, file1, file2):
-    with open(file1, "r", encoding="cp1252") as f1:
+    with open(file1, encoding="cp1252") as f1:
         lines1 = f1.readlines()
-    with open(file2, "r", encoding="cp1252") as f2:
+    with open(file2, encoding="cp1252") as f2:
         lines2 = f2.readlines()
     testcase.assertEqual(
         len(lines1),
@@ -86,7 +86,7 @@ class ASC_Editor_Test(unittest.TestCase):
         )  # add assertion here
         self.assertSetEqual(
             set(self.edt.get_components()),
-            set(("Vin", "R1", "R2", "D1")),
+            {"Vin", "R1", "R2", "D1"},
             "Tested get_components",
         )  # add assertion here
         self.edt.set_component_value("R1", "33k")

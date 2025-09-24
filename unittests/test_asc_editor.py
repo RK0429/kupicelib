@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# coding=utf-8
 
 # -------------------------------------------------------------------------------
 #
@@ -18,13 +17,15 @@
 # Licence:     refer to the LICENSE file
 # -------------------------------------------------------------------------------
 
-import kupicelib
+import contextlib
 import os
 import sys
 import unittest
 
+import kupicelib
+
 sys.path.append(
-    os.path.abspath((os.path.dirname(os.path.abspath(__file__)) + "/../"))
+    os.path.abspath(os.path.dirname(os.path.abspath(__file__)) + "/../")
 )  # add project root to lib search path
 
 
@@ -334,10 +335,8 @@ class ASC_Editor_Test(unittest.TestCase):
             my_edt.get_subcircuit("U1").is_read_only(),
             "Subcircuit U1 should be readonly",
         )
-        try:
+        with contextlib.suppress(BaseException):
             my_edt["U1:R1"].value = 330
-        except BaseException:
-            pass
         self.assertAlmostEqual(
             my_edt["U1:R1"].value,
             320,
@@ -368,10 +367,8 @@ class ASC_Editor_Test(unittest.TestCase):
             my_edt.get_subcircuit("U1").is_read_only(),
             "Subcircuit U1 should be readonly",
         )
-        try:
+        with contextlib.suppress(BaseException):
             my_edt["U1:R1"].value = 330
-        except BaseException:
-            pass
         self.assertAlmostEqual(
             my_edt["U1:R1"].value,
             320,
@@ -384,16 +381,16 @@ class ASC_Editor_Test(unittest.TestCase):
 
     def test_version_4_1(self):
         """Test file with 'Version 4.1'."""
-        my_edt = kupicelib.editor.asc_editor.AscEditor(test_dir + "testcomp_4_1.asc")
+        kupicelib.editor.asc_editor.AscEditor(test_dir + "testcomp_4_1.asc")
 
     def equalFiles(self, file1, file2):
-        with open(file1, "r") as f1:
+        with open(file1) as f1:
             lines1 = f1.readlines()
-        with open(file2, "r") as f2:
+        with open(file2) as f2:
             lines2 = f2.readlines()
         self.assertEqual(len(lines1), len(lines2), "Number of lines is different")
-        for i, lines in enumerate(zip(lines1, lines2)):
-            self.assertEqual(lines[0], lines[1], "Line %d" % i)
+        for i, lines in enumerate(zip(lines1, lines2, strict=False)):
+            self.assertEqual(lines[0], lines[1], f"Line {i}")
 
 
 if __name__ == "__main__":

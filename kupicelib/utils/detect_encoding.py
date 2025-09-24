@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# coding=utf-8
 
 # -------------------------------------------------------------------------------
 #
@@ -14,7 +13,8 @@
 # Name:        international_support.py
 # Purpose:     Pragmatic way to detect encoding.
 #
-# Author:      Nuno Brum (nuno.brum@gmail.com) with special thanks to Fugio Yokohama (yokohama.fujio@gmail.com)
+# Author:      Nuno Brum (nuno.brum@gmail.com)
+#              Special thanks to Fugio Yokohama (yokohama.fujio@gmail.com)
 #
 # Created:     14-05-2022
 # Licence:     refer to the LICENSE file
@@ -27,7 +27,6 @@ LTSpice only supports for the time being a reduced set of encodings.
 
 import re
 from pathlib import Path
-from typing import Union
 
 
 class EncodingDetectError(Exception):
@@ -35,9 +34,9 @@ class EncodingDetectError(Exception):
 
 
 def detect_encoding(
-    file_path: Union[str, Path],
+    file_path: str | Path,
     expected_pattern: str = "",
-    re_flags: Union[int, re.RegexFlag] = 0,
+    re_flags: int | re.RegexFlag = 0,
 ) -> str:
     """Simple strategy to detect file encoding.  If an expected_str is given the
     function will scan through the possible encodings and return a match. If an expected
@@ -60,7 +59,7 @@ def detect_encoding(
         "shift_jis",
     ):
         try:
-            with open(file_path, "r", encoding=encoding) as f:
+            with open(file_path, encoding=encoding) as f:
                 lines = f.read()
                 f.seek(0)
         except UnicodeDecodeError:
@@ -73,11 +72,11 @@ def detect_encoding(
             if len(lines) == 0:
                 # Empty file
                 continue
-            if expected_pattern:
-                # Search expected pattern at start of any line using MULTILINE flag
-                if not re.search(expected_pattern, lines, re_flags | re.MULTILINE):
-                    # File did not have the expected string for this encoding
-                    continue
+            if expected_pattern and not re.search(
+                expected_pattern, lines, re_flags | re.MULTILINE
+            ):
+                # File did not have the expected string for this encoding
+                continue
             if encoding == "utf-8" and lines[1] == "\x00":
                 continue
             return encoding

@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# coding=utf-8
 
 import logging
 import os
@@ -24,7 +23,7 @@ import subprocess
 # -------------------------------------------------------------------------------
 import sys
 from pathlib import Path
-from typing import Union
+from typing import ClassVar
 
 from ..sim.simulator import Simulator, SpiceSimulatorError, run_function
 
@@ -41,7 +40,7 @@ class LTspice(Simulator):
     # Please note that os.path.expanduser and os.path.join are sensitive to the style
     # of slash.
     # Placed in order of preference. The first to be found will be used.
-    _spice_exe_win_paths = [
+    _spice_exe_win_paths: ClassVar[list[str]] = [
         "~/AppData/Local/Programs/ADI/LTspice/LTspice.exe",
         "~/Local Settings/Application Data/Programs/ADI/LTspice/LTspice.exe",
         "C:/Program Files/ADI/LTspice/LTspice.exe",
@@ -51,7 +50,7 @@ class LTspice(Simulator):
     ]
 
     # the default lib paths, as used by get_default_library_paths
-    _default_lib_paths = [
+    _default_lib_paths: ClassVar[list[str]] = [
         "~/AppData/Local/LTspice/lib",
         "~/Documents/LTspiceXVII/lib/",
         "~/Documents/LTspice/lib/",
@@ -61,9 +60,9 @@ class LTspice(Simulator):
     ]
 
     # defaults:
-    spice_exe = []
+    spice_exe: ClassVar[list[str]] = []
     process_name = ""
-    ltspice_args = {
+    ltspice_args: ClassVar[dict[str, list[str]]] = {
         "-alt": ["-alt"],  # Set solver to Alternate.
         # Use ASCII.raw files. Seriously degrades program performance.
         "-ascii": ["-ascii"],
@@ -81,7 +80,7 @@ class LTspice(Simulator):
         "-SOI": ["-SOI"],  # Allow up to 7 MOSFET nodes.
         "-sync": ["-sync"],  # Update component libraries.
     }
-    _default_run_switches = ["-Run", "-b"]
+    _default_run_switches: ClassVar[list[str]] = ["-Run", "-b"]
 
     @classmethod
     def using_macos_native_sim(cls) -> bool:
@@ -159,9 +158,9 @@ class LTspice(Simulator):
     @classmethod
     def run(
         cls,
-        netlist_file: Union[str, Path],
-        cmd_line_switches: Union[list, None] = None,
-        timeout: Union[float, None] = None,
+        netlist_file: str | Path,
+        cmd_line_switches: list | None = None,
+        timeout: float | None = None,
         stdout=None,
         stderr=None,
         exe_log: bool = False,
@@ -226,10 +225,7 @@ class LTspice(Simulator):
                     )
 
                 cmd_run = (
-                    cls.spice_exe
-                    + ["-b"]
-                    + [netlist_file.as_posix()]
-                    + cmd_line_switches
+                    [*cls.spice_exe, "-b", netlist_file.as_posix(), *cmd_line_switches]
                 )
             else:
                 # wine
@@ -237,21 +233,17 @@ class LTspice(Simulator):
                 # directory.
                 # Z: is needed for netlists with absolute paths, but will also work with
                 # relative paths.
-                cmd_run = (
-                    cls.spice_exe
-                    + ["-Run"]
-                    + ["-b"]
-                    + ["Z:" + netlist_file.as_posix()]
-                    + cmd_line_switches
-                )
+                cmd_run = [
+                    *cls.spice_exe,
+                    "-Run",
+                    "-b",
+                    f"Z:{netlist_file.as_posix()}",
+                    *cmd_line_switches,
+                ]
         else:
             # Windows (well, also aix, wasi, emscripten,... where it will fail.)
             cmd_run = (
-                cls.spice_exe
-                + ["-Run"]
-                + ["-b"]
-                + [netlist_file.as_posix()]
-                + cmd_line_switches
+                [*cls.spice_exe, "-Run", "-b", netlist_file.as_posix(), *cmd_line_switches]
             )
         # start execution
         if exe_log:
@@ -267,9 +259,9 @@ class LTspice(Simulator):
     @classmethod
     def create_netlist(
         cls,
-        circuit_file: Union[str, Path],
-        cmd_line_switches: Union[list, None] = None,
-        timeout: Union[float, None] = None,
+        circuit_file: str | Path,
+        cmd_line_switches: list | None = None,
+        timeout: float | None = None,
         stdout=None,
         stderr=None,
         exe_log: bool = False,
@@ -321,7 +313,7 @@ class LTspice(Simulator):
             )
 
         cmd_netlist = (
-            cls.spice_exe + ["-netlist"] + [circuit_file.as_posix()] + cmd_line_switches
+            [*cls.spice_exe, "-netlist", circuit_file.as_posix(), *cmd_line_switches]
         )
         if exe_log:
             log_exe_file = circuit_file.with_suffix(".exe.log")

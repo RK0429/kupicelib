@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# coding=utf-8
 
 # -------------------------------------------------------------------------------
 #
@@ -33,9 +32,6 @@ test_rawreaders.py
 run ./test/unittests/test_rawreaders
 """
 
-from kupicelib.raw.raw_read import RawRead
-import kupicelib
-from numpy import angle, exp, pi
 import logging
 import os  # platform independent paths
 
@@ -44,8 +40,13 @@ import os  # platform independent paths
 import sys  # python path handling
 import unittest  # performs test
 
+from numpy import angle, exp, pi
+
+import kupicelib
+from kupicelib.raw.raw_read import RawRead
+
 sys.path.append(
-    os.path.abspath((os.path.dirname(os.path.abspath(__file__)) + "/../"))
+    os.path.abspath(os.path.dirname(os.path.abspath(__file__)) + "/../")
 )  # add project root to lib search path
 
 
@@ -76,22 +77,28 @@ kupicelib.set_log_level(logging.INFO)
 #
 # (TODO: add ltspice commands)
 #
-# ngspice -D ngbehavior=kiltspa -b -o ac_ngspice.log -r ac_ngspice.bin.raw ac_rawtest.net
-# ngspice -D ngbehavior=kiltspa -D filetype=ascii -b -o ac_ngspice.log -r ac_ngspice.ascii.raw ac_rawtest.net
-# ngspice -D ngbehavior=kiltspa -b -o tran_ngspice.log -r tran_ngspice.bin.raw tran_rawtest.net
-# ngspice -D ngbehavior=kiltspa -D filetype=ascii -b -o tran_ngspice.log
-# -r tran_ngspice.ascii.raw tran_rawtest.net
+# ngspice -D ngbehavior=kiltspa -b -o ac_ngspice.log \
+#     -r ac_ngspice.bin.raw ac_rawtest.net
+# ngspice -D ngbehavior=kiltspa -D filetype=ascii -b -o ac_ngspice.log \
+#     -r ac_ngspice.ascii.raw ac_rawtest.net
+# ngspice -D ngbehavior=kiltspa -b -o tran_ngspice.log \
+#     -r tran_ngspice.bin.raw tran_rawtest.net
+# ngspice -D ngbehavior=kiltspa -D filetype=ascii -b -o tran_ngspice.log \
+#     -r tran_ngspice.ascii.raw tran_rawtest.net
 
 # xyce -r ac_xyce.bin.raw ac_rawtest.net
 # xyce -r ac_xyce.ascii.raw -a ac_rawtest.net
 # xyce -r tran_xyce.bin.raw tran_rawtest.net
 # xyce -r tran_xyce.ascii.raw -a tran_rawtest.net
 
-# c:\"Program Files"\QSPICE\QSPICE64.exe -binary -r ac_qspice.bin.qraw -o ac_rawtest.log ac_rawtest.net
-# c:\"Program Files"\QSPICE\QSPICE64.exe -ascii -r ac_qspice.ascii.qraw -o ac_rawtest.log ac_rawtest.net
-# c:\"Program Files"\QSPICE\QSPICE64.exe -binary -r tran_qspice.bin.qraw -o tran_rawtest.log tran_rawtest.net
-# c:\"Program Files"\QSPICE\QSPICE64.exe -ascii -r tran_qspice.ascii.qraw
-# -o tran_rawtest.log tran_rawtest.net
+# c:\"Program Files"\QSPICE\QSPICE64.exe -binary -r ac_qspice.bin.qraw \
+#     -o ac_rawtest.log ac_rawtest.net
+# c:\"Program Files"\QSPICE\QSPICE64.exe -ascii -r ac_qspice.ascii.qraw \
+#     -o ac_rawtest.log ac_rawtest.net
+# c:\"Program Files"\QSPICE\QSPICE64.exe -binary -r tran_qspice.bin.qraw \
+#     -o tran_rawtest.log tran_rawtest.net
+# c:\"Program Files"\QSPICE\QSPICE64.exe -ascii -r tran_qspice.ascii.qraw \
+#     -o tran_rawtest.log tran_rawtest.net
 
 expected_ac_range = (1, 100000)
 expected_time_range = (0, 5e-3)
@@ -329,9 +336,12 @@ class RawReader_Test(unittest.TestCase):
                         # rising flank of the input voltage, give it some time
                         self.assertEqual(abs(vin), VIN, "Data problem on V(in)")
 
-                    # Calculate the magnitude of the answer Vout = Vin * (1 - e^(-t/RC))
+                    # Calculate |Vout| = Vin * (1 - e^(-t/RC)).
                     vout = vin * (1 - exp(-1 * tm / (R1 * C1)))
-                    # print(f"testing pt {point} for time {tm}: vin={vin}, vout_sim={vout1}, vout_th={vout}")
+                    # Debug helper:
+                    # print(
+                    #     f"pt {point} t={tm}: vin={vin}, vout_sim={vout1}, vout_th={vout}"
+                    # )
                     self.assertAlmostEqual(
                         abs(vout1),
                         vout,

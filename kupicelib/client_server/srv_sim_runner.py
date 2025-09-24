@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# coding=utf-8
 
 import logging
 
@@ -24,7 +23,7 @@ import threading
 import time
 import zipfile
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any
 
 from ..editor.base_editor import BaseEditor
 from ..sim.sim_runner import SimRunner
@@ -54,9 +53,9 @@ class ServerSimRunner(threading.Thread):
     def __init__(
         self,
         parallel_sims: int = 4,
-        timeout: Optional[float] = None,
+        timeout: float | None = None,
         verbose=False,
-        output_folder: Optional[str] = None,
+        output_folder: str | None = None,
         simulator=None,
     ):
         super().__init__(name="SimManager")
@@ -70,7 +69,7 @@ class ServerSimRunner(threading.Thread):
             verbose=verbose,
             output_folder=output_folder,
         )
-        self.completed_tasks: List[Dict[str, Any]] = (
+        self.completed_tasks: list[dict[str, Any]] = (
             []
         )  # This is a list of dictionaries with the information of the completed tasks
         self._stop = False
@@ -108,7 +107,7 @@ class ServerSimRunner(threading.Thread):
         self.runner.cleanup_files()  # Delete things that have been left behind
 
     def add_simulation(
-        self, netlist: Union[str, Path, BaseEditor], *, timeout: Optional[float] = None
+        self, netlist: str | Path | BaseEditor, *, timeout: float | None = None
     ) -> int:
         """Adding a simulation to the list of simulations to be run. The function will
         return the runno of the simulation or -1 if the simulation could not be started.

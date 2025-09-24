@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# coding=utf-8
 
 import logging
 import os
@@ -24,7 +23,7 @@ import subprocess
 # -------------------------------------------------------------------------------
 import sys
 from pathlib import Path
-from typing import Any, Optional, Union
+from typing import Any, ClassVar
 
 from ..sim.simulator import Simulator, SpiceSimulatorError, run_function
 
@@ -45,22 +44,26 @@ class Qspice(Simulator):
     # windows paths (that are also valid for wine)
     # Please note that os.path.expanduser and os.path.join are sensitive to the style of slash.
     # Placed in order of preference. The first to be found will be used.
-    _spice_exe_win_paths = [
+    _spice_exe_win_paths: ClassVar[list[str]] = [
         "~/Qspice/QSPICE64.exe",
         "~/AppData/Local/Programs/Qspice/QSPICE64.exe",
         "C:/Program Files/QSPICE/QSPICE64.exe",
     ]
 
     # the default lib paths, as used by get_default_library_paths
-    _default_lib_paths = ["C:/Program Files/QSPICE", "~/Documents/QSPICE"]
+    _default_lib_paths: ClassVar[list[str]] = [
+        "C:/Program Files/QSPICE",
+        "~/Documents/QSPICE",
+    ]
 
     """Searches on the any usual locations for a simulator"""
     # defaults:
-    spice_exe = []
+    spice_exe: ClassVar[list[str]] = []
     process_name = ""
 
     if sys.platform == "linux" or sys.platform == "darwin":
-        # status mid 2024: Qspice has limited support for running under linux+wine, and none for MacOS+wine
+        # Status mid-2024: QSPICE offers limited support under Linux+Wine and
+        # none for macOS+Wine.
         # TODO: when the situation gets more mature, add support for wine. See
         # LTspice for an example.
         spice_exe = []
@@ -83,7 +86,7 @@ class Qspice(Simulator):
         process_name = Simulator.guess_process_name(spice_exe[0])
         _logger.debug(f"Found Qspice installed in: '{spice_exe}' ")
 
-    qspice_args = {
+    qspice_args: ClassVar[dict[str, list[str]]] = {
         "-ASCII": ["-ASCII"],  # Use ASCII file format for the output data(.qraw) file.
         "-ascii": [
             "-ASCII"
@@ -97,8 +100,8 @@ class Qspice(Simulator):
         "-Meyer": [
             "-Meyer"
         ],  # Use the Meyer Capacitance model for MOS1, MOS2, and MOS3.
-        "-o": ["-o", "<path>"],  # Specify the name of a file for the console output.
-        # '-p'         : ['-p'],  # Take the netlist piped from stdin. >> Not used in this implementation.
+        "-o": ["-o", "<path>"],  # Specify the console output file.
+        # '-p': ['-p'],  # Take the netlist piped from stdin (unsupported here).
         "-ProtectSelections": [
             "-ProtectSelections",
             "<path>",
@@ -111,7 +114,7 @@ class Qspice(Simulator):
     }
     """:meta private:"""
 
-    _default_run_switches = ["-o"]
+    _default_run_switches: ClassVar[list[str]] = ["-o"]
 
     @classmethod
     def valid_switch(cls, switch: str, path: str = "") -> list:
@@ -163,9 +166,9 @@ class Qspice(Simulator):
     @classmethod
     def run(
         cls,
-        netlist_file: Union[str, Path],
-        cmd_line_switches: Optional[list[Any]] = None,
-        timeout: Optional[float] = None,
+        netlist_file: str | Path,
+        cmd_line_switches: list[Any] | None = None,
+        timeout: float | None = None,
         stdout=None,
         stderr=None,
         exe_log: bool = False,
@@ -221,10 +224,7 @@ class Qspice(Simulator):
 
         log_file = Path(netlist_file).with_suffix(".log").as_posix()
         cmd_run = (
-            cls.spice_exe
-            + ["-o", log_file]
-            + [netlist_file.as_posix()]
-            + cmd_line_switches
+            [*cls.spice_exe, "-o", log_file, netlist_file.as_posix(), *cmd_line_switches]
         )
         # start execution
         if exe_log:

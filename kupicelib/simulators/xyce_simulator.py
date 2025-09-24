@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# coding=utf-8
 
 # -------------------------------------------------------------------------------
 #
@@ -24,7 +23,7 @@ import os
 import shutil
 import subprocess
 from pathlib import Path
-from typing import Any, Optional, Union
+from typing import Any, ClassVar
 
 from ..sim.simulator import Simulator, SpiceSimulatorError, run_function
 
@@ -35,17 +34,17 @@ class XyceSimulator(Simulator):
     """Stores the simulator location and command line options and runs simulations."""
 
     # Placed in order of preference. The first to be found will be used.
-    _spice_exe_paths = [
+    _spice_exe_paths: ClassVar[list[str]] = [
         "C:/Program Files/Xyce 7.9 NORAD/bin/xyce.exe",  # Windows
         "xyce",  # linux, when in path
     ]
 
     # the default lib paths, as used by get_default_library_paths
     # none
-    _default_lib_paths: list[str] = []
+    _default_lib_paths: ClassVar[list[str]] = []
 
     # defaults:
-    spice_exe = []
+    spice_exe: ClassVar[list[str]] = []
     process_name: str = ""
 
     # determine the executable to use
@@ -73,7 +72,7 @@ class XyceSimulator(Simulator):
         process_name = Simulator.guess_process_name(spice_exe[0])
         _logger.debug(f"Found ngspice installed in: '{spice_exe}' ")
 
-    xyce_args = {
+    xyce_args: ClassVar[dict[str, list[str]]] = {
         # '-b'                : ['-b'],  # batch mode flag for spice compatibility (ignored)
         # '-h'                : ['-h'],  # print usage and exit
         # '-v'                : ['-v'],  # print version info and exit
@@ -101,22 +100,24 @@ class XyceSimulator(Simulator):
         ],  # suppress some of the simulation-progress messages sent to stdout
         "-jacobian_test": ["-jacobian_test"],  # jacobian matrix diagnostic
         "-hspice-ext": ["-hspice-ext", "<hsext_options>"],
-        # apply hspice compatibility features during parsing.  option=all applies them all
+        # Apply HSPICE compatibility features during parsing. Use option=all to
+        # enable every compatibility mode.
         "-redefined_params": ["-redefined_params", "<redef_param_option>"],
-        # set option for redefined .params as ignore (use last), usefirst, warn or error
+        # Configure handling of redefined .param entries: ignore (use last),
+        # usefirst, warn, or error.
         "-subckt_multiplier": ["-subckt_multiplier", "<truefalse_option>"],
-        # set option to true(default) or false to apply implicit subcircuit multipliers
+        # Set option to true (default) or false to apply implicit subcircuit multipliers.
         "-delim": [
             "-delim",
             "<delim_option>",
-        ],  # <TAB|COMMA|string>   set the output file field delimiter
-        "-o": ["-o", "<basename>"],  # <basename> for the output file(s)
-        # '-l'                : ['-l', '<path>'],  # place the log output into <path>, "cout" to log to stdout
+        ],  # Set the output file field delimiter (<TAB|COMMA|string>).
+        "-o": ["-o", "<basename>"],  # Base name for the output files.
+        # '-l': ['-l', '<path>'],  # Log output to <path> or "cout".
         "-per-processor": [
             "-per-processor"
-        ],  # create log file for each processor, add .<n>.<r> to log path
+        ],  # Create log files for each processor; append .<n>.<r> to the path.
         "-remeasure": ["-remeasure", "<path>"],
-        # [existing Xyce output file] recompute .measure() results with existing data
+        # Recompute .measure() results using an existing Xyce output file.
         "-nox": [
             "-nox",
             "onoff_option",
@@ -140,11 +141,11 @@ class XyceSimulator(Simulator):
         "-rsf": [
             "-rsf",
             "<path>",
-        ],  # specify a file to save simulation responses functions.
-        # '-r'                : ['-r', '<path>'],  # <file>   generate a rawfile named <file> in binary format
-        "-a": ["-a"],  # use with -r <file> to output in ascii format
+        ],  # Specify a file to save simulation response functions.
+        # '-r': ['-r', '<path>'],  # Generate a raw file in binary format.
+        "-a": ["-a"],  # Combine with -r <file> to output in ASCII format.
         "-randseed": ["-randseed", "<int_option>"],
-        # <number>          seed random number generator used by expressions and sampling methods
+        # Seed the random number generator used by expressions and sampling methods.
         "-plugin": [
             "-plugin",
             "<plugin_list>",
@@ -152,7 +153,7 @@ class XyceSimulator(Simulator):
     }
     """:meta private:"""
 
-    _default_run_switches = ["-l", "-r"]
+    _default_run_switches: ClassVar[list[str]] = ["-l", "-r"]
 
     @classmethod
     def valid_switch(cls, switch: str, parameter: str = "") -> list:
@@ -262,9 +263,9 @@ class XyceSimulator(Simulator):
     @classmethod
     def run(
         cls,
-        netlist_file: Union[str, Path],
-        cmd_line_switches: Optional[list[Any]] = None,
-        timeout: Optional[float] = None,
+        netlist_file: str | Path,
+        cmd_line_switches: list[Any] | None = None,
+        timeout: float | None = None,
         stdout=None,
         stderr=None,
         exe_log: bool = False,

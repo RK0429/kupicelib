@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# coding=utf-8
 
 import logging
 
@@ -22,7 +21,7 @@ import logging
 # -------------------------------------------------------------------------------
 import re
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any
 
 from ..sim.simulator import run_function
 from ..simulators.qspice_simulator import Qspice
@@ -64,7 +63,7 @@ class QspiceLogReader(LogfileData):
         self,
         log_filename: str,
         read_measures=True,
-        step_set: Optional[Dict[str, Any]] = None,
+        step_set: dict[str, Any] | None = None,
         encoding=None,
     ):
         super().__init__(step_set)
@@ -77,7 +76,7 @@ class QspiceLogReader(LogfileData):
         step_regex = re.compile(r"^\s*(\d+) of \d+ steps:\s+\.step (.*)$")
 
         _logger.debug(f"Processing LOG file:{log_filename}")
-        with open(log_filename, "r", encoding=self.encoding) as fin:
+        with open(log_filename, encoding=self.encoding) as fin:
             line = fin.readline()
             while line:
                 match = step_regex.match(line)
@@ -110,7 +109,7 @@ class QspiceLogReader(LogfileData):
             meas_file = self.obtain_measures()
             self.parse_meas_file(meas_file)
 
-    def obtain_measures(self, meas_filename: Optional[Path] = None) -> Path:
+    def obtain_measures(self, meas_filename: Path | None = None) -> Path:
         """In QSpice the measures are obtained by calling the QPOST command giving as
         arguments the .qraw file and the .log file This function makes this call to
         QPOST and returns the measurement output file path.
@@ -148,7 +147,7 @@ class QspiceLogReader(LogfileData):
             netlist = self.logname.with_suffix(".cir").absolute()
 
         # Run the QPOST command
-        cmd_run = qpost + [netlist, "-o", meas_filename.absolute()]
+        cmd_run = [*qpost, netlist, "-o", meas_filename.absolute()]
         _logger.debug(f"Running QPOST command: {cmd_run}")
         run_function(cmd_run)
         return meas_filename
@@ -165,7 +164,7 @@ class QspiceLogReader(LogfileData):
         meas_name = None
         headers = None
 
-        with open(meas_filename, "r", encoding=self.encoding) as fin:
+        with open(meas_filename, encoding=self.encoding) as fin:
             line = fin.readline()
             while line:
                 match = meas_regex.match(line)

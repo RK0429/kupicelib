@@ -1,4 +1,3 @@
-# coding=utf-8
 # -------------------------------------------------------------------------------
 #
 #  ███████╗██████╗ ██╗ ██████╗███████╗██╗     ██╗██████╗
@@ -21,7 +20,7 @@ import dataclasses
 import enum
 import logging
 from collections import OrderedDict
-from typing import Callable, List, Optional, Tuple, Union
+from collections.abc import Callable
 
 from .base_editor import SUBCKT_DIVIDER, BaseEditor, Component, ComponentNotFoundError
 
@@ -160,7 +159,7 @@ class Line:
     """X1, Y1, X2, Y2 coordinates."""
 
     def __init__(
-        self, v1: Point, v2: Point, style: Optional[LineStyle] = None, net: str = ""
+        self, v1: Point, v2: Point, style: LineStyle | None = None, net: str = ""
     ):
         self.V1 = v1
         self.V2 = v2
@@ -172,14 +171,12 @@ class Line:
 
     def touches(self, point: Point) -> bool:
         """Returns True if the line passes through the given point."""
-        if self.V1.X == self.V2.X:
-            if self.V1.X == point.X:
-                if min(self.V1.Y, self.V2.Y) <= point.Y <= max(self.V1.Y, self.V2.Y):
-                    return True
-        elif self.V1.Y == self.V2.Y:
-            if self.V1.Y == point.Y:
-                if min(self.V1.X, self.V2.X) <= point.X <= max(self.V1.X, self.V2.X):
-                    return True
+        if self.V1.X == self.V2.X and self.V1.X == point.X:
+            if min(self.V1.Y, self.V2.Y) <= point.Y <= max(self.V1.Y, self.V2.Y):
+                return True
+        elif self.V1.Y == self.V2.Y and self.V1.Y == point.Y:
+            if min(self.V1.X, self.V2.X) <= point.X <= max(self.V1.X, self.V2.X):
+                return True
         else:
             # The time saving tricks are over, the line is oblique, so, we have to do the math
             # The line is defined by the equation y = m*x + b
@@ -190,10 +187,10 @@ class Line:
             y = m * point.X + b
             # If the Y value is the same as the point Y, then the line passes through
             # the point
-            if y == point.Y:
-                # Now we have to check if the point is within the line segment
-                if min(self.V1.X, self.V2.X) <= point.X <= max(self.V1.X, self.V2.X):
-                    return True
+            if y == point.Y and (
+                min(self.V1.X, self.V2.X) <= point.X <= max(self.V1.X, self.V2.X)
+            ):
+                return True
         return False
 
     def intercepts(self, line: "Line") -> bool:
@@ -207,9 +204,7 @@ class Line:
             return True
         # We also have to check if the given line touches any of the vertices of
         # this line
-        if line.touches(self.V1) or line.touches(self.V2):
-            return True
-        return False
+        return bool(line.touches(self.V1) or line.touches(self.V2))
 
 
 class Shape:
@@ -224,8 +219,8 @@ class Shape:
     def __init__(
         self,
         name: str,
-        points: List[Point],
-        line_style: Optional[LineStyle] = None,
+        points: list[Point],
+        line_style: LineStyle | None = None,
         fill: str = "",
     ):
         self.name = name
@@ -238,24 +233,26 @@ class Shape:
 
 
 # Rectangle = Shape
-# Rectangle is a special case of a Shape. Rectangle is defined by two points that define the diagonal
-# of the rectangle.
+# Rectangle is a special case of a Shape. The diagonal defined by two points
+# determines the rectangle corners.
 
-# Circle = Shape  # Circle is a special case of a Shape. Circle is defined
-# by the rectangle that encloses it.
+# Circle = Shape  # Circle is a special case of a Shape. The enclosing rectangle
+# defines the circle.
 
 # Arc = Shape
-# Arc is a special case of a Shape. Since different tools have different ways of defining arcs, we will use
-# # the Shape class to define them. We will only store the list of points that are provided by the tool.
+# Arc is a special case of a Shape. Different tools define arcs differently, so we
+# store only the list of points provided by the tool.
 
-#  TODO: The following code is commented out because it is not used in the current implementation. It is kept here for
-# when we decode how ARCs are stored and we could use it to update them.
+#  TODO: The following code is commented out because it is not used in the current
+# implementation. It is kept for future work on ARC storage and editing.
 # @dataclasses.dataclass
 # class Arc:
-#     """Opting for a non-native representation of the arc as LTspice and Qspice have different
-#     ways of storing Arc information. Start and Stop points are calculated as a fraction of the radius
-#     for X and Y. This avoids having to deal with the calculation of sines and cosines and their inverse
-#     into radians."""
+#     """Represent arcs in a tool-agnostic way.
+#
+#     LTspice and Qspice record arcs differently, so we store the start and stop
+#     points as fractions of the radius for X and Y. That approach avoids
+#     trigonometric conversions when switching between tools.
+#     """
 #     center: Point
 #     radius: float
 #     start: Point = Point(0, 0)
@@ -303,13 +300,14 @@ class BaseSchematic(BaseEditor):
 
     def __init__(self):
         self.components: OrderedDict[str, SchematicComponent] = OrderedDict()
-        self.wires: List[Line] = []
-        self.labels: List[Text] = []
-        self.directives: List[Text] = []
-        self.ports: List[Port] = []
-        self.lines: List[Line] = []
-        self.shapes: List[Shape] = []
-        self.updated = False  # indicates if an edit was done and the file has to be written back to disk
+        self.wires: list[Line] = []
+        self.labels: list[Text] = []
+        self.directives: list[Text] = []
+        self.ports: list[Port] = []
+        self.lines: list[Line] = []
+        self.shapes: list[Shape] = []
+        # Indicates if an edit was done and the file has to be written back to disk.
+        self.updated = False
 
     def reset_netlist(self, create_blank: bool = False) -> None:
         """Resets the netlist to the original state."""
@@ -333,7 +331,7 @@ class BaseSchematic(BaseEditor):
         self.shapes = deepcopy(editor.shapes)
         self.updated = True
 
-    def _get_parent(self, reference) -> Tuple["BaseSchematic", str]:
+    def _get_parent(self, reference) -> tuple["BaseSchematic", str]:
         if SUBCKT_DIVIDER in reference:
             sub_ref, sub_comp = reference.split(SUBCKT_DIVIDER, 1)
 
@@ -368,7 +366,7 @@ class BaseSchematic(BaseEditor):
                 )
             return sub_circuit.components[ref]
 
-    def get_component_position(self, reference: str) -> Tuple[Point, ERotation]:
+    def get_component_position(self, reference: str) -> tuple[Point, ERotation]:
         """Returns the position and rotation of the component."""
         comp = self.get_component(reference)
         return comp.position, comp.rotation
@@ -413,7 +411,7 @@ class BaseSchematic(BaseEditor):
         offset_y,
         scale_x,
         scale_y: float,
-        round_fun: Optional[Callable[[float], Union[int, float]]] = None,
+        round_fun: Callable[[float], int | float] | None = None,
     ) -> None:
         """Scales the schematic."""
         if round_fun is None:

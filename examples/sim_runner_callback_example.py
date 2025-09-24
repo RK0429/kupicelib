@@ -1,6 +1,6 @@
-# coding=utf-8
-from kupicelib.simulators.ltspice_simulator import LTspice
 import logging
+
+from kupicelib.simulators.ltspice_simulator import LTspice
 
 try:
     from rich.logging import RichHandler
@@ -21,12 +21,11 @@ if RichHandler is not None:
 def processing_data(raw_file, log_file, supply_voltage, opamp):
     print(
         "Handling the simulation data of "
-        "%s"
+        f"{raw_file}"
         ", log file "
-        "%s"
-        "" % (raw_file, log_file)
+        f"{log_file}"
     )
-    print("Supply Voltage: %s, OpAmp: %s" % (supply_voltage, opamp))
+    print(f"Supply Voltage: {supply_voltage}, OpAmp: {opamp}")
     time_to_sleep = random() * 5
     print(f"Sleeping for {time_to_sleep} seconds")
     sleep(time_to_sleep)
@@ -64,9 +63,7 @@ for opamp in (
         netlist["V1"].value = supply_voltage
         netlist["V2"].value = -supply_voltage
         # overriding the automatic netlist naming
-        run_netlist_file = "{}_{}_{}.net".format(
-            netlist.netlist_file.stem, opamp, supply_voltage
-        )
+        run_netlist_file = f"{netlist.netlist_file.stem}_{opamp}_{supply_voltage}.net"
         if use_run_now:
             runner.run_now(netlist, run_filename=run_netlist_file)
         else:
