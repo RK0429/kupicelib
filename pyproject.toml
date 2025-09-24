@@ -39,3 +39,42 @@ homepage = "https://github.com/RK0429/kupicelib"
 repository = "https://github.com/RK0429/kupicelib.git"
 bug-tracker = "https://github.com/RK0429/kupicelib/issues"
 author = "https://github.com/RK0429"
+
+[project]
+name = "kupicelib"
+version = "1.0.1"
+description = "A modified version of kupicelib for automating Spice simulations"
+readme = "README.md"
+license = {file = "LICENSE"}
+authors = [
+  {name = "Ryota Kobayashi", email = "s.woods.m.29@gmail.com"},
+]
+keywords = ["spice", "ltspice", "qspice", "ngspice", "electronic simulator", "montecarlo", "worst-case"]
+requires-python = ">=3.10,<4.0"
+dependencies = [
+  "numpy",
+  "scipy",
+  "psutil",
+  "clipboard",
+  "matplotlib",
+  "keyboard",
+  "types-keyboard>=0.13.2.20240310,<0.14",
+  "types-psutil>=7.0.0.20250218,<8.0.0",
+  "pandas>=2.2.3,<3.0.0",
+  "pandas-stubs>=2.2.3.241126,<3.0.0",
+]
+
+[project.scripts]
+ltsteps = "kupicelib.scripts.ltsteps:main"
+histogram = "kupicelib.scripts.histogram:main"
+rawplot = "kupicelib.scripts.rawplot:main"
+run_server = "kupicelib.scripts.run_server:main"
+asc_to_qsch = "kupicelib.scripts.asc_to_qsch:main"
+rawconvert = "kupicelib.raw.raw_convert:main"
+readme_update = "kupicelib.scripts.readme_update:main"
+
+[project.urls]
+Homepage = "https://github.com/RK0429/kupicelib"
+Repository = "https://github.com/RK0429/kupicelib.git"
+"Bug Tracker" = "https://github.com/RK0429/kupicelib/issues"
+Author = "https://github.com/RK0429"
