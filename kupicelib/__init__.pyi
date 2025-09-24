@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 import logging
-from typing import Iterable
 
 from .editor.asc_editor import AscEditor
+from .editor.qsch_editor import QschEditor
 from .editor.spice_editor import SpiceCircuit, SpiceComponent, SpiceEditor
 from .raw.raw_read import RawRead, SpiceReadException
 from .raw.raw_write import RawWrite, Trace

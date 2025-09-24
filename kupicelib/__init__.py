@@ -1,3 +1,6 @@
+from __future__ import annotations
+
+import logging
 
 # Convenience direct imports
 from .editor.asc_editor import AscEditor
@@ -25,7 +28,7 @@ __all__ = [
 ]
 
 
-def all_loggers():
+def all_loggers() -> list[str]:
     """Returns all the name strings used as logger identifiers.
 
     :return: A List of strings which contains all the logger's names used in this
@@ -59,25 +62,21 @@ def all_loggers():
     ]
 
 
-def set_log_level(level):
+def set_log_level(level: int) -> None:
     """Sets the logging level for all loggers used in the library.
 
     :param level: The logging level to be used, eg. logging.ERROR, logging.DEBUG, etc.
     :type level: int
     """
-    import logging
-
     for logger in all_loggers():
         logging.getLogger(logger).setLevel(level)
 
 
-def add_log_handler(handler):
+def add_log_handler(handler: logging.Handler) -> None:
     """Sets the logging handler for all loggers used in the library.
 
     :param handler: The logging handler to be used, eg. logging.NullHandler
     :type handler: Handler
     """
-    import logging
-
     for logger in all_loggers():
         logging.getLogger(logger).addHandler(handler)
