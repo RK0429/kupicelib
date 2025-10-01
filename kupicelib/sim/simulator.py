@@ -25,14 +25,23 @@ import shutil
 import subprocess
 import sys
 from abc import ABC, abstractmethod
+from collections.abc import Sequence
 from pathlib import Path, PureWindowsPath
-from typing import Any, ClassVar
+from typing import IO, Any, ClassVar, Self, cast
 
 _logger = logging.getLogger("kupicelib.Simulator")
 
+CommandArgs = Sequence[str] | str
+StdStream = int | IO[Any] | None
+
 if sys.version_info.major >= 3 and sys.version_info.minor >= 6:
 
-    def run_function(command, timeout=None, stdout=None, stderr=None):
+    def run_function(
+        command: CommandArgs,
+        timeout: float | None = None,
+        stdout: StdStream = None,
+        stderr: StdStream = None,
+    ) -> int:
         """Normalizing OS subprocess function calls between different platforms.
 
         This function is used for python 3.6 and higher versions.
@@ -43,7 +52,12 @@ if sys.version_info.major >= 3 and sys.version_info.minor >= 6:
 
 else:
 
-    def run_function(command, timeout=None, stdout=None, stderr=None):
+    def run_function(
+        command: CommandArgs,
+        timeout: float | None = None,
+        stdout: StdStream = None,
+        stderr: StdStream = None,
+    ) -> int:
         """Normalizing OS subprocess function calls between different platforms.
 
         This is the old function that was used for python version prior to 3.6
@@ -120,7 +134,11 @@ class Simulator(ABC):
     _default_lib_paths: ClassVar[list[str]] = []
 
     @classmethod
-    def create_from(cls, path_to_exe, process_name=None):
+    def create_from(
+        cls,
+        path_to_exe: str | Path | os.PathLike[str] | Sequence[str] | None,
+        process_name: str | None = None,
+    ) -> type[Self]:
         """Creates a simulator class from a path to the simulator executable.
 
         :param path_to_exe:
@@ -132,24 +150,51 @@ class Simulator(ABC):
         :return: a class instance representing the Spice simulator
         :rtype: Simulator
         """
-        plib_path_to_exe = None
-        exe_parts = []
-        if isinstance(path_to_exe, Path) or os.path.exists(path_to_exe):
-            plib_path_to_exe = path_to_exe if isinstance(path_to_exe, Path) else Path(path_to_exe)
-            exe_parts = [plib_path_to_exe.as_posix()]
+        default_path: str | Path | os.PathLike[str] | Sequence[str] | None = path_to_exe
+        if default_path is None:
+            default_factory = getattr(cls, "get_default_executable", None)
+            if callable(default_factory):
+                default_path = cast(
+                    str | Path | os.PathLike[str] | Sequence[str] | None,
+                    default_factory(),
+                )
+                if default_path is None:
+                    raise FileNotFoundError(
+                        "Provided exe file was not found 'None'"
+                    )
+            else:
+                raise FileNotFoundError(
+                    "Provided exe file was not found 'None'"
+                )
+
+        assert default_path is not None
+
+        exe_parts: list[str] = []
+        plib_path_to_exe: Path | None = None
+        if isinstance(default_path, Sequence) and not isinstance(
+            default_path, str | bytes | os.PathLike
+        ):
+            sequence_parts = cast(Sequence[object], default_path)
+            exe_parts = [str(part) for part in sequence_parts]
+            if exe_parts:
+                plib_path_to_exe = Path(exe_parts[0])
+                exe_parts[0] = plib_path_to_exe.as_posix()
         else:
-            if (
-                "\\" in path_to_exe
-            ):  # Windows path detected.
-                # Convert Windows path to posix format.
-                # Use Path and PureWindowsPath for conversion.
-                # I do not support multiple sections here, as it is not likely needed.
-                plib_path_to_exe = Path(PureWindowsPath(path_to_exe).as_posix())
+            remaining_path: str | Path | os.PathLike[str] = default_path
+            path_text = os.fspath(remaining_path)
+            if os.path.exists(path_text):
+                plib_path_to_exe = (
+                    remaining_path
+                    if isinstance(remaining_path, Path)
+                    else Path(path_text)
+                )
+                exe_parts = [plib_path_to_exe.as_posix()]
+            elif "\\" in path_text:
+                plib_path_to_exe = Path(PureWindowsPath(path_text).as_posix())
                 exe_parts = [plib_path_to_exe.as_posix()]
             else:
-                # try to extract the parts
-                exe_parts = shlex.split(path_to_exe)
-                if len(exe_parts) > 0:
+                exe_parts = shlex.split(path_text)
+                if exe_parts:
                     plib_path_to_exe = Path(exe_parts[0])
                     exe_parts[0] = plib_path_to_exe.as_posix()
 
@@ -161,12 +206,12 @@ class Simulator(ABC):
                 cls.process_name = cls.guess_process_name(exe_parts[0])
             else:
                 cls.process_name = process_name
-            cls.spice_exe = exe_parts
+            cls.spice_exe = list(exe_parts)
             return cls
-        else:
-            raise FileNotFoundError(
-                f"Provided exe file was not found '{path_to_exe}'"
-            )
+
+        raise FileNotFoundError(
+            f"Provided exe file was not found '{default_path}'"
+        )
 
     @staticmethod
     def guess_process_name(exe: str) -> str:
@@ -191,10 +236,10 @@ class Simulator(ABC):
     def run(
         cls,
         netlist_file: str | Path,
-        cmd_line_switches: list[Any] | None = None,
+        cmd_line_switches: Sequence[Any] | None = None,
         timeout: float | None = None,
-        stdout=None,
-        stderr=None,
+        stdout: StdStream = None,
+        stderr: StdStream = None,
         exe_log: bool = False,
     ) -> int:
         """This method implements the call for the simulation of the netlist file.
@@ -207,7 +252,7 @@ class Simulator(ABC):
 
     @classmethod
     @abstractmethod
-    def valid_switch(cls, switch, switch_param) -> list:
+    def valid_switch(cls, switch: str, switch_param: Any) -> list[str]:
         """This method validates that a switch exist and is valid.
 
         This should be overriden by its subclass.
@@ -240,8 +285,8 @@ class Simulator(ABC):
         :return: the list of paths where the libraries should be located.
         :rtype: List[str]
         """
-        paths = []
-        myexe = None
+        paths: list[str] = []
+        myexe: str | None = None
         # get the executable
         if cls.spice_exe and os.path.exists(cls.spice_exe[-1]):
             # TODO: this will fail if the simulator executable is not in the last
@@ -297,7 +342,7 @@ class Simulator(ABC):
             does not exist.
         :rtype: Optional[str]
         """
-        c_drive = None
+        c_drive: str | None = None
         # See if I'm under wine
         if sys.platform == "linux" or sys.platform == "darwin":
             if exe_path and "/drive_c/" in exe_path:
