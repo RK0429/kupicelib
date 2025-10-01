@@ -152,7 +152,8 @@ class SimServer:
         """
         _logger.debug(f"Server: collecting status for {session_id}")
         ret: list[int] = []
-        for task_info in self.simulation_manager.completed_tasks:
+        completed: list[CompletedTaskInfo] = self.simulation_manager.completed_tasks
+        for task_info in completed:
             _logger.debug(task_info)
             runno = task_info["runno"]
             if runno in self.sessions[session_id]:
@@ -165,10 +166,11 @@ class SimServer:
 
     def get_files(self, session_id: str, runno: int) -> tuple[str, Binary]:
         if runno in self.sessions[session_id]:
-            for task_info in self.simulation_manager.completed_tasks:
+            completed = self.simulation_manager.completed_tasks
+            for task_info in completed:
                 if runno == task_info["runno"]:
                     # Create a buffer to store the zip file in memory
-                    zip_file: Path = task_info["zipfile"]
+                    zip_file = task_info["zipfile"]
                     zip_handle = zip_file.open("rb")
                     # Read the zip file from the buffer and send it to the server
                     zip_data: bytes = zip_handle.read()

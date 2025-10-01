@@ -93,11 +93,11 @@ class ServerSimRunner(threading.Thread):
             self.runner.update_completed()
             while self.runner.completed_tasks:
                 task = self.runner.completed_tasks.pop(0)
-                zip_filename = task.callback_return
-                if not isinstance(zip_filename, Path):
+                callback_result = task.callback_return
+                if not isinstance(callback_result, Path):
                     _logger.warning(
                         "Unexpected callback return type %s for run %s",
-                        type(zip_filename).__name__,
+                        type(callback_result).__name__,
                         task.runno,
                     )
                     continue
@@ -106,6 +106,7 @@ class ServerSimRunner(threading.Thread):
                         "Completed task %s missing raw/log files", task.runno
                     )
                     continue
+                zip_filename = callback_result
                 self.completed_tasks.append(
                     {
                         "runno": int(task.runno),
@@ -155,7 +156,7 @@ class ServerSimRunner(threading.Thread):
         task = self.completed_tasks[pos]
         for filename in ("circuit", "log", "raw", "zipfile"):
             file_path = task[filename]
-            if isinstance(file_path, Path) and file_path.exists():
+            if file_path.exists():
                 _logger.info(f"deleting {file_path}")
                 file_path.unlink()
         del self.completed_tasks[pos]

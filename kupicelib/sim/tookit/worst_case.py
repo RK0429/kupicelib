@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+from __future__ import annotations
 # -------------------------------------------------------------------------------
 #
 #  ███████╗██████╗ ██╗ ██████╗███████╗██╗     ██╗██████╗
@@ -18,7 +19,8 @@
 # -------------------------------------------------------------------------------
 
 import logging
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
+from typing import Any, cast
 
 from ...log.logfile_data import LogfileData
 from ..process_callback import ProcessCallback
@@ -51,7 +53,7 @@ class WorstCaseAnalysis(ToleranceDeviations):
     when it is prone to crashes and stalls.
     """
 
-    def _set_component_deviation(self, ref: str, index) -> bool:
+    def _set_component_deviation(self, ref: str, index: int) -> bool:
         """Sets the deviation of a component.
 
         Returns True if the component is valid and the deviation was set. Otherwise,
@@ -75,14 +77,18 @@ class WorstCaseAnalysis(ToleranceDeviations):
             self.elements_analysed.append(ref)
         return True
 
-    def prepare_testbench(self, **kwargs):
+    def prepare_testbench(self, **kwargs: Any) -> None:
         """Prepares the simulation by setting the tolerances for the components."""
         index = 0
         self.elements_analysed.clear()
-        for ref in self.device_deviations:
+        device_refs: list[str] = [str(key) for key in self.device_deviations.keys()]
+        for ref in device_refs:
             if self._set_component_deviation(ref, index):
                 index += 1
-        for ref in self.parameter_deviations:
+        parameter_refs: list[str] = [
+            str(key) for key in self.parameter_deviations.keys()
+        ]
+        for ref in parameter_refs:
             val, dev = self.get_parameter_value_deviation_type(ref)
             new_val = val
             if dev.typ == DeviationType.tolerance:
@@ -92,16 +98,18 @@ class WorstCaseAnalysis(ToleranceDeviations):
                     f"{{wc1({val},{dev.min_val:g},{dev.max_val:g},{index})}}"
                 )
             if new_val != val:
-                self.editor.set_parameter(ref, new_val)
+                self.editor.set_parameter(ref, str(new_val))
             index += 1
             self.elements_analysed.append(ref)
 
         for prefix in self.default_tolerance:
-            for ref in self.get_components(prefix):
-                if ref not in self.device_deviations and self._set_component_deviation(
-                    ref, index
-                ):
-                    index += 1
+            components_iter = cast(Iterable[str], self.get_components(prefix))
+            components_list = list(components_iter)
+            for component in components_list:
+                ref = component
+                if ref not in self.device_deviations:
+                    if self._set_component_deviation(ref, index):
+                        index += 1
 
         self.editor.add_instruction(
             ".func binary(run,idx) {floor(run/(2**idx))-2*floor(run/(2**(idx+1)))}"
@@ -121,12 +129,12 @@ class WorstCaseAnalysis(ToleranceDeviations):
 
     def run_analysis(
         self,
-        callback: type[ProcessCallback] | Callable[..., object] | None = None,
-        callback_args: tuple[object, ...] | dict[str, object] | None = None,
-        switches=None,
+        callback: type[ProcessCallback] | Callable[..., Any] | None = None,
+        callback_args: tuple[Any, ...] | dict[str, Any] | None = None,
+        switches: list[str] | None = None,
         timeout: float | None = None,
         exe_log: bool = True,
-    ):
+    ) -> None:
         """This method runs the analysis without updating the netlist.
 
         It will update component values and parameters according to their deviation type
@@ -135,9 +143,9 @@ class WorstCaseAnalysis(ToleranceDeviations):
         """
         self.clear_simulation_data()
         self.elements_analysed.clear()
-        worst_case_elements = {}
+        worst_case_elements: dict[str, tuple[Any, Any, str]] = {}
 
-        def check_and_add_component(ref1: str):
+        def check_and_add_component(ref1: str) -> None:
             val1, dev1 = self.get_component_value_deviation_type(
                 ref1
             )  # get there present value
@@ -146,19 +154,27 @@ class WorstCaseAnalysis(ToleranceDeviations):
             worst_case_elements[ref1] = val1, dev1, "component"
             self.elements_analysed.append(ref1)
 
-        for ref in self.device_deviations:
+        device_refs_analysis: list[str] = [
+            str(key) for key in self.device_deviations.keys()
+        ]
+        for ref in device_refs_analysis:
             check_and_add_component(ref)
 
-        for ref in self.parameter_deviations:
+        parameter_refs_analysis: list[str] = [
+            str(key) for key in self.parameter_deviations.keys()
+        ]
+        for ref in parameter_refs_analysis:
             val, dev = self.get_parameter_value_deviation_type(ref)
             if dev.typ == DeviationType.tolerance or dev.typ == DeviationType.minmax:
                 worst_case_elements[ref] = val, dev, "parameter"
                 self.elements_analysed.append(ref)
 
         for prefix in self.default_tolerance:
-            for ref in self.get_components(prefix):
-                if ref not in self.device_deviations:
-                    check_and_add_component(ref)
+            components_iter = cast(Iterable[str], self.get_components(prefix))
+            components_list = list(components_iter)
+            for ref_value in components_list:
+                if ref_value not in self.device_deviations:
+                    check_and_add_component(ref_value)
 
         _logger.info(
             "Worst Case Analysis: %d elements to be analysed",
@@ -217,10 +233,10 @@ class WorstCaseAnalysis(ToleranceDeviations):
                         new_val = val
                     if typ == "component":
                         self.editor.set_component_value(
-                            ref, new_val
+                            ref, str(new_val)
                         )  # update the value
                     elif typ == "parameter":
-                        self.editor.set_parameter(ref, new_val)
+                        self.editor.set_parameter(ref, str(new_val))
                     else:
                         _logger.warning("Unknown type")
                 bit_updated >>= 1
@@ -240,14 +256,14 @@ class WorstCaseAnalysis(ToleranceDeviations):
         self.runner.wait_completion()
 
         if callback is not None:
-            callback_rets = []
+            callback_rets: list[Any] = []
             for rt in self.simulations:
                 if rt is not None:
                     callback_rets.append(rt.get_results())
             self.simulation_results["callback_returns"] = callback_rets
         self.analysis_executed = True
 
-    def get_min_max_measure_value(self, meas_name: str):
+    def get_min_max_measure_value(self, meas_name: str) -> tuple[float, float] | None:
         """Returns the minimum and maximum values of a measurement.
 
         See SPICE .MEAS primitive documentation.
@@ -259,18 +275,23 @@ class WorstCaseAnalysis(ToleranceDeviations):
             return None
 
         log_data: LogfileData = self.read_logfiles()
-        meas_data = log_data[meas_name]
-        if meas_data is None:
-            _logger.warning("Measurement %s not found in log files", meas_name)
-            return None
-        elif len(meas_data) != len(self.simulations):
+        meas_data: list[Any] = log_data[meas_name]
+        if len(meas_data) != len(self.simulations):
             _logger.warning(
                 "Missing log files. Results may not be reliable. Probable cause are:\n"
                 "  - Failed simulations.\n"
                 "  - Measurement couldn't be done in simulation results."
             )
-        else:
-            return min(meas_data), max(meas_data)
+        numeric_values: list[float] = []
+        for value in meas_data:
+            if isinstance(value, (int, float)):
+                numeric_values.append(float(value))
+            elif isinstance(value, complex):
+                numeric_values.append(abs(value))
+        if not numeric_values:
+            _logger.warning("Measurement %s does not contain numeric data", meas_name)
+            return None
+        return min(numeric_values), max(numeric_values)
 
     def make_sensitivity_analysis(
         self, measure: str, ref: str = "*"
@@ -301,29 +322,57 @@ class WorstCaseAnalysis(ToleranceDeviations):
         ):
             # Read the log files
             log_data: LogfileData = self.read_logfiles()
-            wc_data = [
-                log_data.get_measure_value(measure, run=run)
-                for run in range(self.last_run_number + 1)
-            ]
 
-            def diff_for_a_ref(wc_data, bit_index):
+            def measure_at(step_index: int) -> float | int | complex | str:
+                result = log_data.get_measure_value(measure, step=step_index)
+                return cast(float | int | complex | str, result)
+
+            wc_data: list[float | complex] = []
+            for run_idx in range(self.last_run_number + 1):
+                value = measure_at(run_idx)
+                if isinstance(value, (int, float)):
+                    wc_data.append(float(value))
+                elif isinstance(value, complex):
+                    wc_data.append(value)
+                else:
+                    try:
+                        wc_data.append(float(value))
+                    except (TypeError, ValueError):
+                        _logger.debug(
+                            "Non-numeric measurement '%s' ignored for run %d",
+                            value,
+                            run_idx,
+                        )
+            if not wc_data:
+                _logger.warning("No numeric data found for measure %s", measure)
+                return None
+
+            def diff_for_a_ref(
+                values: list[float | complex], bit_index: int
+            ) -> tuple[float, float]:
                 """Calculates the difference of the measurement for the toggle of a
                 given bit."""
+
                 bit_updated = 1 << bit_index
-                diffs = []
-                for run in range(len(wc_data)):
-                    if run & bit_updated == 0:
-                        diffs.append(abs(wc_data[run] - wc_data[run | bit_updated]))
+                diffs: list[float] = []
+                for run_idx in range(len(values)):
+                    if run_idx & bit_updated == 0:
+                        base_val = values[run_idx]
+                        toggled_val = values[run_idx | bit_updated]
+                        diffs.append(abs(base_val - toggled_val))
+                if not diffs:
+                    return 0.0, 0.0
                 mean = sum(diffs) / len(diffs)
-                variance = sum([(diff - mean) ** 2 for diff in diffs]) / len(diffs)
+                variance = sum((diff - mean) ** 2 for diff in diffs) / len(diffs)
                 std_div = variance**0.5
                 return mean, std_div
 
-            sensitivities = {}
-            for ref_ in self.elements_analysed:
-                idx = self.elements_analysed.index(ref_)
-                sensitivities[ref_] = diff_for_a_ref(wc_data, idx)
+            sensitivities: dict[str, tuple[float, float]] = {}
+            for idx, ref_name in enumerate(self.elements_analysed):
+                sensitivities[ref_name] = diff_for_a_ref(wc_data, idx)
             total = sum(sens[0] for sens in sensitivities.values())
+            if total == 0:
+                return None
 
             # Calculate the sensitivity for each component if ref is '*'
             # Return the sensitivity as a percentage of the total error
@@ -331,12 +380,15 @@ class WorstCaseAnalysis(ToleranceDeviations):
             # sensitivity as a percentages that sum up to 100%.
             if ref == "*":
                 # Returns a dictionary with all the references sensitivity
-                answer = {}
-                for ref, (sens, sigma) in sensitivities.items():
-                    answer[ref] = sens / total * 100, sigma / total * 100
+                answer: dict[str, tuple[float, float]] = {}
+                for ref_name, (sens, sigma) in sensitivities.items():
+                    answer[ref_name] = sens / total * 100, sigma / total * 100
                 return answer
             else:
                 # Calculates the sensitivity for the given component
+                if ref not in sensitivities:
+                    _logger.warning("Reference %s not part of sensitivity set", ref)
+                    return None
                 sens, sigma = sensitivities[ref]
                 return sens / total * 100, sigma / total * 100
         else:

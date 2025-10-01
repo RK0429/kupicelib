@@ -151,7 +151,9 @@ class AnyRunner(Protocol):
         exe_log: bool = False,
     ) -> RunTask | None: ...
 
-    def wait_completion(self, timeout=None, abort_all_on_timeout=False) -> bool: ...
+    def wait_completion(
+        self, timeout: float | None = None, abort_all_on_timeout: bool = False
+    ) -> bool: ...
 
 
 class SimRunner(AnyRunner):
@@ -341,7 +343,7 @@ class SimRunner(AnyRunner):
     @staticmethod
     def validate_callback_args(
         callback: type[ProcessCallback] | Callable | None,
-        callback_args: tuple | dict | None,
+        callback_args: tuple[Any, ...] | dict[str, Any] | None,
     ) -> dict[str, Any] | None:
         """It validates that the callback_args are matching the callback function.
 
@@ -400,7 +402,7 @@ class SimRunner(AnyRunner):
         *,
         wait_resource: bool = True,
         callback: CallbackType | None = None,
-        callback_args: tuple | dict | None = None,
+        callback_args: tuple[Any, ...] | dict[str, Any] | None = None,
         switches: list[str] | None = None,
         timeout: float | None = None,
         run_filename: str | None = None,

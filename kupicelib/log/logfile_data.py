@@ -298,7 +298,7 @@ class LogfileData:
         return list(self.dataset.keys())
 
     def get_measure_value(
-        self, measure: str, step: int | slice | None = None, **kwargs
+        self, measure: str, step: int | slice | None = None, **kwargs: object
     ) -> float | int | str | LTComplex:
         """Returns a measure value on a given step.
 

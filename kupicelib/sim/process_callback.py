@@ -17,10 +17,11 @@
 # Created:     23-04-2023
 # Licence:     refer to the LICENSE file
 # -------------------------------------------------------------------------------
-""""""
+"""Process-based callback helper."""
 from __future__ import annotations
 
 from multiprocessing import Process, Queue
+from pathlib import Path
 from typing import Any
 
 
@@ -28,21 +29,28 @@ class ProcessCallback(Process):
     """Wrapper for the callback function."""
 
     def __init__(
-        self, raw, log, group=None, name=None, *, daemon: bool | None = None, **kwargs
+        self,
+        raw: Path,
+        log: Path,
+        group: None = None,
+        name: str | None = None,
+        *,
+        daemon: bool | None = None,
+        **kwargs: Any,
     ) -> None:
         super().__init__(group=group, name=name, daemon=daemon)
-        self.queue: Queue = Queue()
-        self.raw_file = raw
-        self.log_file = log
-        self.kwargs = kwargs
+        self.queue: Queue[Any] = Queue()
+        self.raw_file: Path = raw
+        self.log_file: Path = log
+        self.kwargs: dict[str, Any] = dict(kwargs)
 
-    def run(self):
+    def run(self) -> None:
         ret = self.callback(self.raw_file, self.log_file, **self.kwargs)
         if ret is None:
             ret = "Callback doesn't return anything"
         self.queue.put(ret)
 
     @staticmethod
-    def callback(raw_file, log_file, **kwargs) -> Any:
+    def callback(raw_file: Path, log_file: Path, **kwargs: Any) -> Any:
         """This function needs to be overriden."""
         ...

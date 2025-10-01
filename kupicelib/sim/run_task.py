@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+from __future__ import annotations
 
 # -------------------------------------------------------------------------------
 #
@@ -27,7 +28,7 @@ import time
 from collections.abc import Callable
 from pathlib import Path
 from time import sleep
-from typing import Any
+from typing import Any, Mapping
 
 from .process_callback import ProcessCallback
 from .simulator import Simulator
@@ -81,18 +82,18 @@ class RunTask:
 
     def __init__(
         self,
-        simulator: type[Simulator],
-        runno,
+        simulator: type[Simulator] | Simulator,
+        runno: int,
         netlist_file: Path,
-        callback: type[ProcessCallback] | Callable[[Path, Path], Any],
-        callback_args: dict | None = None,
+        callback: type[ProcessCallback] | Callable[[Path, Path], Any] | None,
+        callback_args: Mapping[str, Any] | None = None,
         switches: Any = None,
         timeout: float | None = None,
         verbose: bool = False,
         exe_log: bool = False,
-    ):
-        self.start_time = None
-        self.stop_time = None
+    ) -> None:
+        self.start_time: float | None = None
+        self.stop_time: float | None = None
         self.verbose = verbose
         self.switches = switches
         self.timeout = timeout  # Thanks to Daniel Phili for implementing this
@@ -100,17 +101,16 @@ class RunTask:
         self.runno = runno
         self.netlist_file = netlist_file
         self.callback = callback
-        self.callback_args = callback_args
+        self.callback_args = dict(callback_args) if callback_args is not None else None
         self.retcode = -1  # Signals an error by default
-        self.raw_file = None
-        self.log_file = None
-        self.callback_return = None
+        self.raw_file: Path | None = None
+        self.log_file: Path | None = None
+        self.callback_return: Any = None
         self.exe_log = exe_log
         # Create a LoggerAdapter to include run number and netlist in logs
         self.logger = logging.LoggerAdapter(
-            _logger, {
-                "runno": self.runno, "netlist": str(
-                    self.netlist_file)})
+            _logger, {"runno": self.runno, "netlist": str(self.netlist_file)}
+        )
 
     def print_info(self, logger_fun: Callable[[str], Any], message: str) -> None:
         # Use contextual logger for info/error messages
@@ -118,7 +118,7 @@ class RunTask:
         if self.verbose:
             print(f"{time.asctime()} {logger_fun.__name__}: {message}{END_LINE_TERM}")
 
-    def run(self):
+    def run(self) -> None:
         # Running the Simulation
 
         self.start_time = clock_function()
@@ -152,7 +152,11 @@ class RunTask:
         # Cleanup everything
         if self.retcode == 0:
             self.raw_file = self.netlist_file.with_suffix(self.simulator.raw_extension)
-            if self.raw_file.exists() and self.log_file.exists():
+            if (
+                self.raw_file.exists()
+                and self.log_file is not None
+                and self.log_file.exists()
+            ):
                 # simulation successful
                 self.print_info(
                     _logger.info, f"Simulation Successful. Time elapsed: {sim_time}"
@@ -213,12 +217,12 @@ class RunTask:
         else:
             # Simulation failed
             self.logger.error("Simulation Aborted. Time elapsed: %s", sim_time)
-            if self.log_file.exists():
+            if self.log_file is not None and self.log_file.exists():
                 self.log_file = self.log_file.replace(
                     self.log_file.with_suffix(".fail")
                 )
 
-    def get_results(self) -> None | Any | tuple[str, str]:
+    def get_results(self) -> None | Any | tuple[Path | None, Path | None]:
         """Returns the simulation outputs if the simulation and callback function has
         already finished.
 
@@ -242,7 +246,7 @@ class RunTask:
             else:
                 return self.raw_file, self.log_file
 
-    def wait_results(self) -> Any | tuple[str, str]:
+    def wait_results(self) -> Any | tuple[Path | None, Path | None]:
         """Waits for the completion of the task and returns a tuple with the raw and log
         files.
 
