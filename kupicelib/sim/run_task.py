@@ -25,10 +25,10 @@ __copyright__ = "Copyright 2023, Fribourg Switzerland"
 import logging
 import sys
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from pathlib import Path
 from time import sleep
-from typing import Any, Mapping
+from typing import Any, Mapping, cast
 
 from .process_callback import ProcessCallback
 from .simulator import Simulator
@@ -82,12 +82,12 @@ class RunTask:
 
     def __init__(
         self,
-        simulator: type[Simulator] | Simulator,
+        simulator: type[Simulator],
         runno: int,
         netlist_file: Path,
         callback: type[ProcessCallback] | Callable[[Path, Path], Any] | None,
         callback_args: Mapping[str, Any] | None = None,
-        switches: Any = None,
+        switches: Sequence[str] | None = None,
         timeout: float | None = None,
         verbose: bool = False,
         exe_log: bool = False,
@@ -95,9 +95,9 @@ class RunTask:
         self.start_time: float | None = None
         self.stop_time: float | None = None
         self.verbose = verbose
-        self.switches = switches
+        self.switches = list(switches) if switches is not None else None
         self.timeout = timeout  # Thanks to Daniel Phili for implementing this
-        self.simulator = simulator
+        self.simulator: type[Simulator] = simulator
         self.runno = runno
         self.netlist_file = netlist_file
         self.callback = callback
@@ -127,36 +127,36 @@ class RunTask:
             f": Starting simulation {self.runno}: {self.netlist_file}",
         )
         # Ensure simulator executable is configured if missing
-        if hasattr(
-                self.simulator,
-                'spice_exe') and not self.simulator.spice_exe and hasattr(
-                self.simulator,
-                'get_default_executable'):
-            # Initialize default LTspice executable
-            self.simulator = self.simulator.create_from(None)
+        simulator_cls: type[Simulator] = self.simulator
+        if (
+            hasattr(simulator_cls, "spice_exe")
+            and not getattr(simulator_cls, "spice_exe")
+            and hasattr(simulator_cls, "get_default_executable")
+        ):
+            simulator_cls = simulator_cls.create_from(path_to_exe=None)
+            self.simulator = simulator_cls
         # start execution
-        self.retcode = self.simulator.run(
+        run_result = simulator_cls.run(
             self.netlist_file.absolute().as_posix(),
-            self.switches,
-            self.timeout,
+            cmd_line_switches=self.switches,
+            timeout=self.timeout,
             exe_log=self.exe_log,
         )
+        self.retcode = int(run_result)
         self.stop_time = clock_function()
         # print simulation time with format HH:MM:SS.mmmmmm
 
         # Calculate the time difference
         sim_time = format_time_difference(self.stop_time - self.start_time)
         # Format the time difference
-        self.log_file = self.netlist_file.with_suffix(".log")
+        log_file = self.netlist_file.with_suffix(".log")
+        self.log_file = log_file
 
         # Cleanup everything
         if self.retcode == 0:
-            self.raw_file = self.netlist_file.with_suffix(self.simulator.raw_extension)
-            if (
-                self.raw_file.exists()
-                and self.log_file is not None
-                and self.log_file.exists()
-            ):
+            raw_file = self.netlist_file.with_suffix(self.simulator.raw_extension)
+            self.raw_file = raw_file
+            if raw_file.exists() and log_file.exists():
                 # simulation successful
                 self.print_info(
                     _logger.info, f"Simulation Successful. Time elapsed: {sim_time}"
@@ -180,12 +180,10 @@ class RunTask:
                     try:
                         if self.callback_args is not None:
                             return_or_process = self.callback(
-                                self.raw_file, self.log_file, **self.callback_args
+                                raw_file, log_file, **self.callback_args
                             )
                         else:
-                            return_or_process = self.callback(
-                                self.raw_file, self.log_file
-                            )
+                            return_or_process = self.callback(raw_file, log_file)
                     except Exception:
                         # Log exception with full traceback
                         self.logger.exception("Exception during callback execution")
@@ -217,10 +215,8 @@ class RunTask:
         else:
             # Simulation failed
             self.logger.error("Simulation Aborted. Time elapsed: %s", sim_time)
-            if self.log_file is not None and self.log_file.exists():
-                self.log_file = self.log_file.replace(
-                    self.log_file.with_suffix(".fail")
-                )
+            if log_file.exists():
+                self.log_file = log_file.replace(log_file.with_suffix(".fail"))
 
     def get_results(self) -> None | Any | tuple[Path | None, Path | None]:
         """Returns the simulation outputs if the simulation and callback function has

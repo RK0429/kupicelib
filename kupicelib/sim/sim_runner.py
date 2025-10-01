@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+from __future__ import annotations
 
 # -------------------------------------------------------------------------------
 #
@@ -110,7 +111,7 @@ import concurrent.futures
 import inspect  # Library used to get the arguments of the callback function
 import logging
 import shutil
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from concurrent.futures import Future, ThreadPoolExecutor
 from pathlib import Path
 from time import sleep
@@ -143,17 +144,19 @@ class AnyRunner(Protocol):
         netlist: str | Path | BaseEditor,
         *,
         wait_resource: bool = True,
-        callback: type[ProcessCallback] | Callable | None = None,
-        callback_args: tuple | dict | None = None,
-        switches: list[str] | None = None,
+        callback: CallbackType | None = None,
+        callback_args: Sequence[Any] | Mapping[str, Any] | None = None,
+        switches: Sequence[str] | None = None,
         timeout: float | None = None,
         run_filename: str | None = None,
         exe_log: bool = False,
-    ) -> RunTask | None: ...
+    ) -> RunTask | None:
+        ...
 
     def wait_completion(
         self, timeout: float | None = None, abort_all_on_timeout: bool = False
-    ) -> bool: ...
+    ) -> bool:
+        ...
 
 
 class SimRunner(AnyRunner):
@@ -180,12 +183,12 @@ class SimRunner(AnyRunner):
     def __init__(
         self,
         *,
-        simulator=None,
+        simulator: type[Simulator] | None = None,
         parallel_sims: int = 4,
         timeout: float = 600.0,
         verbose: bool = False,
         output_folder: str | None = None,
-    ):
+    ) -> None:
         # The '*' in the parameter list forces the user to use named parameters for the
         # rest of the parameters.
         # This is a good practice to avoid confusion.
@@ -208,7 +211,7 @@ class SimRunner(AnyRunner):
             max_workers=self.parallel_sims
         )
         # track pairs of (task, future)
-        self.active_tasks: list[tuple[RunTask, Future]] = []
+        self.active_tasks: list[tuple[RunTask, Future[RunTask]]] = []
         self.completed_tasks: list[RunTask] = []
         self._iterator_counter = 0  # Note: Nested iterators are not supported
 
@@ -221,12 +224,13 @@ class SimRunner(AnyRunner):
         # Gets a simulator.
         if simulator is None:
             raise SimRunnerConfigError(
-                "No default simulator defined; please specify a simulator")
-        elif issubclass(simulator, Simulator):
-            self.simulator = simulator
-        else:
+                "No default simulator defined; please specify a simulator"
+            )
+        if not isinstance(simulator, type) or not issubclass(simulator, Simulator):
             raise SimRunnerConfigError(
-                "Invalid simulator type; expected subclass of Simulator")
+                "Invalid simulator type; expected subclass of Simulator"
+            )
+        self.simulator: type[Simulator] = simulator
         _logger.info("SimRunner initialized")
         if self.verbose:
             _logger.setLevel(logging.DEBUG)
@@ -255,10 +259,9 @@ class SimRunner(AnyRunner):
         :type spice_tool: Simulator type
         :return: Nothing
         """
-        if issubclass(spice_tool, Simulator):
-            self.simulator = spice_tool
-        else:
-            raise TypeError("Expecting str or Simulator objects")
+        if not issubclass(spice_tool, Simulator):
+            raise TypeError("Expecting Simulator subclasses")
+        self.simulator = spice_tool
 
     def clear_command_line_switches(self) -> None:
         """Clear all the command line switches added previously."""
@@ -342,8 +345,8 @@ class SimRunner(AnyRunner):
 
     @staticmethod
     def validate_callback_args(
-        callback: type[ProcessCallback] | Callable | None,
-        callback_args: tuple[Any, ...] | dict[str, Any] | None,
+        callback: CallbackType | None,
+        callback_args: Sequence[Any] | Mapping[str, Any] | None,
     ) -> dict[str, Any] | None:
         """It validates that the callback_args are matching the callback function.
 
@@ -363,7 +366,7 @@ class SimRunner(AnyRunner):
                 raise ValueError(
                     "Callback has more than two arguments; callback_args is None"
                 )
-            if isinstance(callback_args, dict):
+            if isinstance(callback_args, Mapping):
                 for pos, param in enumerate(args):
                     if pos > 1 and param not in callback_args:
                         raise ValueError(
@@ -375,15 +378,17 @@ class SimRunner(AnyRunner):
                     "Callback function has "
                     f"{len(args)} arguments, but {len(callback_args)} callback_args are given"
                 )
-            if isinstance(callback_args, tuple):
-                # Convert into a dictionary
+            if isinstance(callback_args, Mapping):
+                return dict(callback_args)
+            if isinstance(callback_args, (list, tuple)):
                 return {
                     param: callback_args[pos - 2]
                     for pos, param in enumerate(args)
                     if pos > 1
                 }
-            else:
-                return callback_args
+            raise TypeError(
+                "callback_args must be a mapping or sequence when additional arguments are required"
+            )
         return {}  # Return empty dict for functions with exactly 2 arguments
 
     def _wait_for_resources(self, wait_resource: bool, timeout: float) -> bool:
@@ -458,52 +463,49 @@ class SimRunner(AnyRunner):
             netlist, wait_resource, switches, timeout, run_filename, exe_log,
         )
         callback_kwargs = self.validate_callback_args(callback, callback_args)
-        if switches is None:
-            switches = []
+        switch_args = (
+            list(switches)
+            if switches is not None
+            else list(self.cmdline_switches)
+        )
         run_netlist_file = self._prepare_sim(netlist, run_filename)
 
-        if timeout is None:
-            timeout = self.timeout
+        effective_timeout = timeout if timeout is not None else self.timeout
 
         # Wait for an available resource slot or timeout
-        if not self._wait_for_resources(wait_resource, timeout):
+        if not self._wait_for_resources(wait_resource, effective_timeout):
             if self.verbose:
-                _logger.warning(f"Timeout on launching simulation {self.run_count}.")
+                _logger.warning(
+                    "Timeout on launching simulation %d.", self.run_count
+                )
             return None
 
-        # Prepare command-line switches
-        cmdline_switches = switches or self.cmdline_switches
-
-        # Use a dummy callback if None is provided, as RunTask expects a non-None
-        # callback
-        actual_callback = callback if callback is not None else (lambda raw, log: None)
-
         # Launch the simulation task via ThreadPoolExecutor
-        t = RunTask(
+        task = RunTask(
             simulator=self.simulator,
             runno=self.run_count,
             netlist_file=run_netlist_file,
-            callback=actual_callback,
+            callback=callback,
             callback_args=callback_kwargs,
-            switches=cmdline_switches,
-            timeout=timeout,
+            switches=switch_args,
+            timeout=effective_timeout,
             verbose=self.verbose,
             exe_log=exe_log,
         )
-        future = self._executor.submit(t)
-        self.active_tasks.append((t, future))
+        future = cast(Future[RunTask], self._executor.submit(task))
+        self.active_tasks.append((task, future))
         _logger.debug(
             "RunTask submitted: runno=%d, netlist_file=%s",
-            t.runno,
-            t.netlist_file,
+            task.runno,
+            task.netlist_file,
         )
-        return t
+        return task
 
     def run_now(
         self,
         netlist: str | Path | BaseEditor,
         *,
-        switches: list[str] | None = None,
+        switches: Sequence[str] | None = None,
         run_filename: str | None = None,
         timeout: float | None = None,
         exe_log: bool = False,
@@ -528,8 +530,7 @@ class SimRunner(AnyRunner):
         :type exe_log: bool, optional
         :returns: the raw and log filenames
         """
-        if switches is None:
-            switches = []
+        switch_args = list(switches) if switches is not None else []
         _logger.debug(
             "run_now called: netlist=%s, switches=%s,"
             " run_filename=%s, timeout=%s, exe_log=%s",
@@ -538,14 +539,14 @@ class SimRunner(AnyRunner):
         run_netlist_file = self._prepare_sim(netlist, run_filename)
 
         cmdline_switches = (
-            switches or self.cmdline_switches
+            switch_args or self.cmdline_switches
         )  # If switches are passed, they override the ones inside
         # the class.
 
         if timeout is None:
             timeout = self.timeout
 
-        def dummy_callback(raw, log):
+        def dummy_callback(raw: Path, log: Path) -> None:
             """Dummy call back that does nothing."""
             return None
 
