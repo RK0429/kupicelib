@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+from __future__ import annotations
 
 import logging
 
@@ -23,7 +24,7 @@ import threading
 import time
 import zipfile
 from pathlib import Path
-from typing import Any
+from typing import Any, TypedDict
 
 from ..editor.base_editor import BaseEditor
 from ..sim.sim_runner import SimRunner
@@ -31,7 +32,18 @@ from ..sim.sim_runner import SimRunner
 _logger = logging.getLogger("kupicelib.ServerSimRunner")
 
 
-def zip_files(raw_filename: Path, log_filename: Path):
+class CompletedTaskInfo(TypedDict):
+    runno: int
+    retcode: int
+    circuit: Path
+    raw: Path
+    log: Path
+    zipfile: Path
+    start: float | None
+    stop: float | None
+
+
+def zip_files(raw_filename: Path, log_filename: Path) -> Path:
     zip_filename = raw_filename.with_suffix(".zip")
     with zipfile.ZipFile(zip_filename, "w", zipfile.ZIP_DEFLATED) as zip_file:
         zip_file.write(raw_filename)
@@ -54,24 +66,22 @@ class ServerSimRunner(threading.Thread):
         self,
         parallel_sims: int = 4,
         timeout: float | None = None,
-        verbose=False,
+        verbose: bool = False,
         output_folder: str | None = None,
-        simulator=None,
-    ):
+        simulator: Any = None,
+    ) -> None:
         super().__init__(name="SimManager")
         # SimRunner expects a float for timeout, so use 600.0 as default if None
         # is provided
         sim_timeout = 600.0 if timeout is None else timeout
-        self.runner = SimRunner(
+        self.runner: SimRunner = SimRunner(
             simulator=simulator,
             parallel_sims=parallel_sims,
             timeout=sim_timeout,
             verbose=verbose,
             output_folder=output_folder,
         )
-        self.completed_tasks: list[dict[str, Any]] = (
-            []
-        )  # This is a list of dictionaries with the information of the completed tasks
+        self.completed_tasks: list[CompletedTaskInfo] = []
         self._stop = False
 
     def run(self) -> None:
@@ -81,13 +91,25 @@ class ServerSimRunner(threading.Thread):
         """
         while True:
             self.runner.update_completed()
-            while len(self.runner.completed_tasks) > 0:
+            while self.runner.completed_tasks:
                 task = self.runner.completed_tasks.pop(0)
                 zip_filename = task.callback_return
+                if not isinstance(zip_filename, Path):
+                    _logger.warning(
+                        "Unexpected callback return type %s for run %s",
+                        type(zip_filename).__name__,
+                        task.runno,
+                    )
+                    continue
+                if task.raw_file is None or task.log_file is None:
+                    _logger.warning(
+                        "Completed task %s missing raw/log files", task.runno
+                    )
+                    continue
                 self.completed_tasks.append(
                     {
-                        "runno": task.runno,
-                        "retcode": task.retcode,
+                        "runno": int(task.runno),
+                        "retcode": int(task.retcode),
                         "circuit": task.netlist_file,
                         "raw": task.raw_file,
                         "log": task.log_file,
@@ -129,16 +151,16 @@ class ServerSimRunner(threading.Thread):
             _logger.info(f"Started task {netlist} with job_id{task.runno}")
             return task.runno
 
-    def _erase_files_and_info(self, pos):
+    def _erase_files_and_info(self, pos: int) -> None:
         task = self.completed_tasks[pos]
         for filename in ("circuit", "log", "raw", "zipfile"):
-            f = task[filename]
-            if f.exists():
-                _logger.info(f"deleting {f}")
-                f.unlink()
+            file_path = task[filename]
+            if isinstance(file_path, Path) and file_path.exists():
+                _logger.info(f"deleting {file_path}")
+                file_path.unlink()
         del self.completed_tasks[pos]
 
-    def erase_files_of_runno(self, runno):
+    def erase_files_of_runno(self, runno: int) -> None:
         """Will delete all files related with a completed task.
 
         Will also delete information on the completed_tasks attribute.
@@ -148,13 +170,13 @@ class ServerSimRunner(threading.Thread):
                 self._erase_files_and_info(i)
                 break
 
-    def cleanup_completed(self):
+    def cleanup_completed(self) -> None:
         while len(self.completed_tasks):
             self._erase_files_and_info(0)
 
-    def stop(self):
+    def stop(self) -> None:
         _logger.info("stopping...ServerSimRunner")
         self._stop = True
 
-    def running(self):
+    def running(self) -> bool:
         return self._stop is False
