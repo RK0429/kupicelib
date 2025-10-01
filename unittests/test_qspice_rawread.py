@@ -504,37 +504,43 @@ class test_kupicelib(unittest.TestCase):
         if has_qspice:
             editor = SpiceEditor(test_dir + "AC.net")
             runner = SimRunner(output_folder="temp", simulator=qspice_simulator)
-            raw_file, log_file = runner.run_now(editor)
+            raw_file, _log_file = runner.run_now(editor)
+            if raw_file is None:
+                self.fail("QSPICE runner did not return a RAW file path")
+            raw_path = raw_file
 
-            R1 = editor.get_component_floatvalue("R1")
-            C1 = editor.get_component_floatvalue("C1")
+            r1_value = editor.get_component_floatvalue("R1")
+            c1_value = editor.get_component_floatvalue("C1")
         else:
-            raw_file = test_dir + "AC_1.raw"
-            test_dir + "AC_1.log"
-            R1 = 100
-            C1 = 10e-6
+            raw_path = test_dir + "AC_1.raw"
+            r1_value = 100.0
+            c1_value = 10e-6
         # Compute the RC AC response with the resistor and capacitor values from
         # the netlist.
-        raw = RawRead(raw_file)
+        raw = RawRead(raw_path)
         vout_trace = raw.get_trace("V(out)")
         vin_trace = raw.get_trace("V(in)")
-        for point, freq in enumerate(raw.axis):
+        axis = raw.axis
+        assert axis is not None, "RAW file is expected to provide an axis"
+        for point, freq in enumerate(axis):
             vout1 = vout_trace.get_point_at(freq)
             vout2 = vout_trace.get_point(point)
             vin = vin_trace.get_point(point)
             self.assertEqual(vout1, vout2)
             self.assertEqual(abs(vin), 1)
             # Calculate the magnitude of the answer Vout = Vin/(1+jwRC)
-            h = vin / (1 + 2j * pi * freq * R1 * C1)
+            h = vin / (1 + 2j * pi * freq * r1_value * c1_value)
             self.assertAlmostEqual(
                 abs(vout1),
                 abs(h),
                 5,
                 f"Difference between theoretical value and simulation at point {point}",
             )
+            phase_vout = float(angle(vout1))
+            phase_h = float(angle(h))
             self.assertAlmostEqual(
-                angle(vout1),
-                angle(h),
+                phase_vout,
+                phase_h,
                 5,
                 f"Difference between theoretical value and simulation at point {point}",
             )
@@ -548,27 +554,31 @@ class test_kupicelib(unittest.TestCase):
         if has_qspice:
             editor = SpiceEditor(test_dir + "AC - STEP.net")
             runner = SimRunner(output_folder="temp", simulator=qspice_simulator)
-            raw_file, log_file = runner.run_now(editor)
-            C1 = editor.get_component_floatvalue("C1")
+            raw_file, _log_file = runner.run_now(editor)
+            if raw_file is None:
+                self.fail("QSPICE runner did not return a RAW file path")
+            raw_path = raw_file
+            c1_value = editor.get_component_floatvalue("C1")
         else:
-            raw_file = test_dir + "AC - STEP_1.raw"
-            test_dir + "AC - STEP_1.log"
-            C1 = 159.1549e-6  # 159.1549uF
+            raw_path = test_dir + "AC - STEP_1.raw"
+            c1_value = 159.1549e-6  # 159.1549uF
         # Compute the RC AC response with the resistor and capacitor values from
         # the netlist.
-        raw = RawRead(raw_file)
+        raw = RawRead(raw_path)
         vin_trace = raw.get_trace("V(in)")
         vout_trace = raw.get_trace("V(out)")
+        axis = raw.axis
+        assert axis is not None, "RAW file is expected to provide an axis"
         for step, step_dict in enumerate(raw.steps):
-            R1 = step_dict["r1"]
+            r1_value = step_dict["r1"]
             # print(step, step_dict)
             for point in range(0, raw.get_len(step), 10):  # 10 times less points
                 print(point, end=" - ")
                 vout = vout_trace.get_point(point, step)
                 vin = vin_trace.get_point(point, step)
-                freq = raw.axis.get_point(point, step)
+                freq = axis.get_point(point, step)
                 # Calculate the magnitude of the answer Vout = Vin/(1+jwRC)
-                h = vin / (1 + 2j * pi * freq * R1 * C1)
+                h = vin / (1 + 2j * pi * freq * r1_value * c1_value)
                 # print(freq, vout, h, vout - h)
                 self.assertAlmostEqual(
                     abs(vout),
@@ -576,9 +586,11 @@ class test_kupicelib(unittest.TestCase):
                     5,
                     f"Difference between theoretical value ans simulation at point {point}:",
                 )
+                phase_vout = float(angle(vout))
+                phase_h = float(angle(h))
                 self.assertAlmostEqual(
-                    angle(vout),
-                    angle(h),
+                    phase_vout,
+                    phase_h,
                     5,
                     f"Difference between theoretical value ans simulation at point {point}",
                 )

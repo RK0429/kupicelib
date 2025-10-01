@@ -11,7 +11,7 @@ sallenkey = AscEditor("./testfiles/sallenkey.asc")  # Reads the asc file into me
 runner = SimRunner(
     simulator=LTspice, output_folder="./temp_sens", verbose=True
 )  # Instantiates the runner with a temp folder set
-sa = QuickSensitivityAnalysis(
+sa: QuickSensitivityAnalysis = QuickSensitivityAnalysis(
     sallenkey, runner
 )  # Instantiates the Worst Case Analysis class
 
@@ -42,6 +42,8 @@ logs.export_data("./temp_sens/data.csv")  # Exports the data to a csv file
 
 print("Sensitivity results:")
 sens = sa.get_sensitivity_data("*", "fcut")
+if not isinstance(sens, dict):
+    raise RuntimeError("Sensitivity analysis did not return component data")
 for comp, value in sens.items():
     print(f"{comp}: {value:.2f}%")
 
@@ -53,5 +55,7 @@ sa.clear_simulation_data()
 sa.run_analysis()
 print("Sensitivity results:")
 sens = sa.get_sensitivity_data("*", "fcut")
+if not isinstance(sens, dict):
+    raise RuntimeError("Sensitivity analysis did not return component data")
 for comp, value in sens.items():
     print(f"{comp}: {value:.2f}%")

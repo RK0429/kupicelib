@@ -16,7 +16,7 @@ sallenkey = AscEditor("./testfiles/sallenkey.asc")  # Reads the asc file into me
 runner = SimRunner(
     simulator=LTspice, output_folder="./temp_fwca", verbose=True
 )  # Instantiates the runner with a temp folder set
-wca = FastWorstCaseAnalysis(
+wca: FastWorstCaseAnalysis = FastWorstCaseAnalysis(
     sallenkey, runner
 )  # Instantiates the Worst Case Analysis class
 
@@ -46,9 +46,20 @@ print("=====================================")
 # Now using the second method, where the simulations are ran one by one
 wca.clear_simulation_data()  # Clears the simulation data
 wca.reset_netlist()  # Resets the netlist to the original
-nominal, min_value, max_comp_values, max_value, min_comp_values = wca.run_analysis(
-    measure="fcut"
-)  # Makes the Worst Case Analysis
+result: tuple[
+    float,
+    float,
+    dict[str, float],
+    float,
+    dict[str, float],
+] = wca.run_analysis(measure="fcut")
+(
+    nominal,
+    min_value,
+    max_comp_values,
+    max_value,
+    min_comp_values,
+) = result
 print("Nominal Value", nominal)
 print("Worst Case Min", min_value)
 print("Min Component Values")

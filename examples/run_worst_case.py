@@ -54,11 +54,11 @@ for param in ("fcut", "fcut_FROM"):
     )
 
 # All components sensitivity
-sens = wca.make_sensitivity_analysis(
-    "fcut", "*"
-)  # Makes the sensitivity analysis for all components
-for comp, value in sens.items():
-    print(f"{comp}: Mean: {value[0]:.2f}% StdDev:{value[1]:.2f}%")
+sens = wca.make_sensitivity_analysis("fcut", "*")
+if not isinstance(sens, dict):
+    raise RuntimeError("Sensitivity analysis did not return component data")
+for comp, (mean_pct, sigma_pct) in sens.items():
+    print(f"{comp}: Mean: {mean_pct:.2f}% StdDev:{sigma_pct:.2f}%")
 input("Press Enter")
 
 wca.cleanup_files()  # Deletes the temporary files
@@ -68,19 +68,22 @@ print("=====================================")
 wca.clear_simulation_data()  # Clears the simulation data
 wca.reset_netlist()  # Resets the netlist to the original
 wca.run_analysis()  # Makes the Worst Case Analysis
-min_fcut, max_fcut = wca.get_min_max_measure_value("fcut")
+min_max = wca.get_min_max_measure_value("fcut")
+if min_max is None:
+    raise RuntimeError("Missing measurement results for fcut")
+min_fcut, max_fcut = min_max
 print(f"fcut: min:{min_fcut} max:{max_fcut}")
-sens = wca.make_sensitivity_analysis(
-    "fcut", "R1"
-)  # Makes the sensitivity analysis for R1
-print(f"R1: Mean: {sens[0]:.2f}% StdDev:{sens[1]:.2f}%")
+sens_r1 = wca.make_sensitivity_analysis("fcut", "R1")
+if not isinstance(sens_r1, tuple):
+    raise RuntimeError("Sensitivity analysis for R1 did not return tuple data")
+print(f"R1: Mean: {sens_r1[0]:.2f}% StdDev:{sens_r1[1]:.2f}%")
 input("Press Enter")
 
 # All components sensitivity
-sens = wca.make_sensitivity_analysis(
-    "fcut", "*"
-)  # Makes the sensitivity analysis for all components
-for comp, value in sens.items():
-    print(f"{comp}: Mean: {value[0]:.2f}% StdDev:{value[1]:.2f}%")
+sens = wca.make_sensitivity_analysis("fcut", "*")
+if not isinstance(sens, dict):
+    raise RuntimeError("Sensitivity analysis did not return component data")
+for comp, (mean_pct, sigma_pct) in sens.items():
+    print(f"{comp}: Mean: {mean_pct:.2f}% StdDev:{sigma_pct:.2f}%")
 input("Press Enter")
 wca.cleanup_files()  # Deletes the temporary files

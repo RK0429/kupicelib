@@ -218,9 +218,11 @@ class RawReader_Test(unittest.TestCase):
                     testset[simulator]["ac"]["expected_tracelen"],
                     "Not the expected number of points",
                 )
+                axis = raw.axis
+                assert axis is not None, "RAW file is expected to provide an axis"
                 self.assertEqual(
                     tracelen,
-                    len(raw.axis),
+                    len(axis),
                     "Not the expected number of points on the axis",
                 )
                 freqrange = (
@@ -240,7 +242,7 @@ class RawReader_Test(unittest.TestCase):
                     vin_name = "in"
                 vout_trace = raw.get_trace(vout_name)
                 vin_trace = raw.get_trace(vin_name)
-                for point, freq in enumerate(raw.axis):
+                for point, freq in enumerate(axis):
                     # print(f"testing pt {point} for freq {abs(freq)}")
                     vout1 = vout_trace.get_point_at(freq)
                     vout2 = vout_trace.get_point(point)
@@ -296,9 +298,11 @@ class RawReader_Test(unittest.TestCase):
                         "Not the expected number of points",
                     )
 
+                axis = raw.axis
+                assert axis is not None, "RAW file is expected to provide an axis"
                 self.assertEqual(
                     tracelen,
-                    len(raw.axis),
+                    len(axis),
                     "Not the expected number of points on the axis",
                 )
                 timerange = (
