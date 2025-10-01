@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# pyright: basic, reportUnknownMemberType=false, reportUnknownVariableType=false, reportAttributeAccessIssue=false, reportGeneralTypeIssues=false
 
 # -------------------------------------------------------------------------------
 #

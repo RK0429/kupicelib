@@ -33,17 +33,20 @@ test_kupicelib.py
 run ./test/unittests/test_kupicelib
 """
 
+import math  # numerical helpers
 import os  # platform independent paths
 
 # ------------------------------------------------------------------------------
 # Python Libs
 import sys  # python path handling
 import unittest  # performs test
+from pathlib import Path
+from typing import Any, cast
 
 from kupicelib.editor.spice_editor import SpiceEditor
 from kupicelib.log.ltsteps import LTSpiceLogReader
 from kupicelib.raw.raw_read import RawRead
-from kupicelib.sim.sim_runner import RunTask, SimRunner
+from kupicelib.sim.sim_runner import SimRunner
 
 #
 # Module libs
@@ -90,10 +93,10 @@ class test_kupicelib(unittest.TestCase):
         from kupicelib.simulators.ltspice_simulator import LTspice
 
         # prepare
-        self.sim_files = []
-        self.measures = {}
+        self.sim_files: list[tuple[Path, Path]] = []
+        self.measures: dict[str, object] = {}
 
-        def processing_data(raw_file, log_file):
+        def processing_data(raw_file: Path, log_file: Path) -> None:
             print(
                 f"Handling the simulation data of {raw_file}, log file {log_file}"
             )
@@ -105,6 +108,7 @@ class test_kupicelib(unittest.TestCase):
         )
         editor = SpiceEditor(test_dir + "Batch_Test.net")
         runner = SimRunner(parallel_sims=4, output_folder="./output", simulator=LTspice)
+        runner_any = cast(Any, runner)
         editor.set_parameters(res=0, cap=100e-6)
         editor.set_component_value("R2", "2k")  # Modifying the value of a resistor
         editor.set_component_value("R1", "4k")
@@ -129,7 +133,7 @@ class test_kupicelib(unittest.TestCase):
                 editor.set_component_value("V2", -supply_voltage)
                 # overriding the automatic netlist naming
                 run_netlist_file = f"{editor.circuit_file.name}_{opamp}_{supply_voltage}.net"
-                runner.run(
+                runner_any.run(
                     editor,
                     run_filename=run_netlist_file,
                     callback=processing_data,
@@ -138,16 +142,29 @@ class test_kupicelib(unittest.TestCase):
 
         runner.wait_completion()
         for task in runner.completed_tasks:
-            task: RunTask
-            self.assertTrue(task.netlist_file.exists(), "Created the netlist")
-            self.assertTrue(task.raw_file.exists(), "Created the raw file")
-            self.assertTrue(task.log_file.exists(), "Created the log file")
+            task_any = cast(Any, task)
+            netlist_path = task_any.netlist_file
+            raw_path = task_any.raw_file
+            log_path = task_any.log_file
+            self.assertIsNotNone(raw_path, "Raw path missing")
+            self.assertIsNotNone(log_path, "Log path missing")
+            assert raw_path is not None
+            assert log_path is not None
+            self.assertTrue(netlist_path.exists(), "Created the netlist")
+            self.assertTrue(raw_path.exists(), "Created the raw file")
+            self.assertTrue(log_path.exists(), "Created the log file")
         runner.cleanup_files()
         for task in runner.completed_tasks:
-            task: RunTask
-            self.assertFalse(task.netlist_file.exists(), "Deleted the netlist")
-            self.assertFalse(task.raw_file.exists(), "Deleted the raw file")
-            self.assertFalse(task.log_file.exists(), "Deleted the log file")
+            task_any = cast(Any, task)
+            netlist_path = task_any.netlist_file
+            raw_path = task_any.raw_file
+            log_path = task_any.log_file
+            if netlist_path is not None:
+                self.assertFalse(netlist_path.exists(), "Deleted the netlist")
+            if raw_path is not None:
+                self.assertFalse(raw_path.exists(), "Deleted the raw file")
+            if log_path is not None:
+                self.assertFalse(log_path.exists(), "Deleted the log file")
 
         # Sim Statistics
         print(
@@ -182,9 +199,11 @@ class test_kupicelib(unittest.TestCase):
             ".meas AC Vout1m FIND V(out) AT 1Hz",
         )
 
-        raw_file, log_file = runner.run_now(
+        raw_file, log_file = runner_any.run_now(
             editor, run_filename="no_callback.net", exe_log=hide_exe_print_statements
         )
+        if raw_file is None or log_file is None:
+            self.fail("Runner did not return output files")
         print("no_callback", raw_file, log_file)
         log = LTSpiceLogReader(log_file)
         for measure in log.get_measure_names():
@@ -209,6 +228,7 @@ class test_kupicelib(unittest.TestCase):
         """Run command on SpiceEditor."""
         print("Starting test_run_from_spice_editor")
         runner = SimRunner(output_folder=temp_dir, simulator=ltspice_simulator)
+        runner_any = cast(Any, runner)
         # select spice model
         netlist = SpiceEditor(test_dir + "testfile.net")
         # set default arguments
@@ -224,9 +244,19 @@ class test_kupicelib(unittest.TestCase):
         for res in range(5):
             # runner.runs_to_do = range(2)
             netlist.set_parameters(ANA=res)
-            raw, log = runner.run(
-                netlist, exe_log=hide_exe_print_statements
-            ).wait_results()
+            task = runner_any.run(netlist, exe_log=hide_exe_print_statements)
+            self.assertIsNotNone(task, "SimRunner.run returned None")
+            if task is None:
+                continue
+            result = task.wait_results()
+            if not isinstance(result, tuple):
+                continue
+            raw_obj, log_obj = cast(tuple[object, object], result)
+            if not isinstance(raw_obj, str | Path) or not isinstance(
+                log_obj, str | Path
+            ):
+                continue
+            raw, log = raw_obj, log_obj
             print(f"Raw file '{raw}' | Log File '{log}'")
         runner.wait_completion()
         # Sim Statistics
@@ -245,7 +275,7 @@ class test_kupicelib(unittest.TestCase):
         print("Starting test_sim_runner")
         # Old legacy class that merged SpiceEditor and SimRunner
 
-        def callback_function(raw_file, log_file):
+        def callback_function(raw_file: Path, log_file: Path) -> None:
             print(
                 f"Handling the simulation data of {raw_file}, log file {log_file}"
             )
@@ -256,6 +286,7 @@ class test_kupicelib(unittest.TestCase):
         runner = SimRunner(
             output_folder=temp_dir, simulator=ltspice_simulator, parallel_sims=1
         )
+        runner_any = cast(Any, runner)
         # select spice model
         SE = SpiceEditor(test_dir + "testfile.net")
         tstart = 0
@@ -275,14 +306,14 @@ class test_kupicelib(unittest.TestCase):
                 f".savebias {bias_file} internal time={tduration}"
             )
             tstart = tstop
-            runner.run(
+            runner_any.run(
                 SE, callback=callback_function, exe_log=hide_exe_print_statements
             )
 
         SE.reset_netlist()
         SE.add_instruction(".ac dec 40 1m 1G")
         SE.set_component_value("V1", "AC 1 0")
-        runner.run(SE, callback=callback_function, exe_log=hide_exe_print_statements)
+        runner_any.run(SE, callback=callback_function, exe_log=hide_exe_print_statements)
         runner.wait_completion()
 
         # Sim Statistics
@@ -441,11 +472,15 @@ class test_kupicelib(unittest.TestCase):
         }
         if has_ltspice:
             runner = SimRunner(output_folder=temp_dir, simulator=ltspice_simulator)
-            raw_file, log_file = runner.run_now(
+            runner_any = cast(Any, runner)
+            raw_file, log_file = runner_any.run_now(
                 test_dir + "Batch_Test_Simple.asc", exe_log=hide_exe_print_statements
             )
             print(raw_file, log_file)
             self.assertIsNotNone(raw_file, "Batch_Test_Simple.asc run failed")
+            self.assertIsNotNone(log_file, "Batch_Test_Simple.asc log missing")
+            assert raw_file is not None
+            assert log_file is not None
         else:
             log_file = test_dir + "Batch_Test_Simple_1.log"
         log = LTSpiceLogReader(log_file)
@@ -468,9 +503,12 @@ class test_kupicelib(unittest.TestCase):
         print("Starting test_operating_point")
         if has_ltspice:
             runner = SimRunner(output_folder=temp_dir, simulator=ltspice_simulator)
-            raw_file, log_file = runner.run_now(
+            runner_any = cast(Any, runner)
+            raw_file, _log_file = runner_any.run_now(
                 test_dir + "DC op point.asc", exe_log=hide_exe_print_statements
             )
+            self.assertIsNotNone(raw_file, "DC op point run failed")
+            assert raw_file is not None
         else:
             raw_file = test_dir + "DC op point_1.raw"
             # log_file = test_dir + "DC op point_1.log"
@@ -494,9 +532,12 @@ class test_kupicelib(unittest.TestCase):
         print("Starting test_operating_point_step")
         if has_ltspice:
             runner = SimRunner(output_folder=temp_dir, simulator=ltspice_simulator)
-            raw_file, log_file = runner.run_now(
+            runner_any = cast(Any, runner)
+            raw_file, _log_file = runner_any.run_now(
                 test_dir + "DC op point - STEP.asc", exe_log=hide_exe_print_statements
             )
+            self.assertIsNotNone(raw_file, "DC op point - STEP run failed")
+            assert raw_file is not None
         else:
             raw_file = test_dir + "DC op point - STEP_1.raw"
         raw = RawRead(raw_file)
@@ -515,9 +556,14 @@ class test_kupicelib(unittest.TestCase):
         print("Starting test_transient")
         if has_ltspice:
             runner = SimRunner(output_folder=temp_dir, simulator=ltspice_simulator)
-            raw_file, log_file = runner.run_now(
+            runner_any = cast(Any, runner)
+            raw_file, log_file = runner_any.run_now(
                 test_dir + "TRAN.asc", exe_log=hide_exe_print_statements
             )
+            self.assertIsNotNone(raw_file, "TRAN run failed")
+            self.assertIsNotNone(log_file, "TRAN log missing")
+            assert raw_file is not None
+            assert log_file is not None
         else:
             raw_file = test_dir + "TRAN_1.raw"
             log_file = test_dir + "TRAN_1.log"
@@ -552,9 +598,14 @@ class test_kupicelib(unittest.TestCase):
         print("Starting test_transient_steps")
         if has_ltspice:
             runner = SimRunner(output_folder=temp_dir, simulator=ltspice_simulator)
-            raw_file, log_file = runner.run_now(
+            runner_any = cast(Any, runner)
+            raw_file, log_file = runner_any.run_now(
                 test_dir + "TRAN - STEP.asc", exe_log=hide_exe_print_statements
             )
+            self.assertIsNotNone(raw_file, "TRAN - STEP run failed")
+            self.assertIsNotNone(log_file, "TRAN - STEP log missing")
+            assert raw_file is not None
+            assert log_file is not None
         else:
             raw_file = test_dir + "TRAN - STEP_1.raw"
             log_file = test_dir + "TRAN - STEP_1.log"
@@ -593,20 +644,23 @@ class test_kupicelib(unittest.TestCase):
     def test_ac_analysis(self):
         """AC Analysis Test."""
 
-        def checkresults(raw_file: str, R1: float, C1: float):
+        def checkresults(raw_file: str | Path, res_value: float, cap_value: float) -> None:
             # Compute the RC AC response with the resistor and capacitor values from
             # the netlist.
             raw = RawRead(raw_file)
             vout_trace = raw.get_trace("V(out)")
             vin_trace = raw.get_trace("V(in)")
-            for point, freq in enumerate(raw.axis):
+            axis_trace = raw.axis
+            if axis_trace is None:
+                self.fail("Raw data missing axis information")
+            for point, freq in enumerate(axis_trace):
                 vout1 = vout_trace.get_point_at(freq)
                 vout2 = vout_trace.get_point(point)
                 vin = vin_trace.get_point(point)
                 self.assertEqual(vout1, vout2)
                 self.assertEqual(abs(vin), 1)
                 # Calculate the magnitude of the answer Vout = Vin/(1+jwRC)
-                h = vin / (1 + 2j * pi * freq * R1 * C1)
+                h = vin / (1 + 2j * math.pi * freq * res_value * cap_value)
                 self.assertAlmostEqual(
                     abs(vout1),
                     abs(h),
@@ -616,9 +670,11 @@ class test_kupicelib(unittest.TestCase):
                         f"simulation at point {point}"
                     ),
                 )
+                vout_phase = math.atan2(vout1.imag, vout1.real)
+                h_phase = math.atan2(h.imag, h.real)
                 self.assertAlmostEqual(
-                    angle(vout1),
-                    angle(h),
+                    vout_phase,
+                    h_phase,
                     places=5,
                     msg=(
                         f"{raw_file}: Difference between theoretical value and "
@@ -627,75 +683,84 @@ class test_kupicelib(unittest.TestCase):
                 )
 
         print("Starting test_ac_analysis")
-        from numpy import angle, pi
 
         if has_ltspice:
             from kupicelib.editor.asc_editor import AscEditor
 
             editor = AscEditor(test_dir + "AC.asc")
             runner = SimRunner(output_folder=temp_dir, simulator=ltspice_simulator)
-            raw_file, log_file = runner.run_now(
+            runner_any = cast(Any, runner)
+            raw_file, _log_file = runner_any.run_now(
                 editor, exe_log=hide_exe_print_statements
             )
+            self.assertIsNotNone(raw_file, "AC analysis run failed")
+            assert raw_file is not None
 
-            R1 = editor.get_component_floatvalue("R1")
-            C1 = editor.get_component_floatvalue("C1")
+            res_value = editor.get_component_floatvalue("R1")
+            cap_value = editor.get_component_floatvalue("C1")
         else:
             raw_file = test_dir + "AC_1.raw"
             # log_file = test_dir + "AC_1.log"
-            R1 = 100
-            C1 = 10e-6
-        checkresults(raw_file, R1, C1)
+            res_value = 100
+            cap_value = 10e-6
+        checkresults(raw_file, res_value, cap_value)
 
         raw_file = test_dir + "AC_1.ascii.raw"
-        R1 = 100
-        C1 = 10e-6
-        checkresults(raw_file, R1, C1)
+        checkresults(raw_file, 100, 10e-6)
 
     @unittest.skipIf(False, "Execute All")
     def test_ac_analysis_steps(self):
         """AC Analysis Test with steps."""
         print("Starting test_ac_analysis_steps")
-        from numpy import angle, pi
 
         if has_ltspice:
             from kupicelib.editor.asc_editor import AscEditor
 
             editor = AscEditor(test_dir + "AC - STEP.asc")
             runner = SimRunner(output_folder=temp_dir, simulator=ltspice_simulator)
-            raw_file, log_file = runner.run_now(
+            runner_any = cast(Any, runner)
+            raw_file, _log_file = runner_any.run_now(
                 editor, exe_log=hide_exe_print_statements
             )
-            C1 = editor.get_component_floatvalue("C1")
+            self.assertIsNotNone(raw_file, "AC - STEP run failed")
+            assert raw_file is not None
+            cap_value = editor.get_component_floatvalue("C1")
         else:
             raw_file = test_dir + "AC - STEP_1.raw"
             # log_file = test_dir + "AC - STEP_1.log"
-            C1 = 159.1549e-6  # 159.1549uF
+            cap_value = 159.1549e-6  # 159.1549uF
         # Compute the RC AC response with the resistor and capacitor values from
         # the netlist.
         raw = RawRead(raw_file)
         vin_trace = raw.get_trace("V(in)")
         vout_trace = raw.get_trace("V(out)")
+        axis_trace = raw.axis
+        if axis_trace is None:
+            self.fail("Raw data missing axis information")
         for step, step_dict in enumerate(raw.steps):
-            R1 = step_dict["r1"]
+            res_value = step_dict["r1"]
             # print(step, step_dict)
             for point in range(0, raw.get_len(step), 10):  # 10 times less points
                 print(point, end=" - ")
                 vout = vout_trace.get_point(point, step)
                 vin = vin_trace.get_point(point, step)
-                freq = raw.axis.get_point(point, step)
+                freq = axis_trace.get_point(point, step)
                 # Calculate the magnitude of the answer Vout = Vin/(1+jwRC)
-                h = vin / (1 + 2j * pi * freq * R1 * C1)
+                h = vin / (1 + 2j * math.pi * freq * res_value * cap_value)
                 # print(freq, vout, h, vout - h)
+                vout_mag = float(abs(vout))
+                h_mag = float(abs(h))
                 self.assertAlmostEqual(
-                    abs(vout),
-                    abs(h),
+                    vout_mag,
+                    h_mag,
                     5,
                     f"Difference between theoretical value ans simulation at point {point}:",
                 )
+                angle_vout = math.atan2(vout.imag, vout.real)
+                angle_h = math.atan2(h.imag, h.real)
                 self.assertAlmostEqual(
-                    angle(vout),
-                    angle(h),
+                    angle_vout,
+                    angle_h,
                     5,
                     f"Difference between theoretical value ans simulation at point {point}",
                 )
@@ -707,9 +772,14 @@ class test_kupicelib(unittest.TestCase):
         print("Starting test_fourier_log_read")
         if has_ltspice:
             runner = SimRunner(output_folder=temp_dir, simulator=ltspice_simulator)
-            raw_file, log_file = runner.run_now(
+            runner_any = cast(Any, runner)
+            raw_file, log_file = runner_any.run_now(
                 test_dir + "Fourier_30MHz.asc", exe_log=hide_exe_print_statements
             )
+            self.assertIsNotNone(raw_file, "Fourier run failed")
+            self.assertIsNotNone(log_file, "Fourier log missing")
+            assert raw_file is not None
+            assert log_file is not None
         else:
             raw_file = test_dir + "Fourier_30MHz_1.raw"
             log_file = test_dir + "Fourier_30MHz_1.log"

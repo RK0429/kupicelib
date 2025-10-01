@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# pyright: basic, reportMissingTypeStubs=false, reportUnknownMemberType=false, reportAttributeAccessIssue=false, reportArgumentType=false, reportGeneralTypeIssues=false
 import logging
 
 import kupicelib

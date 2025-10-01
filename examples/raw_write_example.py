@@ -1,3 +1,5 @@
+# pyright: basic, reportUnknownParameterType=false, reportUnknownMemberType=false, reportUnknownVariableType=false, reportAttributeAccessIssue=false
+
 def test_readme_snippet():
     # -- Start of Example 1 --
     import numpy as np

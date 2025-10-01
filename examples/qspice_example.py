@@ -1,3 +1,6 @@
+from pathlib import Path
+from typing import cast
+
 from kupicelib import RawRead
 from kupicelib.editor.spice_editor import SpiceEditor
 from kupicelib.sim.sim_runner import SimRunner
@@ -5,11 +8,12 @@ from kupicelib.simulators.qspice_simulator import Qspice
 from kupicelib.utils.sweep_iterators import sweep_log
 
 
-def processing_data(raw_file, log_file):
+def processing_data(raw_file: Path, log_file: Path) -> tuple[Path, float]:
     print(f"Handling the simulation data of {raw_file}, log file {log_file}")
     raw_data = RawRead(raw_file)
     vout = raw_data.get_wave("V(out)")
-    return raw_file, vout.max()
+    vout_max = float(vout.max())
+    return raw_file, vout_max
 
 
 # select spice model
@@ -39,9 +43,13 @@ for cap in sweep_log(1e-12, 10e-6, 10):
     sim_no += 1
 
 # Reading the data
-results = {}
-for raw_file, vout_max in runner:  # Iterate over the results of the callback function
-    results[raw_file.name] = vout_max
+results: dict[str, float] = {}
+for result in runner:  # Iterate over the results of the callback function
+    if not isinstance(result, tuple):  # pyright: ignore[reportUnnecessaryIsInstance]
+        continue
+    raw_candidate, vout_candidate = cast(tuple[object, object], result)
+    if isinstance(raw_candidate, Path) and isinstance(vout_candidate, int | float):
+        results[raw_candidate.name] = float(vout_candidate)
 # The block above can be replaced by the following line
 # results = {raw_file.name: vout_max for raw_file, vout_max in runner}
 

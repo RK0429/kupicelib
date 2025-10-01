@@ -1,10 +1,12 @@
+from pathlib import Path
+
 from kupicelib.editor.spice_editor import SpiceEditor
 from kupicelib.sim.sim_runner import SimRunner
 from kupicelib.simulators.ngspice_simulator import NGspiceSimulator
 from kupicelib.utils.sweep_iterators import sweep_log
 
 
-def processing_data(raw_file, log_file):
+def processing_data(raw_file: Path, log_file: Path) -> None:
     print(f"Handling the simulation data of {raw_file}, log file {log_file}")
 
 

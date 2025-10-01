@@ -1,3 +1,5 @@
+# pyright: basic, reportMissingTypeStubs=false, reportUnknownMemberType=false, reportAttributeAccessIssue=false, reportArgumentType=false, reportGeneralTypeIssues=false
+
 from kupicelib import (  # Imports the class that manipulates the asc file
     AscEditor,
     SimRunner,

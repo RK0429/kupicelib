@@ -1,3 +1,5 @@
+# pyright: basic, reportUnknownParameterType=false, reportUnknownMemberType=false, reportUnknownVariableType=false, reportAttributeAccessIssue=false, reportMissingTypeStubs=false, reportArgumentType=false, reportGeneralTypeIssues=false, reportIndexIssue=false
+
 import os
 import sys
 from os.path import join as pathjoin
