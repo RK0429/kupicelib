@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-from __future__ import annotations
 
 # -------------------------------------------------------------------------------
 #
@@ -94,6 +93,27 @@ rise, measures = log_info.dataset["rise_time"]
 The callback function is optional. If  no callback function is given, the thread is
 terminated just after the simulation is finished.
 """
+from __future__ import annotations
+
+import concurrent.futures
+import inspect  # Library used to get the arguments of the callback function
+import logging
+import shutil
+from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
+from concurrent.futures import Future, ThreadPoolExecutor
+from pathlib import Path
+from time import sleep
+from time import thread_time as clock
+from typing import TYPE_CHECKING, Any, Protocol
+
+if TYPE_CHECKING:
+    from psutil import Process
+
+from ..editor.base_editor import BaseEditor
+from ..sim.run_task import RunTask, clock_function
+from ..sim.simulator import Simulator
+from .process_callback import ProcessCallback
+
 __author__ = "Nuno Canto Brum <nuno.brum@gmail.com>"
 __copyright__ = "Copyright 2020, Fribourg Switzerland"
 
@@ -106,22 +126,6 @@ __all__ = [
     "SimRunnerTimeoutError",
     "clock_function",
 ]
-
-import concurrent.futures
-import inspect  # Library used to get the arguments of the callback function
-import logging
-import shutil
-from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
-from concurrent.futures import Future, ThreadPoolExecutor
-from pathlib import Path
-from time import sleep
-from time import thread_time as clock
-from typing import Any, Protocol, cast
-
-from ..editor.base_editor import BaseEditor
-from ..sim.run_task import RunTask, clock_function
-from ..sim.simulator import Simulator
-from .process_callback import ProcessCallback
 
 _logger = logging.getLogger("kupicelib.SimRunner")
 END_LINE_TERM = "\n"
@@ -183,9 +187,9 @@ class SimRunner(AnyRunner):
     def __init__(
         self,
         *,
-        simulator: type[Simulator] | None = None,
+        simulator: object | None = None,
         parallel_sims: int = 4,
-        timeout: float = 600.0,
+        timeout: float | None = 600.0,
         verbose: bool = False,
         output_folder: str | None = None,
     ) -> None:
@@ -193,7 +197,7 @@ class SimRunner(AnyRunner):
         # rest of the parameters.
         # This is a good practice to avoid confusion.
         self.verbose = verbose
-        self.timeout = timeout
+        self.timeout: float | None = timeout
         self.cmdline_switches: list[str] = []
 
         # Define output_folder attribute with type annotation once
@@ -226,11 +230,20 @@ class SimRunner(AnyRunner):
             raise SimRunnerConfigError(
                 "No default simulator defined; please specify a simulator"
             )
-        if not isinstance(simulator, type) or not issubclass(simulator, Simulator):
-            raise SimRunnerConfigError(
-                "Invalid simulator type; expected subclass of Simulator"
-            )
-        self.simulator: type[Simulator] = simulator
+
+        simulator_value = simulator
+        if isinstance(simulator_value, Simulator):
+            simulator_type: type[Simulator] = type(simulator_value)
+        else:
+            if not isinstance(simulator_value, type) or not issubclass(
+                simulator_value, Simulator
+            ):  # pyright: ignore[reportUnnecessaryIsInstance]
+                raise SimRunnerConfigError(
+                    "Invalid simulator specification; expected Simulator subclass or instance"
+                )
+            simulator_type = simulator_value
+
+        self.simulator: type[Simulator] = simulator_type
         _logger.info("SimRunner initialized")
         if self.verbose:
             _logger.setLevel(logging.DEBUG)
@@ -251,7 +264,7 @@ class SimRunner(AnyRunner):
             # older Python versions may not support cancel_futures
             self._executor.shutdown(wait=False)
 
-    def set_simulator(self, spice_tool: type[Simulator]) -> None:
+    def set_simulator(self, spice_tool: object) -> None:
         """Manually overriding the simulator to be used.
 
         :param spice_tool: String containing the path to the spice tool to be used, or
@@ -259,15 +272,22 @@ class SimRunner(AnyRunner):
         :type spice_tool: Simulator type
         :return: Nothing
         """
-        if not issubclass(spice_tool, Simulator):
+        spice_tool_value = spice_tool
+        if isinstance(spice_tool_value, Simulator):
+            simulator_type = type(spice_tool_value)
+        elif not isinstance(spice_tool_value, type) or not issubclass(
+            spice_tool_value, Simulator
+        ):  # pyright: ignore[reportUnnecessaryIsInstance]
             raise TypeError("Expecting Simulator subclasses")
-        self.simulator = spice_tool
+        else:
+            simulator_type = spice_tool_value
+        self.simulator = simulator_type
 
     def clear_command_line_switches(self) -> None:
         """Clear all the command line switches added previously."""
         self.cmdline_switches.clear()
 
-    def add_command_line_switch(self, switch: str, path: str = "") -> None:
+    def add_command_line_switch(self, switch: str, path: str | None = None) -> None:
         """Used to add an extra command line argument such as -I<path> to add symbol
         search path or -FastAccess to convert the raw file into Fast Access. The
         argument is a string as is defined in the LTSpice command line documentation.
@@ -281,7 +301,7 @@ class SimRunner(AnyRunner):
         :returns: Nothing
         """
         self.cmdline_switches.append(switch)
-        if path is not None:
+        if path:
             self.cmdline_switches.append(path)
 
     def _on_output_folder(self, afile: str | Path) -> Path:
@@ -328,17 +348,12 @@ class SimRunner(AnyRunner):
             run_netlist_file = self._on_output_folder(run_filename)
             netlist.save_netlist(run_netlist_file)
 
-        elif isinstance(netlist, Path | str):
+        else:
             if run_filename is None:
                 run_filename = self._run_file_name(netlist)
-            if isinstance(netlist, str):
-                netlist = Path(netlist)
+            netlist_path = Path(netlist)
             run_netlist_file = self._to_output_folder(
-                netlist, copy=True, new_name=run_filename
-            )
-        else:
-            raise TypeError(
-                "'netlist' parameter must be a SpiceEditor, pathlib.Path, or a str"
+                netlist_path, copy=True, new_name=run_filename
             )
 
         return run_netlist_file
@@ -347,7 +362,7 @@ class SimRunner(AnyRunner):
     def validate_callback_args(
         callback: CallbackType | None,
         callback_args: Sequence[Any] | Mapping[str, Any] | None,
-    ) -> dict[str, Any] | None:
+    ) -> Mapping[str, Any] | None:
         """It validates that the callback_args are matching the callback function.
 
         Note that the first two parameters of the callback functions need to be the raw
@@ -366,37 +381,47 @@ class SimRunner(AnyRunner):
                 raise ValueError(
                     "Callback has more than two arguments; callback_args is None"
                 )
-            if isinstance(callback_args, Mapping):
-                for pos, param in enumerate(args):
-                    if pos > 1 and param not in callback_args:
-                        raise ValueError(
-                            f"Callback argument '{param}' not found in callback_args"
-                        )
 
-            if len(args) - 2 != len(callback_args):
+            if isinstance(callback_args, Mapping):
+                missing = [
+                    param
+                    for pos, param in enumerate(args)
+                    if pos > 1 and param not in callback_args
+                ]
+                if missing:
+                    raise ValueError(
+                        "Callback argument(s) missing: " + ", ".join(missing)
+                    )
+                return dict(callback_args)
+
+            if isinstance(callback_args, str | bytes):
+                raise TypeError(
+                    "callback_args must be a mapping or sequence of additional arguments"
+                )
+
+            sequence_args = list(callback_args)
+            if len(args) - 2 != len(sequence_args):
                 raise ValueError(
                     "Callback function has "
-                    f"{len(args)} arguments, but {len(callback_args)} callback_args are given"
+                    f"{len(args)} arguments, but {len(sequence_args)} callback_args are given"
                 )
-            if isinstance(callback_args, Mapping):
-                return dict(callback_args)
-            if isinstance(callback_args, (list, tuple)):
-                return {
-                    param: callback_args[pos - 2]
-                    for pos, param in enumerate(args)
-                    if pos > 1
-                }
-            raise TypeError(
-                "callback_args must be a mapping or sequence when additional arguments are required"
-            )
-        return {}  # Return empty dict for functions with exactly 2 arguments
+            return {
+                param: sequence_args[pos - 2]
+                for pos, param in enumerate(args)
+                if pos > 1
+            }
+        return {}
 
-    def _wait_for_resources(self, wait_resource: bool, timeout: float) -> bool:
+    def _wait_for_resources(
+        self, wait_resource: bool, timeout: float | None
+    ) -> bool:
         """Internal: blocks until a slot is free or timeout expires."""
         t0 = clock()
-        while clock() - t0 < timeout + 1:
+        while True:
             if not wait_resource or (self.active_threads() < self.parallel_sims):
                 return True
+            if timeout is not None and clock() - t0 >= timeout + 1:
+                break
             sleep(0.1)
         _logger.error(f"Timeout waiting for resources for simulation {self.run_count}")
         return False
@@ -407,8 +432,8 @@ class SimRunner(AnyRunner):
         *,
         wait_resource: bool = True,
         callback: CallbackType | None = None,
-        callback_args: tuple[Any, ...] | dict[str, Any] | None = None,
-        switches: list[str] | None = None,
+        callback_args: Sequence[Any] | Mapping[str, Any] | None = None,
+        switches: Sequence[str] | None = None,
         timeout: float | None = None,
         run_filename: str | None = None,
         exe_log: bool = False,
@@ -463,10 +488,8 @@ class SimRunner(AnyRunner):
             netlist, wait_resource, switches, timeout, run_filename, exe_log,
         )
         callback_kwargs = self.validate_callback_args(callback, callback_args)
-        switch_args = (
-            list(switches)
-            if switches is not None
-            else list(self.cmdline_switches)
+        switch_args = list(switches) if switches is not None else list(
+            self.cmdline_switches
         )
         run_netlist_file = self._prepare_sim(netlist, run_filename)
 
@@ -492,7 +515,7 @@ class SimRunner(AnyRunner):
             verbose=self.verbose,
             exe_log=exe_log,
         )
-        future = cast(Future[RunTask], self._executor.submit(task))
+        future: Future[RunTask] = self._executor.submit(task)
         self.active_tasks.append((task, future))
         _logger.debug(
             "RunTask submitted: runno=%d, netlist_file=%s",
@@ -539,7 +562,7 @@ class SimRunner(AnyRunner):
         run_netlist_file = self._prepare_sim(netlist, run_filename)
 
         cmdline_switches = (
-            switch_args or self.cmdline_switches
+            switch_args if switch_args else list(self.cmdline_switches)
         )  # If switches are passed, they override the ones inside
         # the class.
 
@@ -628,9 +651,13 @@ class SimRunner(AnyRunner):
             _logger.error("psutil library not installed, cannot kill processes")
             return
 
-        for proc in psutil.process_iter():
-            # check whether the process name matches
-            if proc.name() == process_name:
+        processes: Iterable[Process] = psutil.process_iter()
+        for proc in processes:
+            try:
+                name = proc.name()
+            except Exception:  # pragma: no cover - defensive: psutil raises custom
+                continue
+            if name == process_name:
                 _logger.info(f"killing Spice {proc.pid}")
                 proc.kill()
 
@@ -644,10 +671,10 @@ class SimRunner(AnyRunner):
         for task, _future in self.active_tasks:
             # Determine appropriate timeout value for this task
             timeout_val = task.timeout if task.timeout is not None else self.timeout
-            if timeout_val is None:
+            start_time = task.start_time
+            if timeout_val is None or start_time is None:
                 continue
-            # Cast to float now that timeout_val is guaranteed
-            candidate = cast(float, task.start_time) + cast(float, timeout_val)
+            candidate = start_time + timeout_val
             if alarm is None or candidate > alarm:
                 alarm = candidate
         return alarm
@@ -676,15 +703,22 @@ class SimRunner(AnyRunner):
             timeout,
             abort_all_on_timeout)
         self.update_completed()
-        stop_time: float | None = None
-        if timeout is not None:
-            stop_time = clock_function() + timeout
-        while len(self.active_tasks) > 0:
+        if timeout is None:
+            absolute_stop_time: float | None = None
+        else:
+            absolute_stop_time = clock_function() + timeout
+        while self.active_tasks:
             sleep(1)
             self.update_completed()
             if timeout is None:
-                stop_time = self._maximum_stop_time()
-            if stop_time is not None and clock_function() > stop_time:
+                dynamic_stop_time = self._maximum_stop_time()
+                if dynamic_stop_time is None:
+                    continue
+            else:
+                assert absolute_stop_time is not None
+                dynamic_stop_time = absolute_stop_time
+
+            if clock_function() > dynamic_stop_time:
                 if abort_all_on_timeout:
                     self.kill_all_spice()
                 return False
@@ -757,7 +791,7 @@ class SimRunner(AnyRunner):
         """
         self.cleanup_files()  # alias for backward compatibility
 
-    def __iter__(self) -> Iterator:
+    def __iter__(self) -> Iterator[Any]:
         self._iterator_counter = (
             0  # Reset the iterator counter. Note: nested iterators are not supported
         )
