@@ -20,9 +20,9 @@
 # -------------------------------------------------------------------------------
 
 import logging
-from collections.abc import Callable
+from collections.abc import Callable, Mapping, Sequence
 from functools import wraps
-from typing import Any
+from typing import Any, Literal, Protocol, TypeAlias, cast, overload, runtime_checkable
 
 from ...editor.base_editor import BaseEditor
 from ...log.logfile_data import LogfileData
@@ -32,6 +32,47 @@ from ...utils.detect_encoding import EncodingDetectError
 from ..sim_runner import AnyRunner, ProcessCallback, RunTask
 
 _logger = logging.getLogger("kupicelib.SimAnalysis")
+
+
+InstructionType = Literal[
+    "set_component_value",
+    "set_element_model",
+    "set_parameter",
+    "add_instruction",
+    "remove_instruction",
+    "remove_Xinstruction",
+]
+
+ReceivedInstruction: TypeAlias = (
+    tuple[
+        Literal["set_component_value", "set_element_model", "set_parameter"],
+        str,
+        str,
+    ]
+    | tuple[
+        Literal["add_instruction", "remove_instruction", "remove_Xinstruction"],
+        str,
+    ]
+)
+
+
+@runtime_checkable
+class RunnerWithCleanup(Protocol):
+    def cleanup_files(self) -> None: ...
+
+
+class InstructionEditor(Protocol):
+    def set_component_value(self, ref: str, value: str) -> None: ...
+
+    def set_element_model(self, ref: str, model: str) -> None: ...
+
+    def set_parameter(self, ref: str, value: str) -> None: ...
+
+    def add_instruction(self, instruction: str) -> None: ...
+
+    def remove_instruction(self, instruction: str) -> None: ...
+
+    def remove_Xinstruction(self, search_pattern: str) -> None: ...
 
 
 class SimAnalysis:
@@ -54,10 +95,10 @@ class SimAnalysis:
             self.editor = SpiceEditor(circuit_file)
         else:
             self.editor = circuit_file
-        self._runner = runner
+        self._runner: AnyRunner | None = runner
         self.simulations: list[RunTask | None] = []
         self.last_run_number = 0
-        self.received_instructions: list[tuple[str, ...]] = []
+        self.received_instructions: list[ReceivedInstruction] = []
         self.instructions_added = False
         self.log_data = LogfileData()
 
@@ -66,7 +107,7 @@ class SimAnalysis:
         self.simulations.clear()
 
     @property
-    def runner(self):
+    def runner(self) -> AnyRunner:
         if self._runner is None:
             from ...sim.sim_runner import SimRunner
 
@@ -74,7 +115,7 @@ class SimAnalysis:
         return self._runner
 
     @runner.setter
-    def runner(self, new_runner: AnyRunner):
+    def runner(self, new_runner: AnyRunner) -> None:
         self._runner = new_runner
 
     def run(
@@ -82,8 +123,8 @@ class SimAnalysis:
         *,
         wait_resource: bool = True,
         callback: type[ProcessCallback] | Callable[..., Any] | None = None,
-        callback_args: tuple[Any, ...] | dict[str, Any] | None = None,
-        switches: Any | None = None,
+        callback_args: Sequence[Any] | Mapping[str, Any] | None = None,
+        switches: Sequence[str] | None = None,
         timeout: float | None = None,
         run_filename: str | None = None,
         exe_log: bool = True,
@@ -148,39 +189,67 @@ class SimAnalysis:
     def play_instructions(self):
         if self.instructions_added:
             return  # Nothing to do
+        editor = cast(InstructionEditor, self.editor)
         for instruction in self.received_instructions:
-            if instruction[0] == "set_component_value":
-                self.editor.set_component_value(instruction[1], instruction[2])
-            elif instruction[0] == "set_element_model":
-                self.editor.set_element_model(instruction[1], instruction[2])
-            elif instruction[0] == "set_parameter":
-                self.editor.set_parameter(instruction[1], instruction[2])
-            elif instruction[0] == "add_instruction":
-                self.editor.add_instruction(instruction[1])
-            elif instruction[0] == "remove_instruction":
-                self.editor.remove_instruction(instruction[1])
-            elif instruction[0] == "remove_Xinstruction":
-                self.editor.remove_Xinstruction(instruction[1])
+            tag = instruction[0]
+            if tag == "set_component_value":
+                _, ref, value = cast(
+                    tuple[Literal["set_component_value"], str, str], instruction
+                )
+                editor.set_component_value(ref, value)
+            elif tag == "set_element_model":
+                _, ref, model = cast(
+                    tuple[Literal["set_element_model"], str, str], instruction
+                )
+                editor.set_element_model(ref, model)
+            elif tag == "set_parameter":
+                _, ref, value = cast(
+                    tuple[Literal["set_parameter"], str, str], instruction
+                )
+                editor.set_parameter(ref, value)
+            elif tag == "add_instruction":
+                _, value = cast(
+                    tuple[Literal["add_instruction"], str], instruction
+                )
+                editor.add_instruction(value)
+            elif tag == "remove_instruction":
+                _, value = cast(
+                    tuple[Literal["remove_instruction"], str], instruction
+                )
+                editor.remove_instruction(value)
+            elif tag == "remove_Xinstruction":
+                _, value = cast(
+                    tuple[Literal["remove_Xinstruction"], str], instruction
+                )
+                editor.remove_Xinstruction(value)
             else:
-                raise ValueError("Unknown instruction")
+                raise ValueError(f"Unknown instruction tag: {tag}")
         self.instructions_added = True
 
     def save_netlist(self, filename: str):
         self.play_instructions()
         self.editor.save_netlist(filename)
 
-    def cleanup_files(self):
+    def cleanup_files(self) -> None:
         """Clears all simulation files.
 
         Typically used after a simulation run and analysis.
         """
-        self.runner.cleanup_files()
+        runner = self.runner
+        if isinstance(runner, RunnerWithCleanup):
+            runner.cleanup_files()
 
-    def simulation(self, index: int):
+    def simulation(self, index: int) -> RunTask | None:
         """Returns a simulation object."""
         return self.simulations[index]
 
-    def __getitem__(self, item):
+    @overload
+    def __getitem__(self, item: int) -> RunTask | None: ...
+
+    @overload
+    def __getitem__(self, item: slice) -> list[RunTask | None]: ...
+
+    def __getitem__(self, item: int | slice) -> RunTask | None | list[RunTask | None]:
         return self.simulations[item]
 
     @staticmethod
@@ -199,7 +268,7 @@ class SimAnalysis:
             if run_task.log_file is None:
                 _logger.warning("Log file is None")
                 return None
-            log_results = log_reader_cls(run_task.log_file)
+            log_results = log_reader_cls(str(run_task.log_file))
         except FileNotFoundError:
             _logger.warning("Log file not found: %s", run_task.log_file)
             return None
@@ -208,21 +277,18 @@ class SimAnalysis:
             return None
         return log_results
 
-    def add_log_data(self, log_data: LogfileData):
+    def add_log_data(self, log_data: LogfileData) -> None:
         """Add data from a log file to the log_data object."""
-        if log_data is None:
-            return
-
-        for param in log_data.stepset:
+        for param, values in log_data.stepset.items():
             if param not in self.log_data.stepset:
-                self.log_data.stepset[param] = log_data.stepset[param]
+                self.log_data.stepset[param] = list(values)
             else:
-                self.log_data.stepset[param].extend(log_data.stepset[param])
-        for param in log_data.dataset:
+                self.log_data.stepset[param].extend(values)
+        for param, dataset_values in log_data.dataset.items():
             if param not in self.log_data.dataset:
-                self.log_data.dataset[param] = log_data.dataset[param][:]
+                self.log_data.dataset[param] = list(dataset_values)
             else:
-                self.log_data.dataset[param].extend(log_data.dataset[param][:])
+                self.log_data.dataset[param].extend(dataset_values)
         self.log_data.step_count += log_data.step_count
 
     def read_logfiles(self) -> LogfileData:

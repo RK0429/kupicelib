@@ -17,10 +17,10 @@
 # Licence:     refer to the LICENSE file
 # -------------------------------------------------------------------------------
 from abc import ABC, abstractmethod
-from collections.abc import Callable
+from collections.abc import Callable, Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any
+from typing import Any, Protocol, cast
 
 from ...editor.base_editor import BaseEditor, scan_eng
 from ...log.logfile_data import LogfileData, LTComplex
@@ -60,6 +60,14 @@ class ComponentDeviation:
         return cls(0.0, 0.0, DeviationType.none)
 
 
+class _DeviationEditor(Protocol):
+    def get_components(self, prefixes: str = "*") -> list[str]: ...
+
+    def remove_instruction(self, instruction: str) -> None: ...
+
+    def add_instruction(self, instruction: str) -> None: ...
+
+
 class ToleranceDeviations(SimAnalysis, ABC):
     """Class to automate Monte-Carlo simulations."""
 
@@ -97,23 +105,29 @@ class ToleranceDeviations(SimAnalysis, ABC):
 
     def set_tolerance(
         self, ref: str, new_tolerance: float, distribution: str = "uniform"
-    ):
+    ) -> None:
         """Sets the tolerance for a given component.
 
         If only the prefix is given, the tolerance is set for all. The valid prefixes
         that can be used are: R, C, L, V, I
         """
+        if not ref:
+            raise ValueError("Component reference cannot be an empty string")
         if ref in self.devices_with_deviation_allowed:  # Only the prefix is given
             self.default_tolerance[ref] = ComponentDeviation.from_tolerance(
                 new_tolerance, distribution
             )
         else:
-            if ref in self.editor.get_components(ref[0]):
+            editor = cast(_DeviationEditor, self.editor)
+            components = editor.get_components(ref[0])
+            if ref in components:
                 self.device_deviations[ref] = ComponentDeviation.from_tolerance(
                     new_tolerance, distribution
                 )
 
-    def set_tolerances(self, new_tolerances: dict, distribution: str = "uniform"):
+    def set_tolerances(
+        self, new_tolerances: Mapping[str, float], distribution: str = "uniform"
+    ) -> None:
         """Sets the tolerances for a set of components.
 
         The dictionary keys are the references and the values are the tolerances. If
@@ -124,8 +138,12 @@ class ToleranceDeviations(SimAnalysis, ABC):
             self.set_tolerance(ref, tol, distribution)
 
     def set_deviation(
-        self, ref: str, min_val, max_val: float, distribution: str = "uniform"
-    ):
+        self,
+        ref: str,
+        min_val: float,
+        max_val: float,
+        distribution: str = "uniform",
+    ) -> None:
         """Sets the deviation for a given component.
 
         This establishes a min and max value for the component. Optionally a
@@ -136,21 +154,23 @@ class ToleranceDeviations(SimAnalysis, ABC):
             min_val, max_val, distribution
         )
 
-    def get_components(self, prefix: str):
+    def get_components(self, prefix: str) -> list[str]:
+        editor = cast(_DeviationEditor, self.editor)
         if prefix == "*":
-            return (
+            components = editor.get_components("*")
+            return [
                 cmp
-                for cmp in self.editor.get_components()
-                if cmp[0] in self.devices_with_deviation_allowed
-            )
-        return self.editor.get_components(prefix)
+                for cmp in components
+                if cmp and cmp[0] in self.devices_with_deviation_allowed
+            ]
+        return list(editor.get_components(prefix))
 
     def get_component_value_deviation_type(
         self, ref: str
     ) -> tuple[str | float, ComponentDeviation]:
         if ref[0] not in self.devices_with_deviation_allowed:
             raise ValueError("The reference must be a valid component type")
-        value = self.editor.get_component_value(ref)
+        value: str = self.editor.get_component_value(ref)
         if len(value) == 0:  # This covers empty strings
             return value, ComponentDeviation.none()
         # The value needs to be able to be computed, otherwise it can't be used
@@ -163,16 +183,20 @@ class ToleranceDeviations(SimAnalysis, ABC):
             return value, ComponentDeviation.none()
 
     def set_parameter_deviation(
-        self, ref: str, min_val, max_val: float, distribution: str = "uniform"
-    ):
+        self,
+        ref: str,
+        min_val: float,
+        max_val: float,
+        distribution: str = "uniform",
+    ) -> None:
         self.parameter_deviations[ref] = ComponentDeviation.from_min_max(
             min_val, max_val, distribution
         )
 
     def get_parameter_value_deviation_type(
         self, param: str
-    ) -> tuple[Any, ComponentDeviation]:
-        value = self.editor.get_parameter(param)
+    ) -> tuple[str, ComponentDeviation]:
+        value: str = self.editor.get_parameter(param)
         return value, self.parameter_deviations[param]
 
     def save_netlist(self, filename: str):
@@ -185,7 +209,7 @@ class ToleranceDeviations(SimAnalysis, ABC):
         self.testbench_prepared = False
 
     @abstractmethod
-    def prepare_testbench(self, **kwargs): ...
+    def prepare_testbench(self, **kwargs: Any) -> None: ...
 
     def run_testbench(
         self,
@@ -193,12 +217,12 @@ class ToleranceDeviations(SimAnalysis, ABC):
         runs_per_sim: int = 512,
         wait_resource: bool = True,
         callback: type[ProcessCallback] | Callable[..., Any] | None = None,
-        callback_args: tuple[Any, ...] | dict[str, Any] | None = None,
-        switches: list[str] | None = None,
+        callback_args: Sequence[Any] | Mapping[str, Any] | None = None,
+        switches: Sequence[str] | None = None,
         timeout: float | None = None,
         run_filename: str | None = None,
         exe_log: bool = False,
-    ):
+    ) -> Iterator[Any] | None:
         """Runs the simulations.
 
         :param runs_per_sim: Maximum number of runs per simulation. If the number of
@@ -226,7 +250,8 @@ class ToleranceDeviations(SimAnalysis, ABC):
             self.prepare_testbench()
         else:
             self.play_instructions()
-        self.editor.remove_instruction(
+        editor = cast(_DeviationEditor, self.editor)
+        editor.remove_instruction(
             f".step param run -1 {self.last_run_number} 1"
         )  # removes this instruction
         self.clear_simulation_data()
@@ -245,10 +270,10 @@ class ToleranceDeviations(SimAnalysis, ABC):
                 last_no = self.last_run_number
 
             run_stepping = f".step param run {sim_no} {last_no} 1"
-            self.editor.add_instruction(run_stepping)
+            editor.add_instruction(run_stepping)
             # Check if AnyRunner.run supports exe_log parameter, if not, remove it
             # This is a workaround for compatibility with older versions
-            sim = None
+            sim: RunTask | None = None
             try:
                 # Try with all parameters first
                 sim = self.runner.run(
@@ -282,7 +307,7 @@ class ToleranceDeviations(SimAnalysis, ABC):
 
             if sim is not None:
                 self.simulations.append(sim)
-            self.editor.remove_instruction(run_stepping)
+            editor.remove_instruction(run_stepping)
 
         self.runner.wait_completion()
         if callback is not None:
@@ -383,10 +408,10 @@ class ToleranceDeviations(SimAnalysis, ABC):
     def run_analysis(
         self,
         callback: type[ProcessCallback] | Callable[..., Any] | None = None,
-        callback_args: tuple[Any, ...] | dict[str, Any] | None = None,
-        switches: list[str] | None = None,
+        callback_args: Sequence[Any] | Mapping[str, Any] | None = None,
+        switches: Sequence[str] | None = None,
         timeout: float | None = None,
         exe_log: bool = True,
-    ):
+    ) -> None:
         """The override of this method should set the self.analysis_executed to True."""
         ...
