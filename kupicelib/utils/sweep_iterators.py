@@ -19,6 +19,7 @@
 
 import math
 from collections.abc import Iterable
+from typing import Self
 
 __author__ = "Nuno Canto Brum <nuno.brum@gmail.com>"
 __copyright__ = "Copyright 2021, Fribourg Switzerland"
@@ -26,18 +27,21 @@ __copyright__ = "Copyright 2021, Fribourg Switzerland"
 __all__ = ["sweep", "sweep_log", "sweep_log_n", "sweep_n"]
 
 
-class BaseIterator:
+Number = float | int
+
+
+class BaseIterator(Iterable[float]):
     """Common implementation to all Iterator classes."""
 
     def __init__(
         self,
-        start: int | float,
-        stop: int | float | None = None,
-        step: int | float = 1,
-    ):
-        self.start: int | float
-        self.stop: int | float
-        self.step: int | float = step
+        start: Number,
+        stop: Number | None = None,
+        step: Number = 1,
+    ) -> None:
+        self.start: Number
+        self.stop: Number
+        self.step: Number = step
 
         if stop is None:
             self.stop = start
@@ -45,13 +49,13 @@ class BaseIterator:
         else:
             self.start = start
             self.stop = stop
-        self.finished = False
+        self.finished: bool = False
 
-    def __iter__(self):
+    def __iter__(self) -> Self:
         self.finished = False
         return self
 
-    def __next__(self):
+    def __next__(self) -> float:
         raise NotImplementedError("This function needs to be overriden")
 
 
@@ -70,10 +74,10 @@ class sweep(BaseIterator):
 
     def __init__(
         self,
-        start: int | float,
-        stop: int | float | None = None,
-        step: int | float = 1,
-    ):
+        start: Number,
+        stop: Number | None = None,
+        step: Number = 1,
+    ) -> None:
         super().__init__(start, stop, step)
         assert step != 0, "Step cannot be 0"
         if self.step < 0 and self.start < self.stop:
@@ -81,16 +85,16 @@ class sweep(BaseIterator):
             self.start, self.stop = self.stop, self.start
         elif self.step > 0 and self.stop < self.start:
             self.step = -self.step  # In this case invert the sigh
-        self.niter = 0
+        self.niter: int = 0
 
-    def __iter__(self):
+    def __iter__(self) -> Self:
         super().__iter__()
         # Resets the interator
         self.niter = 0
         return self
 
-    def __next__(self):
-        val = self.start + self.niter * self.step
+    def __next__(self) -> float:
+        val = float(self.start + self.niter * self.step)
         self.niter += 1
         if (self.step > 0 and val <= self.stop) or (self.step < 0 and val >= self.stop):
             return val
@@ -99,9 +103,7 @@ class sweep(BaseIterator):
             raise StopIteration
 
 
-def sweep_n(
-    start: int | float, stop: int | float, N: int
-) -> Iterable[float]:
+def sweep_n(start: Number, stop: Number, N: int) -> Iterable[float]:
     """Helper function. Generator function that generates a 'N' number of points between
     a start and a stop interval.
 
@@ -132,33 +134,31 @@ class sweep_log(BaseIterator):
 
     def __init__(
         self,
-        start: int | float,
-        stop: int | float | None = None,
-        step: int | float = 10,
-    ):
+        start: Number,
+        stop: Number | None = None,
+        step: Number = 10,
+    ) -> None:
         if stop is None:
             stop = start
             start = 1
-        # Ensure step is not None before using it
-        actual_step: int | float = step if step is not None else 10
-        super().__init__(start, stop, actual_step)
+        super().__init__(start, stop, step)
         assert (
-            actual_step != 1 and actual_step > 0
+            self.step != 1 and self.step > 0
         ), "Step must be higher than 0 and not 1"
         if self.start < self.stop and self.step < 1:
             self.start, self.stop = self.stop, self.start
         elif self.stop < self.start and self.step > 1:
             self.step = 1 / self.step
-        self.val = self.start
+        self.val: float = float(self.start)
 
-    def __iter__(self):
+    def __iter__(self) -> Self:
         super().__iter__()
-        self.val = self.start
+        self.val = float(self.start)
         return self
 
-    def __next__(self):
-        val = self.val  # Store previous value
-        self.val *= self.step  # Calculate the next item
+    def __next__(self) -> float:
+        val = float(self.val)  # Store previous value
+        self.val = float(self.val * self.step)  # Calculate the next item
         if (self.start < self.stop and val <= self.stop) or (
             self.start > self.stop and val >= self.stop
         ):
@@ -196,24 +196,21 @@ class sweep_log_n(BaseIterator):
     """
 
     def __init__(
-        self, start: int | float, stop: int | float, number_of_elements: int
-    ):
-        # Ensure stop is not None before using it in division
-        if stop is None or start is None:
-            raise ValueError("start and stop cannot be None")
+        self, start: Number, stop: Number, number_of_elements: int
+    ) -> None:
         step = math.exp(math.log(stop / start) / (number_of_elements - 1))
         assert step != 0, "Step cannot be 0"
         super().__init__(start, number_of_elements, step)
         self.niter = 0
 
-    def __iter__(self):
+    def __iter__(self) -> Self:
         super().__iter__()
         self.niter = 0
         return self
 
-    def __next__(self):
+    def __next__(self) -> float:
         if self.niter < self.stop:
-            val = self.start * (self.step**self.niter)
+            val = float(self.start * (self.step**self.niter))
             self.niter += 1
             return val
         else:

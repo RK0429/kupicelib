@@ -25,10 +25,10 @@ __copyright__ = "Copyright 2023, Fribourg Switzerland"
 import logging
 import sys
 import time
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 from time import sleep
-from typing import Any, Mapping, cast
+from typing import Any
 
 from .process_callback import ProcessCallback
 from .simulator import Simulator
@@ -95,20 +95,24 @@ class RunTask:
         self.start_time: float | None = None
         self.stop_time: float | None = None
         self.verbose = verbose
-        self.switches = list(switches) if switches is not None else None
+        self.switches: list[str] | None = list(switches) if switches is not None else None
         self.timeout = timeout  # Thanks to Daniel Phili for implementing this
         self.simulator: type[Simulator] = simulator
-        self.runno = runno
-        self.netlist_file = netlist_file
-        self.callback = callback
-        self.callback_args = dict(callback_args) if callback_args is not None else None
-        self.retcode = -1  # Signals an error by default
+        self.runno: int = runno
+        self.netlist_file: Path = netlist_file
+        self.callback: type[ProcessCallback] | Callable[[Path, Path], Any] | None = (
+            callback
+        )
+        self.callback_args: dict[str, Any] | None = (
+            dict(callback_args) if callback_args is not None else None
+        )
+        self.retcode: int = -1  # Signals an error by default
         self.raw_file: Path | None = None
         self.log_file: Path | None = None
         self.callback_return: Any = None
         self.exe_log = exe_log
         # Create a LoggerAdapter to include run number and netlist in logs
-        self.logger = logging.LoggerAdapter(
+        self.logger: logging.LoggerAdapter[logging.Logger] = logging.LoggerAdapter(
             _logger, {"runno": self.runno, "netlist": str(self.netlist_file)}
         )
 
@@ -128,10 +132,8 @@ class RunTask:
         )
         # Ensure simulator executable is configured if missing
         simulator_cls: type[Simulator] = self.simulator
-        if (
-            hasattr(simulator_cls, "spice_exe")
-            and not getattr(simulator_cls, "spice_exe")
-            and hasattr(simulator_cls, "get_default_executable")
+        if not simulator_cls.spice_exe and hasattr(
+            simulator_cls, "get_default_executable"
         ):
             simulator_cls = simulator_cls.create_from(path_to_exe=None)
             self.simulator = simulator_cls
@@ -254,7 +256,7 @@ class RunTask:
             sleep(0.1)
         return self.get_results()
 
-    def __call__(self) -> "RunTask":
+    def __call__(self) -> RunTask:
         """Allow this object to be submitted to an Executor."""
         self.run()
         return self

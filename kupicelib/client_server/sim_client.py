@@ -128,11 +128,13 @@ class SimClient:
         # This list keeps track of finished simulations that haven't yet been
         # transferred.
         self.stored_jobs: OrderedDict[int, JobInformation] = OrderedDict()
-        self.completed_jobs = 0
-        self.minimum_time_between_server_calls = 0.2  # Minimum time between server calls
-        self._last_server_call = time.time()
+        self.completed_jobs: int = 0
+        self.minimum_time_between_server_calls: float = (
+            0.2
+        )  # Minimum time between server calls
+        self._last_server_call: float = time.time()
 
-    def __del__(self):
+    def __del__(self) -> None:
         self.close_session()
 
     def add_sources(self, sources: Iterable[str | PathLike[str] | pathlib.Path]) -> bool:

@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 from __future__ import annotations
+
 # -------------------------------------------------------------------------------
 #
 #  ███████╗██████╗ ██╗ ██████╗███████╗██╗     ██╗██████╗
@@ -81,13 +82,11 @@ class WorstCaseAnalysis(ToleranceDeviations):
         """Prepares the simulation by setting the tolerances for the components."""
         index = 0
         self.elements_analysed.clear()
-        device_refs: list[str] = [str(key) for key in self.device_deviations.keys()]
+        device_refs: list[str] = [str(key) for key in self.device_deviations]
         for ref in device_refs:
             if self._set_component_deviation(ref, index):
                 index += 1
-        parameter_refs: list[str] = [
-            str(key) for key in self.parameter_deviations.keys()
-        ]
+        parameter_refs: list[str] = [str(key) for key in self.parameter_deviations]
         for ref in parameter_refs:
             val, dev = self.get_parameter_value_deviation_type(ref)
             new_val = val
@@ -107,9 +106,10 @@ class WorstCaseAnalysis(ToleranceDeviations):
             components_list = list(components_iter)
             for component in components_list:
                 ref = component
-                if ref not in self.device_deviations:
-                    if self._set_component_deviation(ref, index):
-                        index += 1
+                if ref not in self.device_deviations and self._set_component_deviation(
+                    ref, index
+                ):
+                    index += 1
 
         self.editor.add_instruction(
             ".func binary(run,idx) {floor(run/(2**idx))-2*floor(run/(2**(idx+1)))}"
@@ -154,14 +154,12 @@ class WorstCaseAnalysis(ToleranceDeviations):
             worst_case_elements[ref1] = val1, dev1, "component"
             self.elements_analysed.append(ref1)
 
-        device_refs_analysis: list[str] = [
-            str(key) for key in self.device_deviations.keys()
-        ]
+        device_refs_analysis: list[str] = [str(key) for key in self.device_deviations]
         for ref in device_refs_analysis:
             check_and_add_component(ref)
 
         parameter_refs_analysis: list[str] = [
-            str(key) for key in self.parameter_deviations.keys()
+            str(key) for key in self.parameter_deviations
         ]
         for ref in parameter_refs_analysis:
             val, dev = self.get_parameter_value_deviation_type(ref)
@@ -284,7 +282,7 @@ class WorstCaseAnalysis(ToleranceDeviations):
             )
         numeric_values: list[float] = []
         for value in meas_data:
-            if isinstance(value, (int, float)):
+            if isinstance(value, int | float):
                 numeric_values.append(float(value))
             elif isinstance(value, complex):
                 numeric_values.append(abs(value))
@@ -316,10 +314,8 @@ class WorstCaseAnalysis(ToleranceDeviations):
             tuples.
         """
         if (
-            (self.testbench_prepared
-            and self.testbench_executed)
-            or self.analysis_executed
-        ):
+            self.testbench_prepared and self.testbench_executed
+        ) or self.analysis_executed:
             # Read the log files
             log_data: LogfileData = self.read_logfiles()
 
@@ -330,7 +326,7 @@ class WorstCaseAnalysis(ToleranceDeviations):
             wc_data: list[float | complex] = []
             for run_idx in range(self.last_run_number + 1):
                 value = measure_at(run_idx)
-                if isinstance(value, (int, float)):
+                if isinstance(value, int | float):
                     wc_data.append(float(value))
                 elif isinstance(value, complex):
                     wc_data.append(value)

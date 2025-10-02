@@ -39,6 +39,9 @@ runid = server.run("./testfiles/testfile.net")
 print("Got Job id", runid)
 for runid in server:  # Ma
     zip_filename = server.get_runno_data(runid)
+    if zip_filename is None:
+        _logger.warning("Server returned empty payload for run id %s", runid)
+        continue
     print(f"Received {zip_filename} from runid {runid}")
     with zipfile.ZipFile(
         zip_filename, "r"

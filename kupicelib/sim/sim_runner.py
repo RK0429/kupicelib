@@ -209,7 +209,7 @@ class SimRunner(AnyRunner):
             if not self.output_folder.exists():
                 self.output_folder.mkdir()
 
-        self.parallel_sims = parallel_sims
+        self.parallel_sims: int = parallel_sims
         # Executor for parallel simulations
         self._executor: ThreadPoolExecutor = concurrent.futures.ThreadPoolExecutor(
             max_workers=self.parallel_sims
@@ -790,6 +790,29 @@ class SimRunner(AnyRunner):
         deprecated:: 1.0 Use `cleanup_files()` instead.
         """
         self.cleanup_files()  # alias for backward compatibility
+
+    @property
+    def okSim(self) -> int:
+        """Number of successful simulations.
+
+        Historically the public API exposed ``okSim`` as an attribute; expose it as a
+        read-only property so existing client code keeps working while providing an
+        explicit type for static analyzers.
+        """
+
+        return self.successful_simulations
+
+    @property
+    def failSim(self) -> int:
+        """Number of failed simulations."""
+
+        return self.failed_simulations
+
+    @property
+    def runno(self) -> int:
+        """Total number of simulations that have been scheduled."""
+
+        return self.run_count
 
     def __iter__(self) -> Iterator[Any]:
         self._iterator_counter = (
