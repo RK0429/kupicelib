@@ -19,8 +19,6 @@ from __future__ import annotations
 # Licence:     refer to the LICENSE file
 # -------------------------------------------------------------------------------
 """Internal classes not to be used directly by the user."""
-__author__ = "Nuno Canto Brum <nuno.brum@gmail.com>"
-__copyright__ = "Copyright 2023, Fribourg Switzerland"
 
 import logging
 import sys
@@ -32,6 +30,9 @@ from typing import Any
 
 from .process_callback import ProcessCallback
 from .simulator import Simulator
+
+__author__ = "Nuno Canto Brum <nuno.brum@gmail.com>"
+__copyright__ = "Copyright 2023, Fribourg Switzerland"
 
 _logger = logging.getLogger("kupicelib.RunTask")
 

@@ -22,9 +22,10 @@ from __future__ import annotations
 # From
 # https://stackoverflow.com/questions/23598289/how-to-get-windows-short-file-name-in-python
 import sys
+from collections.abc import Callable
 from ctypes import create_unicode_buffer, wintypes
 from os import PathLike
-from typing import Callable, overload, cast
+from typing import overload, cast
 
 _ShortPathFunc = Callable[[str, wintypes.LPWSTR, int], wintypes.DWORD]
 

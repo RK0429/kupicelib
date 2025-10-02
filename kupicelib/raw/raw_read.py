@@ -17,6 +17,8 @@
 # Licence:     refer to the LICENSE file
 # -------------------------------------------------------------------------------
 
+from __future__ import annotations
+
 """This module reads data from an Spice RAW file. The main class object is the RawRead
 which is initialized with the filename of the RAW file to be processed. The object wil
 read the file and construct a structure of objects which can be used to access the data
@@ -197,7 +199,7 @@ import re
 from collections import OrderedDict
 from pathlib import Path
 from struct import unpack
-from typing import Any
+from typing import Any, BinaryIO
 
 from numpy import float32, float64, frombuffer
 from numpy.typing import NDArray
@@ -210,7 +212,7 @@ from .raw_classes import Axis, DummyTrace, SpiceReadException, TraceRead
 _logger = logging.getLogger("kupicelib.RawRead")
 
 
-def read_float64(f):
+def read_float64(f: BinaryIO) -> float:
     """Reads a 64-bit float value, normally associated with the plot X axis. The
     codification is done as follows:
 
@@ -236,11 +238,11 @@ def read_float64(f):
     :returns: double precision float
     :rtype: float
     """
-    s = f.read(8)
+    s: bytes = f.read(8)
     return unpack("d", s)[0]
 
 
-def read_complex(f):
+def read_complex(f: BinaryIO) -> complex:
     """Used to convert a 16 byte stream into a complex data point. Usually used for the
     .AC simulations. The encoding is the same as for the set_pointB8() but two values
     are encoded. First one is the real part and the second is the complex part.
@@ -250,12 +252,12 @@ def read_complex(f):
     :return: complex value
     :rtype: complex
     """
-    s = f.read(16)
-    (re, im) = unpack("dd", s)
+    s: bytes = f.read(16)
+    re, im = unpack("dd", s)
     return complex(re, im)
 
 
-def read_float32(f):
+def read_float32(f: BinaryIO) -> float:
     """Reads a 32bit float (single precision) from a stream. This is how most real
     values are stored in the RAW file. This codification uses 4 bytes as follows:
 
@@ -279,21 +281,21 @@ def read_float32(f):
     :returns: float value
     :rtype: float
     """
-    s = f.read(4)
+    s: bytes = f.read(4)
     return unpack("f", s)[0]
 
 
-def consume4bytes(f):
+def consume4bytes(f: BinaryIO) -> None:
     """Used to advance the file pointer 4 bytes."""
     f.read(4)
 
 
-def consume8bytes(f):
+def consume8bytes(f: BinaryIO) -> None:
     """Used to advance the file pointer 8 bytes."""
     f.read(8)
 
 
-def consume16bytes(f):
+def consume16bytes(f: BinaryIO) -> None:
     """Used to advance the file pointer 16 bytes."""
     f.read(16)
 
