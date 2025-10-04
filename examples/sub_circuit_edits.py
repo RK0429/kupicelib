@@ -6,12 +6,13 @@ print("Circuit Nodes", E.get_all_nodes())
 E.set_custom_library_paths(r"C:\SVN\Electronic_Libraries\LTSpice\lib")
 print("All components:\n", E.get_components())
 print("Only resistors:\n", E.get_components("R"))
-print("Components inside XX1:\n", E.get_subcircuit("XX1").get_components())
+subcircuit = E.get_subcircuit("XX1")
+print("Components inside XX1:\n", subcircuit.get_components())
 print("All subciruits inside the netlist:\n", E.get_subcircuit_names())
-print(
-    "Components inside 'sub_circuit':\n",
-    E.get_subcircuit_named("sub_circuit").get_components(),
-)
+named_subcircuit = E.get_subcircuit_named("sub_circuit")
+if named_subcircuit is None:
+    raise ValueError("Expected subcircuit 'sub_circuit' to exist in the netlist")
+print("Components inside 'sub_circuit':\n", named_subcircuit.get_components())
 # Change the L1 value inside of instance XX1 of the subcircuit
 E.set_component_value("XX1:L1", 2e-6)
 print(E["R1"].value)
@@ -29,7 +30,7 @@ E["XX1:C1"].value = 22e-9
 print("Setting XX1:C2 to 120nF")
 E["XX1:C2"].value = "120n"
 print("Setting the value of C1 inside the subcircuit 'sub_circuit' to 99nF")
-E.get_subcircuit_named("sub_circuit")["C1"].value = "99n"
+named_subcircuit["C1"].value = "99n"
 print("Note that the value of C1 inside the subcircuit XX1 is not changed")
 print(E.get_component_floatvalue("XX1:C1"))
 print(E.get_component_floatvalue("XX1:C2"))

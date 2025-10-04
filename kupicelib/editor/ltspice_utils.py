@@ -67,7 +67,7 @@ LT_ATTRIBUTE_NUMBERS_INV = {val: key for key, val in LT_ATTRIBUTE_NUMBERS.items(
 WEIGHT_CONVERSION_TABLE = ("Thin", "Normal", "Thick")
 
 
-def asc_text_align_set(text: Text, alignment: str):
+def asc_text_align_set(text: Text, alignment: str) -> Text:
     """Sets the alignment of the text in the ASC format."""
     # Default
     text.textAlignment = HorAlign.CENTER

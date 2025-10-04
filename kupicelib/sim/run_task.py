@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-from __future__ import annotations
 
 # -------------------------------------------------------------------------------
 #
@@ -19,6 +18,8 @@ from __future__ import annotations
 # Licence:     refer to the LICENSE file
 # -------------------------------------------------------------------------------
 """Internal classes not to be used directly by the user."""
+
+from __future__ import annotations
 
 import logging
 import sys

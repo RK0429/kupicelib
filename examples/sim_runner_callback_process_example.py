@@ -63,16 +63,20 @@ if __name__ == "__main__":
     netlist.add_instructions("; Simulation settings", ";.param run = 0")
     netlist.set_parameter("run", 0)
 
-    for opamp in (
+    opamps = (
         "AD712",
         "AD820_XU1",
-    ):  # don't use AD820, it is defined in the file and will mess up newer LTspice versions
+    )
+
+    for opamp in opamps:
+        # Avoid AD820: defined in the file and incompatible with newer LTspice versions.
         netlist["XU1"].model = opamp
         for supply_voltage in (5, 10, 15):
             netlist["V1"].value = supply_voltage
             netlist["V2"].value = -supply_voltage
             # overriding the automatic netlist naming
-            run_netlist_file = f"{netlist.netlist_file.stem}_{opamp}_{supply_voltage}.net"
+            circuit_path = netlist.circuit_file
+            run_netlist_file = f"{circuit_path.stem}_{opamp}_{supply_voltage}.net"
             runner.run(netlist, run_filename=run_netlist_file, callback=CallbackProc)
 
     for result in runner:

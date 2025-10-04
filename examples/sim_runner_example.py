@@ -1,3 +1,6 @@
+from pathlib import Path
+from typing import cast
+
 from kupicelib import SimRunner, SpiceEditor
 from kupicelib.simulators.ltspice_simulator import LTspice
 
@@ -24,9 +27,10 @@ netlist["V3"].model = (
 netlist.set_component_value(
     "XU1:C2", 20e-12
 )  # modifying a component in the subcircuit XU1 instance
-netlist.get_subcircuit_named("AD820_ALT")[
-    "C13"
-].value = "2p"  # This changes the value of C13 inside the subcircuit AD820.
+subckt = netlist.get_subcircuit_named("AD820_ALT")
+if subckt is None:
+    raise RuntimeError("Missing AD820_ALT subcircuit")
+subckt["C13"].value = "2p"  # This changes the value of C13 inside the subcircuit AD820.
 # Applies to all instances of the subcircuit
 netlist.add_instructions("; Simulation settings", ";.param run = 0")
 netlist.set_parameter("run", 0)
@@ -53,7 +57,12 @@ for opamp in (
             netlist, switches=opts, exe_log=True
         )  # run, and log console output fo file
 
-for raw, log in runner:
+for result in runner:
+    if result is None:
+        continue
+    if not isinstance(result, tuple):
+        continue
+    raw, log = cast(tuple[Path | None, Path | None], result)
     print(f"Raw file: {raw}, Log file: {log}")
     # do something with the data
     # raw_data = RawRead(raw)

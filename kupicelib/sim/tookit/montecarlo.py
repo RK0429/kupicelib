@@ -1,4 +1,6 @@
 #!/usr/bin/env python
+from __future__ import annotations
+
 # -------------------------------------------------------------------------------
 #
 #  ███████╗██████╗ ██╗ ██████╗███████╗██╗     ██╗██████╗
@@ -16,16 +18,22 @@
 # Created:     10-08-2023
 # Licence:     refer to the LICENSE file
 # -------------------------------------------------------------------------------
-
 import logging
 import random
-from collections.abc import Callable
+from collections.abc import Callable, Mapping, Sequence
+from typing import Any
 
 from ...log.logfile_data import LogfileData
 from ..process_callback import ProcessCallback
+from ..sim_runner import SimRunner
 from .tolerance_deviations import ComponentDeviation, DeviationType, ToleranceDeviations
 
 _logger = logging.getLogger("kupicelib.SimAnalysis")
+
+
+def _noop_callback(*_args: Any, **_kwargs: Any) -> None:
+    """Default callback used when no callback is provided."""
+    return None
 
 
 class Montecarlo(ToleranceDeviations):
@@ -63,7 +71,7 @@ class Montecarlo(ToleranceDeviations):
     when it is prone to crashes and stalls.
     """
 
-    def prepare_testbench(self, **kwargs):
+    def prepare_testbench(self, **kwargs: Any) -> None:
         """Prepares the simulation by setting the tolerances for the components :keyword
         num_runs: Number of runs to be performed.
 
@@ -127,7 +135,13 @@ class Montecarlo(ToleranceDeviations):
             self.editor.set_parameter(param, new_val)
             self.elements_analysed.append(param)
 
-        if self.runner.simulator.__name__ == "LTspice":
+        runner = self.runner
+        if not isinstance(runner, SimRunner):
+            raise TypeError("Montecarlo requires a SimRunner-compatible runner")
+
+        simulator_name = runner.simulator.__name__
+
+        if simulator_name == "LTspice":
             if tol_uni_func:
                 self.editor.add_instruction(
                     ".func utol(nom,tol) if(run<0, nom, mc(nom,tol))"
@@ -147,7 +161,7 @@ class Montecarlo(ToleranceDeviations):
                 self.editor.add_instruction(
                     ".func nrng(nom,mean,df6) if(run<0, nom, mean*(1+gauss(df6)))"
                 )
-        elif self.runner.simulator.__name__ == "Qspice":
+        elif simulator_name == "Qspice":
             # If a gauss function were needed we could define helpers, but
             # QSPICE already provides an undocumented gauss implementation.
             # Example helpers (kept for reference):
@@ -178,12 +192,15 @@ class Montecarlo(ToleranceDeviations):
                     ".func nrng(nom,mean,df6) if(run<0, nom, mean*(1+gauss(df6)))"
                 )
         else:
-            _logger.warning("Simulator not supported for this method")
-            raise NotImplementedError("Simulator not supported for this method")
+            msg = f"Simulator '{simulator_name}' not supported for Montecarlo testbench"
+            _logger.warning(msg)
+            raise NotImplementedError(msg)
 
-        self.last_run_number = kwargs.get(
-            "num_runs", self.last_run_number if self.last_run_number != 0 else 1000
-        )
+        num_runs_arg = kwargs.get("num_runs")
+        if num_runs_arg is not None:
+            self.last_run_number = int(num_runs_arg)
+        elif self.last_run_number == 0:
+            self.last_run_number = 1000
         self.editor.add_instruction(
             f".step param run -1 {self.last_run_number} 1"
         )
@@ -191,8 +208,11 @@ class Montecarlo(ToleranceDeviations):
         self.testbench_prepared = True
 
     @staticmethod
-    def _get_sim_value(value: float, dev: ComponentDeviation) -> float:
+    def _get_sim_value(value: float | str, dev: ComponentDeviation) -> float | str:
         """Returns a new value for the simulation."""
+        if isinstance(value, str):
+            # When the value cannot be converted to a float, keep the original string.
+            return value
         new_val = value
         if dev.typ == DeviationType.tolerance:
             if dev.distribution == "uniform":
@@ -216,13 +236,13 @@ class Montecarlo(ToleranceDeviations):
 
     def run_analysis(
         self,
-        callback: type[ProcessCallback] | Callable | None = None,
-        callback_args: tuple | dict | None = None,
-        switches=None,
+        callback: type[ProcessCallback] | Callable[..., Any] | None = None,
+        callback_args: Sequence[Any] | Mapping[str, Any] | None = None,
+        switches: Sequence[str] | None = None,
         timeout: float | None = None,
         exe_log: bool = True,
         num_runs: int = 1000,
-    ):
+    ) -> None:
         """This method runs the analysis without updating the netlist.
 
         It will update component values and parameters according to their deviation type
@@ -251,24 +271,26 @@ class Montecarlo(ToleranceDeviations):
                     self.editor.set_parameter(param, new_val)
             # Run the simulation
             # Handle optional parameters properly before passing to run
-            actual_callback = (
-                callback if callback is not None else lambda *args, **kwargs: None
-            )
+            if callback is None:
+                actual_callback: type[ProcessCallback] | Callable[..., Any]
+                actual_callback = _noop_callback
+            else:
+                actual_callback = callback
+            actual_callback_args: Sequence[Any] | Mapping[str, Any]
             actual_callback_args = callback_args if callback_args is not None else {}
-            actual_timeout = timeout if timeout is not None else float("inf")
 
             rt = self.run(
                 wait_resource=True,
                 callback=actual_callback,
                 callback_args=actual_callback_args,
                 switches=switches,
-                timeout=actual_timeout,
+                timeout=timeout,
                 exe_log=exe_log,
             )
 
         self.runner.wait_completion()
         if callback is not None:
-            callback_rets = []
+            callback_rets: list[Any] = []
             for rt in self.simulations:
                 if rt is not None:
                     callback_rets.append(rt.get_results())
@@ -290,7 +312,7 @@ class Montecarlo(ToleranceDeviations):
             return None
         log_data: LogfileData = self.read_logfiles()
         meas_data = log_data[meas_name]
-        if meas_data is None:
+        if not meas_data:
             _logger.warning("Measurement %s not found in log files", meas_name)
             return None
         else:

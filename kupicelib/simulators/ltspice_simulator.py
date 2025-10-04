@@ -2,7 +2,6 @@
 
 import logging
 import os
-import subprocess
 
 # -------------------------------------------------------------------------------
 #
@@ -22,10 +21,11 @@ import subprocess
 # Licence:     refer to the LICENSE file
 # -------------------------------------------------------------------------------
 import sys
+from collections.abc import Sequence
 from pathlib import Path
 from typing import ClassVar
 
-from ..sim.simulator import Simulator, SpiceSimulatorError, run_function
+from ..sim.simulator import Simulator, SpiceSimulatorError, StdStream, run_function
 
 _logger = logging.getLogger("kupicelib.LTSpiceSimulator")
 
@@ -97,7 +97,7 @@ class LTspice(Simulator):
         )
 
     @classmethod
-    def valid_switch(cls, switch: str, path: str = "") -> list:
+    def valid_switch(cls, switch: str, switch_param: str = "") -> list[str]:
         """Validate a command line switch.
 
         Available options for Windows/wine LTspice:
@@ -131,8 +131,6 @@ class LTspice(Simulator):
             )
 
         # format check
-        if switch is None:
-            return []
         switch = switch.strip()
         if len(switch) == 0:
             return []
@@ -146,8 +144,7 @@ class LTspice(Simulator):
 
         if switch in cls.ltspice_args:
             switches = cls.ltspice_args[switch]
-            switches = [switch.replace("<path>", path) for switch in switches]
-            return switches
+            return [opt.replace("<path>", switch_param) for opt in switches]
         else:
             valid_keys = ", ".join(sorted(cls.ltspice_args.keys()))
             raise ValueError(
@@ -155,49 +152,21 @@ class LTspice(Simulator):
                 f"Valid switches are: {valid_keys}"
             )
 
+
+
+
+
     @classmethod
     def run(
         cls,
         netlist_file: str | Path,
-        cmd_line_switches: list | None = None,
+        cmd_line_switches: Sequence[str] | str | None = None,
         timeout: float | None = None,
-        stdout=None,
-        stderr=None,
+        stdout: StdStream = None,
+        stderr: StdStream = None,
         exe_log: bool = False,
     ) -> int:
-        """Executes a LTspice simulation run.
-
-        A raw file and a log file will be generated, with the same name as the netlist
-        file, but with `.raw` and `.log` extension.
-
-        :param netlist_file: path to the netlist file
-        :type netlist_file: Union[str, Path]
-        :param cmd_line_switches: additional command line options. Best to have been
-            validated by valid_switch(), defaults to None
-        :type cmd_line_switches: Union[list, None], optional
-        :param timeout: If timeout is given, and the process takes too long, a
-            TimeoutExpired exception will be raised, defaults to None
-        :type timeout: Union[float, None], optional
-        :param stdout: control redirection of the command's stdout. Valid values are
-            None, subprocess.PIPE, subprocess.DEVNULL, an existing file descriptor (a
-            positive integer), and an existing file object with a valid file descriptor.
-            With the default settings of None, no redirection will occur. Also see
-            `exe_log` for a simpler form of control.
-        :type stdout: _FILE, optional
-        :param stderr: Like stdout, but affecting the command's error output. Also see
-            `exe_log` for a simpler form of control.
-        :type stderr: _FILE, optional
-        :param exe_log: If True, stdout and stderr will be ignored, and the simulator's
-            execution console messages will be written to a log file (named ...exe.log)
-            instead of console. This is especially useful when running under wine or
-            when running simultaneous tasks.
-        :type exe_log: bool, optional
-        :raises SpiceSimulatorError: when the executable is not found.
-        :raises NotImplementedError: when the requested execution is not possible on
-            this platform.
-        :return: return code from the process
-        :rtype: int
-        """
+        """Execute a LTspice simulation in batch mode."""
         if not cls.is_available():
             _logger.error("================== ALERT! ====================")
             _logger.error("Unable to find a LTspice executable.")
@@ -207,137 +176,55 @@ class LTspice(Simulator):
             raise SpiceSimulatorError("Simulator executable not found.")
 
         if cmd_line_switches is None:
-            cmd_line_switches = []
+            cmd_switches: list[str] = []
         elif isinstance(cmd_line_switches, str):
-            cmd_line_switches = [cmd_line_switches]
-        netlist_file = Path(netlist_file)
+            cmd_switches = [cmd_line_switches]
+        else:
+            cmd_switches = [str(option) for option in cmd_line_switches]
 
-        # cannot set raw and log file names or extensions. They are always
-        # '<netlist_file>.raw' and '<netlist_file>.log'
+        netlist_path = Path(netlist_file)
 
-        if sys.platform == "linux" or sys.platform == "darwin":
+        if sys.platform in {"linux", "darwin"}:
             if cls.using_macos_native_sim():
-                # native MacOS simulator, which has its limitations
-                if netlist_file.suffix.lower().endswith(".asc"):
+                if netlist_path.suffix.lower().endswith(".asc"):
                     raise NotImplementedError(
                         "MacOS native LTspice cannot run simulations on '.asc' files. "
                         "Simulate '.net' or '.cir' files or use LTspice under wine."
                     )
-
-                cmd_run = (
-                    [*cls.spice_exe, "-b", netlist_file.as_posix(), *cmd_line_switches]
-                )
+                cmd_run: list[str] = [
+                    *cls.spice_exe,
+                    "-b",
+                    netlist_path.as_posix(),
+                    *cmd_switches,
+                ]
             else:
-                # wine
-                # Drive letter 'Z' is the link from wine to the host platform's root
-                # directory.
-                # Z: is needed for netlists with absolute paths, but will also work with
-                # relative paths.
                 cmd_run = [
                     *cls.spice_exe,
-                    "-Run",
-                    "-b",
-                    f"Z:{netlist_file.as_posix()}",
-                    *cmd_line_switches,
+                    netlist_path.as_posix(),
+                    *cmd_switches,
                 ]
+        elif sys.platform == "win32":
+            cmd_run = [
+                *cls.spice_exe,
+                "-Run",
+                "-b",
+                netlist_path.as_posix(),
+                *cmd_switches,
+            ]
         else:
-            # Windows (well, also aix, wasi, emscripten,... where it will fail.)
-            cmd_run = (
-                [*cls.spice_exe, "-Run", "-b", netlist_file.as_posix(), *cmd_line_switches]
-            )
-        # start execution
+            raise NotImplementedError("Unsupported Platform for LTspice Simulator")
+
         if exe_log:
-            log_exe_file = netlist_file.with_suffix(".exe.log")
-            with open(log_exe_file, "wb") as outfile:
-                error = run_function(
-                    cmd_run, timeout=timeout, stdout=outfile, stderr=subprocess.STDOUT
-                )
-        else:
-            error = run_function(cmd_run, timeout=timeout, stdout=stdout, stderr=stderr)
-        return error
-
-    @classmethod
-    def create_netlist(
-        cls,
-        circuit_file: str | Path,
-        cmd_line_switches: list | None = None,
-        timeout: float | None = None,
-        stdout=None,
-        stderr=None,
-        exe_log: bool = False,
-    ) -> Path:
-        """Create a netlist out of the circuit file.
-
-        :param circuit_file: path to the circuit file
-        :type circuit_file: Union[str, Path]
-        :param cmd_line_switches: additional command line options. Best to have been
-            validated by valid_switch(), defaults to None
-        :type cmd_line_switches: Union[list, None], optional
-        :param timeout: If timeout is given, and the process takes too long, a
-            TimeoutExpired exception will be raised, defaults to None
-        :type timeout: Union[float, None], optional
-        :param stdout: control redirection of the command's stdout. Valid values are
-            None, subprocess.PIPE, subprocess.DEVNULL, an existing file descriptor (a
-            positive integer), and an existing file object with a valid file descriptor.
-            With the default settings of None, no redirection will occur. Also see
-            `exe_log` for a simpler form of control.
-        :type stdout: _FILE, optional
-        :param stderr: Like stdout, but affecting the command's error output. Also see
-            `exe_log` for a simpler form of control.
-        :type stderr: _FILE, optional
-        :param exe_log: If True, stdout and stderr will be ignored, and the simulator's
-            execution console messages will be written to a log file (named ...exe.log)
-            instead of console. This is especially useful when running under wine or
-            when running simultaneous tasks.
-        :type exe_log: bool, optional
-        :raises NotImplementedError: when the requested execution is not possible on
-            this platform.
-        :raises RuntimeError: when the netlist cannot be created
-        :return: path to the netlist produced
-        :rtype: Path
-        """
-        # prepare instructions, two stages used to enable edits on the netlist w/o open
-        # GUI
-        # see: https://www.mikrocontroller.net/topic/480647?goto=5965300#5965300
-        if cmd_line_switches is None:
-            cmd_line_switches = []
-        elif isinstance(cmd_line_switches, str):
-            cmd_line_switches = [cmd_line_switches]
-        circuit_file = Path(circuit_file)
-
-        if cls.using_macos_native_sim():
-            # native MacOS simulator
-            raise NotImplementedError(
-                "MacOS native LTspice does not have netlist generation "
-                "capabilities. Use LTspice under wine."
-            )
-
-        cmd_netlist = (
-            [*cls.spice_exe, "-netlist", circuit_file.as_posix(), *cmd_line_switches]
-        )
-        if exe_log:
-            log_exe_file = circuit_file.with_suffix(".exe.log")
-            with open(log_exe_file, "wb") as outfile:
-                error = run_function(
-                    cmd_netlist,
+            exe_log_file = netlist_path.with_suffix(netlist_path.suffix + '.exe.log')
+            with exe_log_file.open('w', encoding='utf-8') as exe_log_fd:
+                return run_function(
+                    cmd_run,
                     timeout=timeout,
-                    stdout=outfile,
-                    stderr=subprocess.STDOUT,
+                    stdout=exe_log_fd,
+                    stderr=exe_log_fd,
                 )
-        else:
-            error = run_function(
-                cmd_netlist, timeout=timeout, stdout=stdout, stderr=stderr
-            )
 
-        if error == 0:
-            netlist = circuit_file.with_suffix(".net")
-            if netlist.exists():
-                _logger.debug("OK")
-                return netlist
-        msg = "Failed to create netlist"
-        _logger.error(msg)
-        raise RuntimeError(msg)
-
+        return run_function(cmd_run, timeout=timeout, stdout=stdout, stderr=stderr)
     @classmethod
     def _detect_executable(cls):
         """Detect and set spice_exe and process_name based on platform."""

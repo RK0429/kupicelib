@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 # -------------------------------------------------------------------------------
+from __future__ import annotations
+
 #
 #  ███████╗██████╗ ██╗ ██████╗███████╗██╗     ██╗██████╗
 #  ██╔════╝██╔══██╗██║██╔════╝██╔════╝██║     ██║██╔══██╗
@@ -16,12 +18,15 @@
 # Licence:     refer to the LICENSE file
 # -------------------------------------------------------------------------------
 import logging
+import os
 import os.path
 import re
+from collections.abc import Sequence
+from os import PathLike
 from pathlib import Path
-from typing import ClassVar, Union
+from typing import ClassVar, cast
 
-from ..log.logfile_data import try_convert_value
+from ..log.logfile_data import ValueType, try_convert_value
 from ..simulators.ltspice_simulator import LTspice
 from ..utils.detect_encoding import EncodingDetectError, detect_encoding
 from ..utils.file_search import search_file_in_containers
@@ -68,6 +73,9 @@ LTSPICE_PARAMETERS = ("Value", "Value2", "SpiceModel", "SpiceLine", "SpiceLine2"
 LTSPICE_PARAMETERS_REDUCED = ("SpiceLine", "SpiceLine2")
 LTSPICE_ATTRIBUTES = ("InstName", "Def_Sub")
 
+ComponentParamValue = ValueType | dict[str, ValueType]
+ComponentParamMap = dict[str, ComponentParamValue]
+
 
 class AscEditor(BaseSchematic):
     """Class made to update directly the LTspice ASC files."""
@@ -86,17 +94,17 @@ class AscEditor(BaseSchematic):
     :meta hide-value:
     """
 
-    def __init__(self, asc_file: str | Path, encoding="autodetect"):
+    def __init__(self, asc_file: str | Path, encoding: str = "autodetect") -> None:
         super().__init__()
         self.version: str = "4"
-        self.sheet = "1 0 0"  # Three values are present on the SHEET clause
+        self.sheet: str = "1 0 0"  # Three values are present on the SHEET clause
         self.asc_file_path = Path(asc_file)
         if not self.asc_file_path.exists():
             raise FileNotFoundError(f"File {asc_file} not found")
         # determine encoding
         if encoding == "autodetect":
             try:
-                self.encoding = detect_encoding(
+                self.encoding: str = detect_encoding(
                     self.asc_file_path, r"^VERSION ", re_flags=re.IGNORECASE
                 )  # Normally the file will start with 'VERSION '
             except EncodingDetectError as err:
@@ -156,7 +164,9 @@ class AscEditor(BaseSchematic):
                     and "_SUBCKT" in component.attributes
                 ):
                     # writing the sub-circuit if it was updated
-                    sub_circuit: AscEditor | None = component.attributes["_SUBCKT"]
+                    sub_circuit = cast(
+                        AscEditor | None, component.attributes["_SUBCKT"]
+                    )
                     if sub_circuit is not None and sub_circuit.updated:
                         sub_circuit.save_netlist(sub_circuit.asc_file_path)
                 for attr, value in component.attributes.items():
@@ -197,7 +207,7 @@ class AscEditor(BaseSchematic):
         super().reset_netlist()
         with open(self.asc_file_path, encoding=self.encoding) as asc_file:
             _logger.info(f"Parsing ASC file {self.asc_file_path}")
-            component = None
+            component: SchematicComponent | None = None
             for line in asc_file:
                 # skip blank lines and include directives
                 if line.strip() == "":
@@ -206,7 +216,7 @@ class AscEditor(BaseSchematic):
                     self.includes.append(line.strip())
                     continue
                 if line.startswith("SYMBOL"):
-                    tag, symbol, posX, posY, rotation = line.split()
+                    _tag, symbol, posX, posY, rotation = line.split()
                     if component is not None:
                         assert (
                             component.reference is not None
@@ -224,7 +234,7 @@ class AscEditor(BaseSchematic):
                     assert (
                         component is not None
                     ), "Syntax Error: WINDOW clause without SYMBOL"
-                    tag, num_ref, posX, posY, alignment, size_str = line.split()
+                    _tag, num_ref, posX, posY, alignment, size_str = line.split()
                     component.append(line)
                     coord = Point(int(posX), int(posY))
                     text = Text(
@@ -241,7 +251,7 @@ class AscEditor(BaseSchematic):
                         component is not None
                     ), "Syntax Error: SYMATTR clause without SYMBOL"
                     component.append(line)
-                    tag, ref, txt = line.split(maxsplit=2)
+                    _tag, ref, txt = line.split(maxsplit=2)
                     txt_str = txt.strip()  # Gets rid of the \n terminator
                     if ref == "InstName":
                         component.reference = txt_str
@@ -281,20 +291,20 @@ class AscEditor(BaseSchematic):
                         self.directives.append(text_obj)
 
                 elif line.startswith("WIRE"):
-                    tag, x1, y1, x2, y2 = line.split()
+                    _tag, x1, y1, x2, y2 = line.split()
                     v1 = Point(int(x1), int(y1))
                     v2 = Point(int(x2), int(y2))
                     wire = Line(v1, v2)
                     self.wires.append(wire)
                 elif line.startswith("FLAG"):
-                    tag, posX, posY, text_str = line.split(maxsplit=3)
+                    _tag, posX, posY, text_str = line.split(maxsplit=3)
                     coord = Point(int(posX), int(posY))
                     flag = Text(
                         coord=coord, text=text_str.strip(), type=TextTypeEnum.LABEL
                     )
                     self.labels.append(flag)
                 elif line.startswith("Version"):
-                    tag, version_val = line.split()
+                    _tag, version_val = line.split()
                     assert version_val in [
                         "4",
                         "4.0",
@@ -304,7 +314,7 @@ class AscEditor(BaseSchematic):
                 elif line.startswith("SHEET "):
                     self.sheet = line[len("SHEET "):].strip()
                 elif line.startswith("IOPIN "):
-                    tag, posX, posY, direction = line.split()
+                    _tag, posX, posY, direction = line.split()
                     text = self.labels[-1]  # Assuming it is the last FLAG parsed
                     assert int(posX) == text.coord.X and int(
                         posY
@@ -387,9 +397,7 @@ class AscEditor(BaseSchematic):
         answer = AsyReader(asy_path)
         return answer
 
-    def _get_subcircuit(
-        self, symbol: AsyReader
-    ) -> Union[SpiceEditor, "AscEditor", None]:
+    def _get_subcircuit(self, symbol: AsyReader) -> SpiceEditor | AscEditor | None:
         # two main possibilities here:
         # either the symbol refers to a library file,
         # either to a subcircuit in another .asc file. This appears to only happen
@@ -425,6 +433,8 @@ class AscEditor(BaseSchematic):
         else:
             # load the model from the library
             model = symbol.get_model()
+            if lib is None:
+                raise ValueError("Symbol is missing an associated library reference")
             lib_path = self._lib_file_find(lib)
             if lib_path is None:
                 raise FileNotFoundError(f"File {lib} not found")
@@ -433,23 +443,24 @@ class AscEditor(BaseSchematic):
                 return answer
             return None
 
-    def get_subcircuit(self, reference: str) -> "AscEditor":
+    def get_subcircuit(self, reference: str) -> AscEditor:
         """Returns an AscEditor file corresponding to the symbol."""
         sub = self.get_component(reference)
-        if "_SUBCKT" in sub.attributes:
-            return sub.attributes["_SUBCKT"]
+        sub_circuit = sub.attributes.get("_SUBCKT")
+        if isinstance(sub_circuit, AscEditor):
+            return sub_circuit
         raise AttributeError(f"An associated subcircuit was not found for {reference}")
 
-    def get_component_info(self, reference) -> dict:
+    def get_component_info(self, reference: str) -> dict[str, object]:
         """Returns the reference information as a dictionary."""
         component = self.get_component(reference)
-        info = {
+        component_info: dict[str, object] = {
             name: value
             for name, value in component.attributes.items()
             if not name.startswith("WINDOW ")
         }
-        info["InstName"] = reference  # For legacy purposes
-        return info
+        component_info["InstName"] = reference  # For legacy purposes
+        return component_info
 
     def get_component_position(self, reference: str) -> tuple[Point, ERotation]:
         component = self.get_component(reference)
@@ -462,7 +473,9 @@ class AscEditor(BaseSchematic):
         component.position = position
         component.rotation = rotation
 
-    def _get_param_named(self, param_name):
+    def _get_param_named(
+        self, param_name: str
+    ) -> tuple[re.Match[str] | None, Text | None]:
         param_name_uppercase = param_name.upper()
         search_expression = re.compile(PARAM_REGEX(r"\w+"), re.IGNORECASE)
         for directive in self.directives:
@@ -473,9 +486,10 @@ class AscEditor(BaseSchematic):
                         return match, directive
         return None, None
 
-    def get_all_parameter_names(self, param: str = "") -> list:
+    def get_all_parameter_names(self, param: str = "") -> list[str]:
         # docstring inherited from BaseEditor
-        param_names = []
+        param_names: list[str] = []
+        _ = param  # Parameter kept for API compatibility; not used in ASC files
         search_expression = re.compile(PARAM_REGEX(r"\w+"), re.IGNORECASE)
         for directive in self.directives:
             if directive.text.upper().startswith(".PARAM"):
@@ -486,7 +500,7 @@ class AscEditor(BaseSchematic):
         return sorted(param_names)
 
     def get_parameter(self, param: str) -> str:
-        match, directive = self._get_param_named(param)
+        match, _directive = self._get_param_named(param)
         if match:
             return match.group("value")
         else:
@@ -553,7 +567,7 @@ class AscEditor(BaseSchematic):
     def get_component_value(self, element: str) -> str:
         component = self.get_component(element)
         values = [
-            component.attributes[param_name]
+            str(component.attributes[param_name])
             for param_name in ["Value", "Value2"]
             if param_name in component.attributes
         ]
@@ -564,7 +578,9 @@ class AscEditor(BaseSchematic):
             )
         return " ".join(values)
 
-    def get_component_parameters(self, element: str, as_dicts: bool = False) -> dict:
+    def get_component_parameters(
+        self, element: str, as_dicts: bool = False
+    ) -> ComponentParamMap:
         """Returns the parameters of a component that are related with Spice operation.
         That is: Value, Value2, SpiceModel, SpiceLine, SpiceLine2, plus all contents of
         SpiceLine, SpiceLine2.
@@ -580,16 +596,17 @@ class AscEditor(BaseSchematic):
             NotImplementedError - for not supported operations
         """
         component = self.get_component(element)
-        parameters = {}
+        parameters: ComponentParamMap = {}
         search_regex = re.compile(PARAM_REGEX(r"\w+"), re.IGNORECASE)
         for key, value in component.attributes.items():
             if key in LTSPICE_PARAMETERS:
-                parameters[key] = value
+                parameters[key] = cast(ValueType, value)
                 if key in LTSPICE_PARAMETERS_REDUCED:
                     # if we have a structured attribute, return the full dict of it
                     # this is compatible with set_component_parameters
-                    sub_parameters = {}
-                    matches = search_regex.finditer(value)
+                    sub_parameters: dict[str, ValueType] = {}
+                    value_text = str(value)
+                    matches = search_regex.finditer(value_text)
                     # This might contain one or more parameters
                     for match in matches:
                         sub_parameters[match.group("name")] = try_convert_value(
@@ -603,7 +620,7 @@ class AscEditor(BaseSchematic):
 
         return parameters
 
-    def set_component_parameters(self, element: str, **kwargs) -> None:
+    def set_component_parameters(self, element: str, **kwargs: ValueType) -> None:
         """Sets the parameters of a component that are related with Spice operation.
         That is: Value, Value2, SpiceModel, SpiceLine, SpiceLine2, or any parameters are
         or could be in SpiceLine, SpiceLine2. Unknown parameters will be added to
@@ -627,85 +644,75 @@ class AscEditor(BaseSchematic):
         """
         component = self.get_component(element)
         for key, value in kwargs.items():
-            # format the value
             if value is None:
-                value_str = None
+                value_str: str | None = None
             elif isinstance(value, str):
                 value_str = value.strip()
-            else:
+            elif isinstance(value, int | float):
                 value_str = format_eng(value)
-            params = self.get_component_parameters(element, as_dicts=True)
-            if key in params:
-                # I only have the LTSPICE_PARAMETERS as keys here, so when I match, i can overwrite
-                # I do not support delete here, as some of the keys are mandatory
+            else:
+                value_str = str(value)
+
+            params: ComponentParamMap = self.get_component_parameters(
+                element, as_dicts=True
+            )
+            direct_param = params.get(key)
+            if key in params and not isinstance(direct_param, dict):
                 component.attributes[key] = value_str
                 _logger.info(
-                    f"Component {element} updated with parameter {key}:{value}"
+                    f"Component {element} updated with parameter {key}:{value_str}"
                 )
-            else:
-                foundme = False
-                # not found: look in the second level dicts
-                for param_key in LTSPICE_PARAMETERS_REDUCED:
-                    if param_key in params and key in params[param_key]:
-                        # found in the dict
-                        # update the dict
-                        if value_str is None:
-                            # remove if empty
-                            params[param_key].pop(key)
-                        else:
-                            params[param_key][key] = value_str
-                        # and make the line out of the dict
-                        component.attributes[param_key] = " ".join(
-                            [
-                                f"{p_key}={p_value}"
-                                for p_key, p_value in params[param_key].items()
-                            ]
-                        )
-                        _logger.info(
-                            f"Component {element} updated with parameter {key}:{value_str}"
-                        )
-                        foundme = True
-                if not foundme and value_str is not None:
-                    # don't add if there's nothing to add
-                    if key in LTSPICE_PARAMETERS:
-                        # known parameter, set the value
-                        component.attributes[key] = value_str
-                        _logger.info(
-                            f"Component {element} updated with parameter {key}:{value_str}"
-                        )
+                continue
+
+            foundme = False
+            for param_key in LTSPICE_PARAMETERS_REDUCED:
+                sub_params = params.get(param_key)
+                if isinstance(sub_params, dict) and key in sub_params:
+                    if value_str is None:
+                        sub_params.pop(key, None)
                     else:
-                        # nothing found, and not a known parameter, put it in
-                        # SpiceLine
-                        param_key = LTSPICE_PARAMETERS_REDUCED[0]
-                        if param_key in params:
-                            # if SpiceLine exists: add to the dict
-                            params[param_key][key] = value_str
-                            # and make the line out of the dict
-                            component.attributes[param_key] = " ".join(
-                                [
-                                    f"{p_key}={p_value}"
-                                    for p_key, p_value in params[param_key].items()
-                                ]
-                            )
-                        else:
-                            # if SpiceLine does not exist: create the line
-                            component.attributes[param_key] = f"{key}={value_str}"
-                        _logger.info(
-                            f"Component {element} updated with parameter {key}:{value_str}"
-                        )
+                        sub_params[key] = value_str
+                    component.attributes[param_key] = " ".join(
+                        [
+                            f"{p_key}={p_value}"
+                            for p_key, p_value in sub_params.items()
+                        ]
+                    )
+                    _logger.info(
+                        f"Component {element} updated with parameter {key}:{value_str}"
+                    )
+                    foundme = True
+                    break
+
+            if not foundme and value_str is not None:
+                param_key = LTSPICE_PARAMETERS_REDUCED[0]
+                sub_params = params.get(param_key)
+                if isinstance(sub_params, dict):
+                    sub_params[key] = value_str
+                    component.attributes[param_key] = " ".join(
+                        [
+                            f"{p_key}={p_value}"
+                            for p_key, p_value in sub_params.items()
+                        ]
+                    )
+                else:
+                    component.attributes[param_key] = f"{key}={value_str}"
+                _logger.info(
+                    f"Component {element} updated with parameter {key}:{value_str}"
+                )
         self.set_updated(element)
 
-    def get_components(self, prefixes="*") -> list:
+    def get_components(self, prefixes: str | Sequence[str] = "*") -> list[str]:
         if prefixes == "*":
             return list(self.components.keys())
-        return [k for k in self.components if k[0] in prefixes]
+        return [k for k in self.components if k and k[0] in prefixes]
 
-    def remove_component(self, designator: str):
+    def remove_component(self, designator: str) -> None:
         sub_circuit, ref = self._get_parent(designator)
         del sub_circuit.components[ref]
         sub_circuit.updated = True
 
-    def _get_text_space(self):
+    def _get_text_space(self) -> tuple[float, float]:
         """Returns the coordinate on the Schematic File canvas where a text can be
         appended."""
         min_x = 100000  # High enough to be sure it will be replaced
@@ -737,19 +744,20 @@ class AscEditor(BaseSchematic):
             max_y = max(max_y, component.position.Y)
 
         return (
-            min_x,
-            max_y + 24,
+            float(min_x),
+            float(max_y + 24),
         )  # Setting the text in the bottom left corner of the canvas
 
-    def add_library_paths(self, *paths):
+    def add_library_paths(self, *paths: str | PathLike[str]) -> None:
         """.. deprecated:: 1.1.4 Use the class method `set_custom_library_paths()`
         instead.
 
         Adding paths for searching for symbols and libraries
         """
-        self.set_custom_library_paths(*paths)
+        normalized_paths = tuple(os.fspath(path) for path in paths)
+        self.set_custom_library_paths(*normalized_paths)
 
-    def _lib_file_find(self, filename) -> str | None:
+    def _lib_file_find(self, filename: str) -> str | None:
         # create list of directories to search, based on the simulator_lib_paths.
         # Just add "/sub" to the path
         my_lib_paths = [os.path.join(x, "sub") for x in self.simulator_lib_paths]
@@ -768,7 +776,7 @@ class AscEditor(BaseSchematic):
         )
         return file_found
 
-    def _asy_file_find(self, filename) -> str | None:
+    def _asy_file_find(self, filename: str) -> str | None:
         if filename in self.symbol_cache:
             return self.symbol_cache[filename]
         _logger.info(f"Searching for symbol {filename}...")

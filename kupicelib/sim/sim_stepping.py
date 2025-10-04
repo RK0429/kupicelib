@@ -70,8 +70,13 @@ class StepInfo(Generic[StepValue]):
 
 
 class RunnerWithStats(AnyRunner, Protocol):
-    okSim: int
-    runno: int
+    @property
+    def okSim(self) -> int:
+        ...
+
+    @property
+    def runno(self) -> int:
+        ...
 
 
 class InstructionEditor(Protocol):

@@ -21,6 +21,8 @@ import logging
 import os
 import sys
 import unittest
+from os import PathLike
+from pathlib import Path
 
 import kupicelib
 
@@ -53,10 +55,16 @@ if not os.path.exists(temp_dir):
 kupicelib.set_log_level(logging.INFO)
 
 
-def equalFiles(testcase, file1, file2):
-    with open(file1, encoding="cp1252") as f1:
+def equalFiles(
+    testcase: unittest.TestCase,
+    file1: str | PathLike[str],
+    file2: str | PathLike[str],
+) -> None:
+    path1 = Path(file1)
+    path2 = Path(file2)
+    with path1.open(encoding="cp1252") as f1:
         lines1 = f1.readlines()
-    with open(file2, encoding="cp1252") as f2:
+    with path2.open(encoding="cp1252") as f2:
         lines2 = f2.readlines()
     testcase.assertEqual(
         len(lines1),

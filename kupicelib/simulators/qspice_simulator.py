@@ -1,9 +1,5 @@
 #!/usr/bin/env python
 
-import logging
-import os
-import subprocess
-
 # -------------------------------------------------------------------------------
 #
 #  ███████╗██████╗ ██╗ ██████╗███████╗██╗     ██╗██████╗
@@ -21,192 +17,112 @@ import subprocess
 # Created:     26-08-2023
 # Licence:     refer to the LICENSE file
 # -------------------------------------------------------------------------------
+
+from __future__ import annotations
+
+import logging
+import os
+import subprocess
 import sys
+from collections.abc import Sequence
 from pathlib import Path
 from typing import Any, ClassVar
 
-from ..sim.simulator import Simulator, SpiceSimulatorError, run_function
+from ..sim.simulator import (
+    Simulator,
+    SpiceSimulatorError,
+    StdStream,
+    run_function,
+)
 
 _logger = logging.getLogger("kupicelib.QSpiceSimulator")
 
 
 class Qspice(Simulator):
-    """Stores the simulator location and command line options and is responsible for
-    generating netlists and running simulations."""
+    """Stores the simulator location and command line options, and runs simulations."""
 
     raw_extension = ".qraw"
     """:meta private:"""
 
-    #
-    # In QSPICE all traces have double precision. This means that qraw files are not compatible
-    # with LTSPICE
-
-    # windows paths (that are also valid for wine)
-    # Please note that os.path.expanduser and os.path.join are sensitive to the style of slash.
-    # Placed in order of preference. The first to be found will be used.
     _spice_exe_win_paths: ClassVar[list[str]] = [
         "~/Qspice/QSPICE64.exe",
         "~/AppData/Local/Programs/Qspice/QSPICE64.exe",
         "C:/Program Files/QSPICE/QSPICE64.exe",
     ]
 
-    # the default lib paths, as used by get_default_library_paths
     _default_lib_paths: ClassVar[list[str]] = [
         "C:/Program Files/QSPICE",
         "~/Documents/QSPICE",
     ]
 
-    """Searches on the any usual locations for a simulator"""
-    # defaults:
-    spice_exe: ClassVar[list[str]] = []
-    process_name = ""
-
-    if sys.platform == "linux" or sys.platform == "darwin":
+    _detected_executable: list[str]
+    if sys.platform in {"linux", "darwin"}:
         # Status mid-2024: QSPICE offers limited support under Linux+Wine and
-        # none for macOS+Wine.
-        # TODO: when the situation gets more mature, add support for wine. See
-        # LTspice for an example.
-        spice_exe = []
-        process_name = ""
-    else:  # Windows (well, also aix, wasi, emscripten,... where it will fail.)
-        for exe in _spice_exe_win_paths:
-            if exe.startswith("~"):
-                # expand here, as I use _spice_exe_win_paths also for linux, and
-                # expanding earlier will fail
-                exe = os.path.expanduser(exe)
-            if os.path.exists(exe):
-                spice_exe = [exe]
+        # none for macOS+Wine. Leave the executable unset for now.
+        _detected_executable = []
+    else:
+        _detected_executable = []
+        for candidate in _spice_exe_win_paths:
+            normalized = (
+                os.path.expanduser(candidate) if candidate.startswith("~") else candidate
+            )
+            if os.path.exists(normalized):
+                _detected_executable = [normalized]
                 break
 
-    # fall through
-    if len(spice_exe) == 0:
-        spice_exe = []
-        process_name = ""
-    else:
-        process_name = Simulator.guess_process_name(spice_exe[0])
-        _logger.debug(f"Found Qspice installed in: '{spice_exe}' ")
+    spice_exe: ClassVar[list[str]] = _detected_executable
+    process_name: str = (
+        Simulator.guess_process_name(spice_exe[0]) if spice_exe else ""
+    )
+    if spice_exe:
+        _logger.debug("Found Qspice installed in: '%s'", spice_exe)
 
     qspice_args: ClassVar[dict[str, list[str]]] = {
-        "-ASCII": ["-ASCII"],  # Use ASCII file format for the output data(.qraw) file.
-        "-ascii": [
-            "-ASCII"
-        ],  # lowercase also works. Not sure about the others, so keep it this way.
-        "-binary": [
-            "-binary"
-        ],  # Use binary file format for the output data(.qraw) file.
-        "-BSIM1": [
-            "-BSIM1"
-        ],  # Use the charge-conserving BSIM1 charge model for MOS1, MOS2, and MOS3.
-        "-Meyer": [
-            "-Meyer"
-        ],  # Use the Meyer Capacitance model for MOS1, MOS2, and MOS3.
-        "-o": ["-o", "<path>"],  # Specify the console output file.
-        # '-p': ['-p'],  # Take the netlist piped from stdin (unsupported here).
-        "-ProtectSelections": [
-            "-ProtectSelections",
-            "<path>",
-        ],  # Protect sections marked with .prot/.unprot with encryption.
-        "-ProtectSubcircuits": [
-            "-ProtectSubcircuits",
-            "<path>",
-        ],  # Protect the body of subcircuits with encryption.
-        "-r": ["-r", "<path>"],  # Specify the name of the output data(.qraw) file.
+        "-ASCII": ["-ASCII"],
+        "-ascii": ["-ASCII"],
+        "-binary": ["-binary"],
+        "-BSIM1": ["-BSIM1"],
+        "-Meyer": ["-Meyer"],
+        "-o": ["-o", "<path>"],
+        "-ProtectSelections": ["-ProtectSelections", "<path>"],
+        "-ProtectSubcircuits": ["-ProtectSubcircuits", "<path>"],
+        "-r": ["-r", "<path>"],
     }
     """:meta private:"""
 
     _default_run_switches: ClassVar[list[str]] = ["-o"]
 
     @classmethod
-    def valid_switch(cls, switch: str, path: str = "") -> list:
-        """Validates a command line switch. The following options are available for
-        QSPICE:
+    def valid_switch(cls, switch: str, switch_param: Any = "") -> list[str]:
+        """Validate and format a QSPICE command-line switch."""
 
-        * `-ASCII`: Use ASCII file format for the output data(.qraw) file. * `-binary`:
-        Use binary file format for the output data(.qraw) file. * `-BSIM1`: Use the
-        charge-conserving BSIM1 charge model for MOS1, MOS2, and MOS3. * `-Meyer`: Use
-        the Meyer Capacitance model for MOS1, MOS2, and MOS3. * `-ProtectSelections
-        <path>`: Protect sections marked with .prot/.unprot with encryption. *
-        `-ProtectSubcircuits <path>`: Protect the body of subcircuits with encryption. *
-        `-r <path>`: Specify the name of the output data(.qraw) file.
-
-        The following parameters will already be filled in by kupicelib, and cannot be
-        set:
-
-        * `-o <path>`: Specify the name of a file for the console output.
-
-        :param switch: switch to be added.
-        :type switch: str
-        :param path: path to the file related to the switch being given.
-        :type path: str, optional
-        :return: Nothing
-        """
-
-        # format check
-        if switch is None:
+        parameter = str(switch_param).strip() if switch_param is not None else ""
+        switch_clean = switch.strip()
+        if not switch_clean:
             return []
-        switch = switch.strip()
-        if len(switch) == 0:
-            return []
-        if switch[0] != "-":
-            switch = "-" + switch
+        if not switch_clean.startswith("-"):
+            switch_clean = "-" + switch_clean
 
-        # will be set anyway?
-        if switch in cls._default_run_switches:
-            _logger.info(f"Switch {switch} is already in the default switches")
+        if switch_clean in cls._default_run_switches:
+            _logger.info("Switch %s is already in the default switches", switch_clean)
             return []
 
-        # read from the dictionary
-        if switch in cls.qspice_args:
-            switches = cls.qspice_args[switch]
-            switches = [switch.replace("<path>", path) for switch in switches]
-            return switches
-        else:
-            raise ValueError(f"Invalid Switch '{switch}'")
+        if switch_clean in cls.qspice_args:
+            return [value.replace("<path>", parameter) for value in cls.qspice_args[switch_clean]]
+        raise ValueError(f"Invalid Switch '{switch_clean}'")
 
     @classmethod
     def run(
         cls,
         netlist_file: str | Path,
-        cmd_line_switches: list[Any] | None = None,
+        cmd_line_switches: Sequence[str] | str | None = None,
         timeout: float | None = None,
-        stdout=None,
-        stderr=None,
+        stdout: StdStream = None,
+        stderr: StdStream = None,
         exe_log: bool = False,
     ) -> int:
-        """Executes a Qspice simulation run.
+        """Execute a QSPICE simulation run."""
 
-        A raw file and a log file will be generated, with the same name as the netlist
-        file, but with `.qraw` and `.log` extension. You can however change the raw file
-        name using the `-r` switch.
-
-        :param netlist_file: path to the netlist file
-        :type netlist_file: Union[str, Path]
-        :param cmd_line_switches: additional command line options. Best to have been
-            validated by valid_switch(), defaults to None
-        :type cmd_line_switches: list, optional
-        :param timeout: If timeout is given, and the process takes too long, a
-            TimeoutExpired exception will be raised, defaults to None
-        :type timeout: float, optional
-        :param stdout: control redirection of the command's stdout. Valid values are
-            None, subprocess.PIPE, subprocess.DEVNULL, an existing file descriptor (a
-            positive integer), and an existing file object with a valid file descriptor.
-            With the default settings of None, no redirection will occur. Also see
-            `exe_log` for a simpler form of control.
-        :type stdout: _FILE, optional
-        :param stderr: Like stdout, but affecting the command's error output. Also see
-            `exe_log` for a simpler form of control.
-        :type stderr: _FILE, optional
-        :param exe_log: If True, stdout and stderr will be ignored, and the simulator's
-            execution console messages will be written to a log file (named ...exe.log)
-            instead of console. This is especially useful when running under wine or
-            when running simultaneous tasks.
-        :type exe_log: bool, optional
-        :raises SpiceSimulatorError: when the executable is not found.
-        :raises NotImplementedError: when the requested execution is not possible on
-            this platform.
-        :return: return code from the process
-        :rtype: int
-        """
         if not cls.is_available():
             _logger.error("================== ALERT! ====================")
             _logger.error("Unable to find the QSPICE executable.")
@@ -216,23 +132,32 @@ class Qspice(Simulator):
             raise SpiceSimulatorError("Simulator executable not found.")
 
         if cmd_line_switches is None:
-            cmd_line_switches = []
+            switches_list: list[str] = []
         elif isinstance(cmd_line_switches, str):
-            cmd_line_switches = [cmd_line_switches]
-        # need absolute path, as early 2025 qspice has a strange repetition bug
-        netlist_file = Path(netlist_file).absolute()
-
-        log_file = Path(netlist_file).with_suffix(".log").as_posix()
-        cmd_run = (
-            [*cls.spice_exe, "-o", log_file, netlist_file.as_posix(), *cmd_line_switches]
-        )
-        # start execution
-        if exe_log:
-            log_exe_file = netlist_file.with_suffix(".exe.log")
-            with open(log_exe_file, "w") as outfile:
-                error = run_function(
-                    cmd_run, timeout=timeout, stdout=outfile, stderr=subprocess.STDOUT
-                )
+            switches_list = [cmd_line_switches]
         else:
-            error = run_function(cmd_run, timeout=timeout, stdout=stdout, stderr=stderr)
-        return error
+            switches_list = list(cmd_line_switches)
+        netlist_path = Path(netlist_file)
+
+        logfile = netlist_path.with_suffix(".log").as_posix()
+        rawfile = netlist_path.with_suffix(".qraw").as_posix()
+
+        cmd_run = (
+            cls.spice_exe
+            + switches_list
+            + ["-Run"]
+            + ["-o", logfile]
+            + ["-r", rawfile]
+            + [netlist_path.as_posix()]
+        )
+
+        if exe_log:
+            log_exe_file = netlist_path.with_suffix(".exe.log")
+            with open(log_exe_file, "w", encoding="utf-8") as outfile:
+                return run_function(
+                    cmd_run,
+                    timeout=timeout,
+                    stdout=outfile,
+                    stderr=subprocess.STDOUT,
+                )
+        return run_function(cmd_run, timeout=timeout, stdout=stdout, stderr=stderr)

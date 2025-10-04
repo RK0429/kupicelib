@@ -1,3 +1,6 @@
+from pathlib import Path
+from typing import cast
+
 from kupicelib import AscEditor, SimRunner
 from kupicelib.simulators.ltspice_simulator import LTspice
 
@@ -26,7 +29,12 @@ for opamp in ("AD712", "AD820_ALT"):
         print("simulating OpAmp", opamp, "Voltage", supply_voltage)
         runner.run(netlist)
 
-for raw, log in runner:
+for result in runner:
+    if result is None:
+        continue
+    if not isinstance(result, tuple):
+        continue
+    raw, log = cast(tuple[Path | None, Path | None], result)
     print(f"Raw file: {raw}, Log file: {log}")
     # do something with the data
     # raw_data = RawRead(raw)

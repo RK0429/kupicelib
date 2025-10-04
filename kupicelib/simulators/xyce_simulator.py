@@ -18,14 +18,22 @@
 # Licence:     refer to the LICENSE file
 # -------------------------------------------------------------------------------
 
+from __future__ import annotations
+
 import logging
 import os
 import shutil
 import subprocess
+from collections.abc import Sequence
 from pathlib import Path
 from typing import Any, ClassVar
 
-from ..sim.simulator import Simulator, SpiceSimulatorError, run_function
+from ..sim.simulator import (
+    Simulator,
+    SpiceSimulatorError,
+    StdStream,
+    run_function,
+)
 
 _logger = logging.getLogger("kupicelib.XYCESimulator")
 
@@ -43,34 +51,23 @@ class XyceSimulator(Simulator):
     # none
     _default_lib_paths: ClassVar[list[str]] = []
 
-    # defaults:
-    spice_exe: ClassVar[list[str]] = []
-    process_name: str = ""
-
-    # determine the executable to use
-    for exe in _spice_exe_paths:
-        if exe.startswith("~"):
-            exe = os.path.expanduser(exe)
-        if os.path.exists(exe):
-            spice_exe = [exe]
+    _detected_executable: ClassVar[list[str]] = []
+    for candidate in _spice_exe_paths:
+        normalized = os.path.expanduser(candidate) if candidate.startswith("~") else candidate
+        if os.path.exists(normalized):
+            _detected_executable = [normalized]
             break
-        else:
-            # check if file in path
-            if shutil.which(exe):
-                spice_exe = [exe]
-                break
+        which_result = shutil.which(candidate)
+        if which_result:
+            _detected_executable = [which_result]
+            break
 
-    # The following variables are not needed anymore. This also makes sphinx
-    # not mention them in the documentation.
-    del exe
-
-    # fall through
-    if len(spice_exe) == 0:
-        spice_exe = []
-        process_name = ""
-    else:
-        process_name = Simulator.guess_process_name(spice_exe[0])
-        _logger.debug(f"Found ngspice installed in: '{spice_exe}' ")
+    spice_exe: ClassVar[list[str]] = _detected_executable
+    process_name: str = (
+        Simulator.guess_process_name(spice_exe[0]) if spice_exe else ""
+    )
+    if spice_exe:
+        _logger.debug("Found Xyce installed in: '%s'", spice_exe)
 
     xyce_args: ClassVar[dict[str, list[str]]] = {
         # '-b'                : ['-b'],  # batch mode flag for spice compatibility (ignored)
@@ -156,7 +153,7 @@ class XyceSimulator(Simulator):
     _default_run_switches: ClassVar[list[str]] = ["-l", "-r"]
 
     @classmethod
-    def valid_switch(cls, switch: str, parameter: str = "") -> list:
+    def valid_switch(cls, switch: str, switch_param: Any = "") -> list[str]:
         """Validates a command line switch. The following options are available for
         Xyce:
 
@@ -202,72 +199,74 @@ class XyceSimulator(Simulator):
         :return: the correct formatting for the switch
         :rtype: list
         """
-        ret = []  # This is an empty switch
+        ret: list[str] = []
+        parameter_text = str(switch_param).strip() if switch_param is not None else ""
 
-        # format check
-        if switch is None:
-            return []
-        switch = switch.strip()
-        if len(switch) == 0:
-            return []
-        if switch[0] != "-":
-            switch = "-" + switch
+        switch_clean = switch.strip()
+        if not switch_clean:
+            return ret
+        if not switch_clean.startswith("-"):
+            switch_clean = "-" + switch_clean
 
-        # will be set anyway?
-        if switch in cls._default_run_switches:
-            _logger.info(f"Switch {switch} is already in the default switches")
+        if switch_clean in cls._default_run_switches:
+            _logger.info(
+                "Switch %s is already in the default switches",
+                switch_clean,
+            )
             return []
 
-        if switch in cls.xyce_args:
-            switch_list = cls.xyce_args[switch]
+        if switch_clean in cls.xyce_args:
+            switch_list = cls.xyce_args[switch_clean]
             if len(switch_list) == 2:
                 param_token = switch_list[1]
                 if param_token == "<path>":
-                    ret = [switch_list[0], parameter]
+                    ret = [switch_list[0], parameter_text]
                 elif param_token == "<param_options>":
                     # Check for [device [level [<inst|mod>]]] syntax ??
                     # TODO: this will probably not work, need to separate the parameters
-                    ret = [switch_list[0], parameter, ]
+                    ret = [switch_list[0], parameter_text]
                 elif param_token == "<hsext_options>":
-                    ret = [switch_list[0], parameter]
+                    ret = [switch_list[0], parameter_text]
                 elif param_token == "<redef_param_option>":
-                    if parameter in ("ignore", "uselast", "usefirst", "warn", "error"):
-                        ret = [switch_list[0], parameter]
+                    if parameter_text in ("ignore", "uselast", "usefirst", "warn", "error"):
+                        ret = [switch_list[0], parameter_text]
                 elif param_token == "<truefalse_option>":
-                    if parameter.lower() in ("true", "false"):
-                        ret = [switch_list[0], parameter]
+                    if parameter_text.lower() in ("true", "false"):
+                        ret = [switch_list[0], parameter_text]
                 elif param_token == "<delim_option>":
-                    ret = [switch_list[0], parameter]
+                    ret = [switch_list[0], parameter_text]
                 elif param_token == "<onoff_option>":
-                    if parameter.lower() in ("on", "off"):
-                        ret = [switch_list[0], parameter]
+                    if parameter_text.lower() in ("on", "off"):
+                        ret = [switch_list[0], parameter_text]
                 elif param_token == "<int_option>":
                     try:
-                        int(parameter)
+                        int(parameter_text)
                     except ValueError:
                         pass
                     else:
-                        ret = [switch_list[0], parameter]
+                        ret = [switch_list[0], parameter_text]
                 elif param_token == "<plugin_list>":
-                    ret = [switch_list[0], parameter]
+                    ret = [switch_list[0], parameter_text]
                 else:
                     _logger.warning(
-                        f"Invalid parameter {parameter} for switch '{switch}'"
+                        "Invalid parameter %s for switch '%s'",
+                        parameter_text,
+                        switch_clean,
                     )
             else:
                 ret = switch_list
         else:
-            raise ValueError(f"Invalid Switch '{switch}'")
+            raise ValueError(f"Invalid Switch '{switch_clean}'")
         return ret
 
     @classmethod
     def run(
         cls,
         netlist_file: str | Path,
-        cmd_line_switches: list[Any] | None = None,
+        cmd_line_switches: Sequence[str] | str | None = None,
         timeout: float | None = None,
-        stdout=None,
-        stderr=None,
+        stdout: StdStream = None,
+        stderr: StdStream = None,
         exe_log: bool = False,
     ) -> int:
         """Executes a Xyce simulation run.
@@ -312,27 +311,29 @@ class XyceSimulator(Simulator):
             raise SpiceSimulatorError("Simulator executable not found.")
 
         if cmd_line_switches is None:
-            cmd_line_switches = []
+            switches_list: list[str] = []
         elif isinstance(cmd_line_switches, str):
-            cmd_line_switches = [cmd_line_switches]
-        netlist_file = Path(netlist_file)
+            switches_list = [cmd_line_switches]
+        else:
+            switches_list = list(cmd_line_switches)
+        netlist_path = Path(netlist_file)
 
-        logfile = netlist_file.with_suffix(".log").as_posix()
-        rawfile = netlist_file.with_suffix(".raw").as_posix()
+        logfile = netlist_path.with_suffix(".log").as_posix()
+        rawfile = netlist_path.with_suffix(".raw").as_posix()
 
         cmd_run = (
             cls.spice_exe
-            + cmd_line_switches
+            + switches_list
             + ["-l"]
             + [logfile]
             + ["-r"]
             + [rawfile]
-            + [netlist_file.as_posix()]
+            + [netlist_path.as_posix()]
         )
         # start execution
         if exe_log:
-            log_exe_file = netlist_file.with_suffix(".exe.log")
-            with open(log_exe_file, "w") as outfile:
+            log_exe_file = netlist_path.with_suffix(".exe.log")
+            with open(log_exe_file, "w", encoding="utf-8") as outfile:
                 error = run_function(
                     cmd_run, timeout=timeout, stdout=outfile, stderr=subprocess.STDOUT
                 )

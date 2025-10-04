@@ -17,14 +17,33 @@
 # Licence:     refer to the LICENSE file
 # -------------------------------------------------------------------------------
 
-import logging
-from collections.abc import Callable
-from enum import IntEnum
+from __future__ import annotations
 
+import logging
+from collections.abc import Callable, Mapping, Sequence
+from enum import IntEnum
+from typing import Any, Literal, NamedTuple
+
+from ...log.logfile_data import LogfileData
 from ..process_callback import ProcessCallback
-from .worst_case import DeviationType, WorstCaseAnalysis
+from .tolerance_deviations import ComponentDeviation, DeviationType
+from .worst_case import WorstCaseAnalysis
 
 _logger = logging.getLogger("kupicelib.SimAnalysis")
+
+CallbackType = type[ProcessCallback] | Callable[..., Any]
+CallbackArgs = Sequence[Any] | Mapping[str, Any] | None
+SwitchesArg = Sequence[str] | None
+
+
+class WorstCaseSummary(NamedTuple):
+    """Summary of fast worst-case analysis results."""
+
+    nominal: float
+    minimum: float
+    max_components: dict[str, float]
+    maximum: float
+    min_components: dict[str, float]
 
 
 class WorstCaseType(IntEnum):
@@ -34,53 +53,24 @@ class WorstCaseType(IntEnum):
 
 
 class FastWorstCaseAnalysis(WorstCaseAnalysis):
-    """This class implements a faster algorithm to perform a worst case analysis. The
-    typical worst case analysis makes all possible combinations of the components that
-    have a deviation. This means that if there are 10 components with a deviation, there
-    will be 1024 simulations to be performed. The number of simulations grows
-    exponentially with the number of components with deviation.
+    """Faster algorithm to perform a worst-case analysis.
 
-    This algorithm speeds up the process, by determining the impact of each component
-    with deviation on the final result and skipping simulations that are not necessary.
-    The algorithm is as follows:
-
-    1. Make a sensitivity analysis to determine the impact that each component has on
-    the final result.
-
-    2. Based on the information collected on 1. set all the components with deviation
-    achieve a maximum on the final result. Components are set based on the assumption
-    that the system is reaction is to each component is monotonic. That is, if
-    increasing the component value, increases the final result, then the component is
-    set to the maximum value. If decreasing the component value increases the final
-    result, then the component is set to the minimum value.
-
-    3. Validate the assumption based on 2. by making a series of test simulations
-    setting each component with their opposite value. If the result is lower, then the
-    assumption is correct. If the result is higher, then the assumption is wrong and the
-    component is set to the opposite value.
-
-    4. Repeat 2. but this time trying to achieve a minimum on the final result.
-
-    5. Repeat step 3. but this time trying to achieve a minimum on the final result.
-
-    Like in the Worst-Case and Montecarlo, there are two approaches to make this
-    analysis. Either preparing a testbench where component variations are managed by the
-    simulator, or by ordering each simulation individually. In the testbench method all
-    component values are replaced by formulas that depend on a .STEP PARAM run, and then
-    run_testbench() will make all the manipulations of the run variable.
-
-    In the latter, each component value is set individually. This is done by calling the
-    run_analysis() method.
+    The classical approach evaluates all possible deviation combinations which is
+    exponential on the number of elements. This implementation estimates the best and
+    worst case by iteratively adjusting components according to the sensitivity of the
+    monitored measurement.
     """
+
+    last_summary: WorstCaseSummary | None
 
     def run_testbench(
         self,
         *,
-        runs_per_sim: int | None = None,  # This parameter is ignored
-        wait_resource: bool = True,  # This parameter is ignored
-        callback: type[ProcessCallback] | Callable | None = None,
-        callback_args: tuple | dict | None = None,
-        switches=None,
+        runs_per_sim: int | None = None,  # pragma: no cover - kept for API parity
+        wait_resource: bool = True,  # pragma: no cover - kept for API parity
+        callback: CallbackType | None = None,
+        callback_args: CallbackArgs = None,
+        switches: SwitchesArg = None,
         timeout: float | None = None,
         run_filename: str | None = None,
         exe_log: bool = False,
@@ -89,100 +79,132 @@ class FastWorstCaseAnalysis(WorstCaseAnalysis):
 
     def run_analysis(
         self,
-        callback: type[ProcessCallback] | Callable | None = None,
-        callback_args: tuple | dict | None = None,
-        switches=None,
+        callback: CallbackType | None = None,
+        callback_args: CallbackArgs = None,
+        switches: SwitchesArg = None,
         timeout: float | None = None,
         exe_log: bool = True,
         measure: str | None = None,
-    ) -> tuple[float, float, dict[str, float], float, dict[str, float]]:
-        """As described in the class description, this method will perform a worst case
-        analysis using a faster algorithm."""
-        assert measure is not None, "The measure argument must be defined"
+    ) -> None:
+        """Run the fast worst-case analysis.
 
+        Returns a named tuple with the nominal measurement, the minimum measurement,
+        the component values that yield the maximum measurement, the maximum
+        measurement, and the component values that yield the minimum measurement.
+        """
+        if measure is None:
+            raise ValueError("The measure argument must be defined")
+
+        self.last_summary = None
         self.clear_simulation_data()
         self.elements_analysed.clear()
-        worst_case_elements = {}
+        worst_case_elements: dict[
+            str, tuple[float, ComponentDeviation, Literal["component", "parameter"]]
+        ] = {}
 
-        def check_and_add_component(ref1: str):
-            val1, dev1 = self.get_component_value_deviation_type(
-                ref1
-            )  # get there present value
-            if dev1.min_val == dev1.max_val or dev1.typ == DeviationType.none:
+        def _to_float(value: float | int | str) -> float:
+            if isinstance(value, int | float):
+                return float(value)
+            stripped = value.strip()
+            return float(stripped)
+
+        def _coerce_measure(raw: object) -> float:
+            if isinstance(raw, int | float):
+                return float(raw)
+            if isinstance(raw, complex):
+                return float(abs(raw))
+            if isinstance(raw, str):
+                return float(raw.strip())
+            if raw is None:
+                raise TypeError("Measurement value is None")
+            if isinstance(raw, list):
+                raise TypeError(
+                    "Measurement value is a list; fast worst-case expects a scalar"
+                )
+            raise TypeError(f"Unsupported measurement type: {type(raw)!r}")
+
+        def check_and_add_component(ref1: str) -> None:
+            value_raw, deviation = self.get_component_value_deviation_type(ref1)
+            if deviation.min_val == deviation.max_val or deviation.typ == DeviationType.none:
                 return
-            worst_case_elements[ref1] = val1, dev1, "component"
+            try:
+                numeric_value = _to_float(value_raw)
+            except (TypeError, ValueError):
+                _logger.debug(
+                    "Skipping non-numeric component %s for fast worst-case analysis",
+                    ref1,
+                )
+                return
+            worst_case_elements[ref1] = numeric_value, deviation, "component"
             self.elements_analysed.append(ref1)
 
-        def value_change(val, dev, to: WorstCaseType):
-            """Sets the reference component to the maximum value if set_max is True, or
-            to the minimum value if set_max is False.
+        def value_change(
+            val: float, deviation: ComponentDeviation, target: WorstCaseType
+        ) -> float:
+            if deviation.typ == DeviationType.tolerance:
+                if target == WorstCaseType.max:
+                    return val * (1 + deviation.max_val)
+                if target == WorstCaseType.min:
+                    return val * (1 - deviation.max_val)
+                return val
+            if deviation.typ == DeviationType.minmax:
+                if target == WorstCaseType.max:
+                    return deviation.max_val
+                if target == WorstCaseType.min:
+                    return deviation.min_val
+                return val
+            _logger.warning("Unknown deviation type for %s", deviation)
+            return val
 
-            This method is used by the run_analysis() method.
-            """
-            # Preparing the variation on components, but only on the ones that have
-            # changed
-            if dev.typ == DeviationType.tolerance:
-                if to == WorstCaseType.max:
-                    new_val = val * (1 + dev.max_val)
-                elif to == WorstCaseType.min:
-                    new_val = val * (1 - dev.max_val)
-                else:
-                    # Default to nominal case
-                    new_val = val
-
-            elif dev.typ == DeviationType.minmax:
-                if to == WorstCaseType.max:
-                    new_val = dev.max_val
-                elif to == WorstCaseType.min:
-                    new_val = dev.min_val
-                else:
-                    # Default to nominal case
-                    new_val = val
-            else:
-                _logger.warning("Unknown deviation type")
-                new_val = val
-            return new_val
-
-        def set_ref_to(ref, to: WorstCaseType):
-            val, dev, typ = worst_case_elements[ref]
-            new_val = value_change(val, dev, to)
-            if typ == "component":
-                self.editor.set_component_value(ref, new_val)  # update the value
-            elif typ == "parameter":
+        def set_reference(ref: str, target: WorstCaseType) -> None:
+            val, deviation, entry_type = worst_case_elements[ref]
+            new_val = value_change(val, deviation, target)
+            if entry_type == "component":
+                self.editor.set_component_value(ref, new_val)
+            elif entry_type == "parameter":
                 self.editor.set_parameter(ref, new_val)
             else:
-                _logger.warning("Unknown type")
+                _logger.warning("Unknown entry type %s", entry_type)
 
-        def run_and_get_measure():
-            # Run the simulation
-            # Prepare callbacks and timeouts
-            actual_callback = (
-                callback if callback is not None else lambda: None
-            )  # default no-op callable
-            actual_callback_args = callback_args if callback_args is not None else ()
-            actual_timeout = timeout if timeout is not None else 0.0  # default timeout
+        def extract_measure(data: LogfileData, run_index: int) -> float:
+            result = data.get_measure_value(measure, run_index)
+            return _coerce_measure(result)
 
-            task = self.run(
+        def run_and_get_measure() -> float:
+            run_task = self.run(
                 wait_resource=True,
-                callback=actual_callback,
-                callback_args=actual_callback_args,
+                callback=callback,
+                callback_args=callback_args,
                 switches=switches,
-                timeout=actual_timeout,
+                timeout=timeout,
                 exe_log=exe_log,
             )
             self.wait_completion()
-            # Get the results from the simulation
-            log_data = self.add_log(task)
-            return log_data.get_measure_value(measure)
+            if run_task is None:
+                raise RuntimeError("Simulation did not start; no RunTask returned")
+            log_data = self.add_log(run_task)
+            if log_data is None:
+                raise RuntimeError("Simulation failed; no log data produced")
+            result = log_data.get_measure_value(measure)
+            return _coerce_measure(result)
 
         for ref in self.device_deviations:
             check_and_add_component(ref)
 
         for ref in self.parameter_deviations:
-            val, dev = self.get_parameter_value_deviation_type(ref)
-            if dev.typ == DeviationType.tolerance or dev.typ == DeviationType.minmax:
-                worst_case_elements[ref] = val, dev, "parameter"
-                self.elements_analysed.append(ref)
+            value_raw, deviation = self.get_parameter_value_deviation_type(ref)
+            if deviation.typ not in (DeviationType.tolerance, DeviationType.minmax):
+                continue
+            try:
+                numeric_value = _to_float(value_raw)
+            except (TypeError, ValueError):
+                _logger.debug(
+                    "Skipping non-numeric parameter %s for fast worst-case analysis",
+                    ref,
+                )
+                continue
+            worst_case_elements[ref] = numeric_value, deviation, "parameter"
+            self.elements_analysed.append(ref)
 
         for prefix in self.default_tolerance:
             for ref in self.get_components(prefix):
@@ -194,172 +216,125 @@ class FastWorstCaseAnalysis(WorstCaseAnalysis):
             len(self.elements_analysed),
         )
 
-        # Prepare callbacks and timeouts for all run calls
-        actual_callback = (
-            callback if callback is not None else lambda: None
-        )  # default no-op callable
-        actual_callback_args = callback_args if callback_args is not None else ()
-        actual_timeout = timeout if timeout is not None else 0.0  # default timeout
-
-        self._reset_netlist()  # reset the netlist
-        self.play_instructions()  # play the instructions
-        # Simulate the nominal case
+        self._reset_netlist()
+        self.play_instructions()
         self.run(
             wait_resource=True,
-            callback=actual_callback,
-            callback_args=actual_callback_args,
+            callback=callback,
+            callback_args=callback_args,
             switches=switches,
-            timeout=actual_timeout,
+            timeout=timeout,
             exe_log=exe_log,
         )
 
-        # Sequence a change of a component value at a time, setting it to the
-        # maximum value
         for ref in self.elements_analysed:
-            set_ref_to(ref, WorstCaseType.max)
-            # Run the simulation
+            set_reference(ref, WorstCaseType.max)
             self.run(
                 wait_resource=True,
-                callback=actual_callback,
-                callback_args=actual_callback_args,
+                callback=callback,
+                callback_args=callback_args,
                 switches=switches,
-                timeout=actual_timeout,
+                timeout=timeout,
                 exe_log=exe_log,
             )
         self.wait_completion()
-        self.analysis_executed = (
-            True  # Need to set this to True, so that the next step can be executed
-        )
-        self.testbench_executed = True  # Idem
-        # Get the results from the simulation
+        self.analysis_executed = True
+        self.testbench_executed = True
+
         log_data = self.read_logfiles()
-        nominal = log_data.get_measure_value(measure, 0)
+        nominal = extract_measure(log_data, 0)
         _logger.info("Nominal value: %g", nominal)
-        component_deltas = {}
+
+        component_deltas: dict[str, float] = {}
         idx = 1
-        new_measure = last_measure = nominal
+        new_measure = nominal
+        last_measure = nominal
         for ref in self.elements_analysed:
-            new_measure = log_data.get_measure_value(measure, idx)
+            new_measure = extract_measure(log_data, idx)
             component_deltas[ref] = new_measure - last_measure
             last_measure = new_measure
             _logger.info("Component %s: %g", ref, component_deltas[ref])
             idx += 1
-        # Identify components where increasing the value raises the final result.
-        max_setting = {ref: component_deltas[ref] > 0 for ref in component_deltas}
 
-        # Use the maximum value for positive contributors and the minimum for
-        # components that reduce the final result.
+        max_setting = {ref: delta > 0 for ref, delta in component_deltas.items()}
         component_changed = False
-        for ref in max_setting:
-            if not max_setting[
-                ref
-            ]:  # Set the negative impact components to the minimum value
-                set_ref_to(ref, WorstCaseType.min)
+        for ref, is_positive in max_setting.items():
+            if not is_positive:
+                set_reference(ref, WorstCaseType.min)
                 component_changed = True
 
         if component_changed:
-            # Run the simulation
-            # This is the expected maximum
             max_value = run_and_get_measure()
             idx += 1
         else:
             max_value = new_measure
 
-        # Check if the assumption is correct. Cycling each component to its
-        # opposite value
         iterator = iter(self.elements_analysed)
         while True:
             try:
                 ref = next(iterator)
             except StopIteration:
                 break
-            if max_setting[
-                ref
-            ]:  # Set the negative impact components to the minimum value
-                set_ref_to(ref, WorstCaseType.min)
-            else:
-                set_ref_to(ref, WorstCaseType.max)
-            # Run the simulation
+            target = WorstCaseType.min if max_setting[ref] else WorstCaseType.max
+            set_reference(ref, target)
             new_value = run_and_get_measure()
             idx += 1
-
             if new_value > max_value:
-                # The assumption is wrong, so the component is set to the minimum value
                 max_setting[ref] = not max_setting[ref]
                 max_value = new_value
-                # Need to restart the cycle
                 iterator = iter(self.elements_analysed)
+            set_reference(
+                ref, WorstCaseType.max if max_setting[ref] else WorstCaseType.min
+            )
 
-            # setting it back to the maximum value
-            if max_setting[ref]:
-                set_ref_to(ref, WorstCaseType.max)
-            else:
-                set_ref_to(ref, WorstCaseType.min)
+        min_setting = {ref: not is_positive for ref, is_positive in max_setting.items()}
+        for ref, use_max in min_setting.items():
+            set_reference(ref, WorstCaseType.max if use_max else WorstCaseType.min)
 
-        # Now determining the minimum value: Assuming the opposite of the maximum
-        # setting
-        min_setting = {ref: not max_setting[ref] for ref in max_setting}
-
-        # Set the component back to their opposite value
-        for ref in self.elements_analysed:
-            if min_setting[ref]:
-                set_ref_to(ref, WorstCaseType.max)
-            else:
-                set_ref_to(ref, WorstCaseType.min)
-
-        # Run the simulation
-        # This is the expected minimum of the final result
         min_value = run_and_get_measure()
         idx += 1
 
-        # Check if the assumption is correct. Cycling each component to its
-        # opposite value
         iterator = iter(self.elements_analysed)
         while True:
             try:
                 ref = next(iterator)
             except StopIteration:
                 break
-            if min_setting[ref]:
-                set_ref_to(ref, WorstCaseType.min)
-            else:
-                set_ref_to(ref, WorstCaseType.max)
-            # Run the simulation
+            target = WorstCaseType.min if min_setting[ref] else WorstCaseType.max
+            set_reference(ref, target)
             new_value = run_and_get_measure()
             idx += 1
-            # This is the expected maximum of the final result
             if new_value < min_value:
-                # The assumption is wrong, so the component is set to the minimum value
                 min_setting[ref] = not min_setting[ref]
                 min_value = new_value
-                # Need to restart the cycle
                 iterator = iter(self.elements_analysed)
+            set_reference(
+                ref, WorstCaseType.max if min_setting[ref] else WorstCaseType.min
+            )
 
-            # setting it back to the previous value
-            if min_setting[ref]:
-                set_ref_to(ref, WorstCaseType.max)
-            else:
-                set_ref_to(ref, WorstCaseType.min)
-
-        # Now that we have the maximum and minimum values, we can set the
-        # components to the nominal value
-        min_comp_values = {}
-        max_comp_values = {}
+        min_comp_values: dict[str, float] = {}
+        max_comp_values: dict[str, float] = {}
         for ref in self.elements_analysed:
-            val, dev, typ = worst_case_elements[ref]
-            if min_setting[ref]:
-                min_comp_values[ref] = value_change(val, dev, WorstCaseType.max)
-            else:
-                min_comp_values[ref] = value_change(val, dev, WorstCaseType.min)
-
-            if max_setting[ref]:
-                max_comp_values[ref] = value_change(val, dev, WorstCaseType.max)
-            else:
-                max_comp_values[ref] = value_change(val, dev, WorstCaseType.min)
+            value, deviation, _kind = worst_case_elements[ref]
+            min_comp_values[ref] = value_change(
+                value, deviation, WorstCaseType.max if min_setting[ref] else WorstCaseType.min
+            )
+            max_comp_values[ref] = value_change(
+                value, deviation, WorstCaseType.max if max_setting[ref] else WorstCaseType.min
+            )
 
         self.clear_simulation_data()
         self.cleanup_files()
         self._reset_netlist()
         self.play_instructions()
 
-        return nominal, min_value, max_comp_values, max_value, min_comp_values
+        summary = WorstCaseSummary(
+            nominal,
+            min_value,
+            max_comp_values,
+            max_value,
+            min_comp_values,
+        )
+        self.simulation_results["fast_worst_case"] = summary
+        self.last_summary: WorstCaseSummary | None = summary
+        return None

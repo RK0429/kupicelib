@@ -40,6 +40,7 @@ import os  # platform independent paths
 # Python Libs
 import sys  # python path handling
 import unittest  # performs test
+from typing import cast
 
 from numpy import angle, exp, pi
 
@@ -324,32 +325,33 @@ class RawReader_Test(unittest.TestCase):
                 vin_trace = raw.get_trace(vin_name)
                 skip_samples = int(tracelen / 100)  # do about 100 samples
                 nr = -1
-                for point, tm in enumerate(
+                for point, tm_val in enumerate(
                     raw.get_axis()
                 ):  # not .axis, since ltspice sometimes gives negative times
+                    tm = float(tm_val)
                     nr += 1
                     # skip extra samples
                     if nr < skip_samples:
                         continue
                     # take this sample
                     nr = -1
-                    vout1 = vout_trace.get_point_at(tm)
-                    vout2 = vout_trace.get_point(point)
-                    vin = vin_trace.get_point(point)
+                    vout1 = cast(float, vout_trace.get_point_at(tm))
+                    vout2 = cast(float, vout_trace.get_point(point))
+                    vin = cast(float, vin_trace.get_point(point))
                     self.assertEqual(vout1, vout2, "Trace lookup problem")
                     if tm > 1e-6:
                         # rising flank of the input voltage, give it some time
                         self.assertEqual(abs(vin), VIN, "Data problem on V(in)")
 
                     # Calculate |Vout| = Vin * (1 - e^(-t/RC)).
-                    vout = vin * (1 - exp(-1 * tm / (R1 * C1)))
+                    vout = vin * (1 - float(exp(-1 * tm / (R1 * C1))))
                     # Debug helper:
                     # print(
                     #     f"pt {point} t={tm}: vin={vin}, vout_sim={vout1}, vout_th={vout}"
                     # )
                     self.assertAlmostEqual(
-                        abs(vout1),
-                        vout,
+                        float(abs(vout1)),
+                        float(vout),
                         3,
                         f"Difference between theoretical value and simulation at point {point}",
                     )

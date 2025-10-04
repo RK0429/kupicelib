@@ -1,6 +1,20 @@
 #!/usr/bin/env python
 
+from __future__ import annotations
+
 import argparse
+import sys
+import time
+from collections.abc import Mapping, Sequence
+from typing import cast
+
+import keyboard
+
+from kupicelib.client_server.sim_server import SimServer
+from kupicelib.sim.simulator import Simulator
+from kupicelib.simulators.ltspice_simulator import LTspice
+from kupicelib.simulators.ngspice_simulator import NGspiceSimulator
+from kupicelib.simulators.xyce_simulator import XyceSimulator
 
 # -------------------------------------------------------------------------------
 #
@@ -19,15 +33,21 @@ import argparse
 # Created:     10-08-2023
 # Licence:     refer to the LICENSE file
 # -------------------------------------------------------------------------------
-import sys
-import time
 
-import keyboard
+SIMULATOR_MAP: Mapping[str, type[Simulator]] = {
+    "LTSpice": cast(type[Simulator], LTspice),
+    "NGSpice": cast(type[Simulator], NGspiceSimulator),
+    "XYCE": cast(type[Simulator], XyceSimulator),
+}
 
-from kupicelib.client_server.sim_server import SimServer
+def _resolve_simulator(name: str) -> type[Simulator]:
+    try:
+        return SIMULATOR_MAP[name]
+    except KeyError as exc:
+        raise ValueError(f"Simulator {name} is not supported") from exc
 
 
-def main():
+def _parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
             "Run the LTSpice server. This CLI wraps SimServer to execute "
@@ -69,34 +89,24 @@ def main():
         help="Timeout for the simulations. Default is 300 seconds (5 minutes)",
     )
 
-    if len(sys.argv) == 1:
+    raw_args = list(argv)[1:] if argv is not None else None
+
+    if (argv is None and len(sys.argv) == 1) or (argv is not None and not raw_args):
         parser.print_help(sys.stderr)
-        sys.exit(1)
+        raise SystemExit(1)
 
-    args = parser.parse_args()
-    if args.parallel < 1:
-        args.parallel = 1
+    return parser.parse_args(raw_args)
 
-    if args.simulator == "LTSpice":
-        from kupicelib.simulators.ltspice_simulator import LTspice
 
-        simulator = LTspice
-    elif args.simulator == "NGSpice":
-        from kupicelib.simulators.ngspice_simulator import NGspiceSimulator
+def main(argv: Sequence[str] | None = None) -> None:
+    args = _parse_args(argv)
+    parallel = max(args.parallel, 1)
 
-        simulator = NGspiceSimulator
-    elif args.simulator == "XYCE":
-        from kupicelib.simulators.xyce_simulator import XyceSimulator
+    simulator_cls = _resolve_simulator(args.simulator)
 
-        simulator = XyceSimulator
-    else:
-        raise ValueError(f"Simulator {args.simulator} is not supported")
-        exit(-1)
-
-    print("Starting Server")
     server = SimServer(
-        simulator,
-        parallel_sims=args.parallel,
+        simulator_cls,
+        parallel_sims=parallel,
         output_folder=args.output,
         port=args.port,
         timeout=args.timeout,
@@ -104,7 +114,6 @@ def main():
     print("Server Started. Press and hold 'q' to stop")
     while server.running():
         time.sleep(0.2)
-        # Check whether a key was pressed
         if keyboard.is_pressed("q"):
             server.stop_server()
             break

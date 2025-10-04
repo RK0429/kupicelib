@@ -38,11 +38,16 @@ import os  # platform independent paths
 # Python Libs
 import sys  # python path handling
 import unittest  # performs test
+from pathlib import Path
+from typing import TYPE_CHECKING, cast
 
 from kupicelib.editor.spice_editor import SpiceEditor
 from kupicelib.log.qspice_log_reader import QspiceLogReader
 from kupicelib.raw.raw_read import RawRead
 from kupicelib.sim.sim_runner import SimRunner
+
+if TYPE_CHECKING:
+    from kupicelib.simulators.qspice_simulator import Qspice
 
 #
 # Module libs
@@ -52,12 +57,15 @@ sys.path.append(
 )  # add project root to lib search path
 
 
-def has_qspice_detect():
+qspice_simulator: type["Qspice"] | None = None
+
+
+def has_qspice_detect() -> bool:
     from kupicelib.simulators.qspice_simulator import Qspice
 
     global qspice_simulator
     qspice_simulator = Qspice
-    return qspice_simulator.is_available()
+    return Qspice.is_available()
 
 
 # ------------------------------------------------------------------------------
@@ -85,10 +93,10 @@ class test_kupicelib(unittest.TestCase):
         from kupicelib.simulators.qspice_simulator import Qspice
 
         # prepare
-        self.sim_files = []
-        self.measures = {}
+        self.sim_files: list[tuple[Path, Path]] = []
+        self.measures: dict[str, list[float]] = {}
 
-        def processing_data(raw_file, log_file):
+        def processing_data(raw_file: Path, log_file: Path) -> None:
             print(
                 f"Handling the simulation data of {raw_file}, log file {log_file}"
             )
@@ -139,12 +147,18 @@ class test_kupicelib(unittest.TestCase):
         raw_file, log_file = runner.run_now(
             editor, run_filename="qspice_no_callback.net"
         )
+        self.assertIsNotNone(raw_file)
+        self.assertIsNotNone(log_file)
+        assert raw_file is not None
+        assert log_file is not None
         print("no_callback", raw_file, log_file)
-        log = QspiceLogReader(log_file)
+        log = QspiceLogReader(str(log_file))
         for measure in log.get_measure_names():
             print(measure, "=", log.get_measure_value(measure))
-        self.assertEqual(6.16683e06, log.get_measure_value("fcutac")[0])
-        self.assertEqual(1.99999, log.get_measure_value("gainac")[0])
+        fcutac = cast(list[float], log.get_measure_value("fcutac"))
+        gainac = cast(list[float], log.get_measure_value("gainac"))
+        self.assertAlmostEqual(6.16683e06, fcutac[0])
+        self.assertAlmostEqual(1.99999, gainac[0])
 
     @unittest.skipIf(skip_qspice_editor_tests, "Skip if not in windows environment")
     def test_run_from_spice_editor(self):
@@ -166,8 +180,15 @@ class test_kupicelib(unittest.TestCase):
         for res in range(5):
             # runner.runs_to_do = range(2)
             netlist.set_parameters(ANA=res)
-            raw, log = runner.run(netlist).wait_results()
+            task = runner.run(netlist)
+            self.assertIsNotNone(task)
+            if task is None:
+                self.fail("SimRunner.run returned None")
+            results = task.wait_results()
+            raw, log = cast(tuple[Path | None, Path | None], results)
             print(f"Raw file '{raw}' | Log File '{log}'")
+            self.assertIsNotNone(raw)
+            self.assertIsNotNone(log)
         # Sim Statistics
         runner.wait_completion()
         print(
@@ -184,7 +205,7 @@ class test_kupicelib(unittest.TestCase):
         print("Starting test_sim_runner")
 
         # Old legacy class that merged SpiceEditor and SimRunner
-        def callback_function(raw_file, log_file):
+        def callback_function(raw_file: Path, log_file: Path) -> None:
             print(
                 f"Handling the simulation data of {raw_file}, log file {log_file}"
             )
@@ -208,12 +229,14 @@ class test_kupicelib(unittest.TestCase):
                 f".savebias {bias_file} internal time={tduration}"
             )
             tstart = tstop
-            runner.run(SE, callback=callback_function)
+            task = runner.run(SE, callback=callback_function)
+            self.assertIsNotNone(task)
 
         SE.reset_netlist()
         SE.add_instruction(".ac dec 40 1m 1G")
         SE.set_component_value("V1", "AC 1 0")
-        runner.run(SE, callback=callback_function)
+        final_task = runner.run(SE, callback=callback_function)
+        self.assertIsNotNone(final_task)
         runner.wait_completion()
         self.assertEqual(runner.okSim, 5)  # Simulation done with success
 
@@ -364,10 +387,14 @@ class test_kupicelib(unittest.TestCase):
         if has_qspice:
             runner = SimRunner(output_folder="temp", simulator=qspice_simulator)
             raw_file, log_file = runner.run_now(test_dir + "QSPICE_Batch_Test.net")
+            self.assertIsNotNone(raw_file)
+            self.assertIsNotNone(log_file)
+            assert log_file is not None
+            log_path = log_file
             print(raw_file, log_file)
         else:
-            log_file = test_dir + "QSPICE_Batch_Test_1.log"
-        log = QspiceLogReader(log_file)
+            log_path = Path(test_dir + "QSPICE_Batch_Test_1.log")
+        log = QspiceLogReader(str(log_path))
         # raw = RawRead(raw_file)
         for measure in assert_data:
             print("measure", measure)
@@ -384,12 +411,15 @@ class test_kupicelib(unittest.TestCase):
         print("Starting test_operating_point")
         if has_qspice:
             runner = SimRunner(output_folder="temp", simulator=qspice_simulator)
-            raw_file, log_file = runner.run_now(test_dir + "DC op point.net")
+            raw_file, _ = runner.run_now(test_dir + "DC op point.net")
+            self.assertIsNotNone(raw_file)
+            assert raw_file is not None
+            raw_path = raw_file
             self.assertEqual(runner.okSim, 1)  # Simulation done with success
         else:
-            raw_file = test_dir + "DC op point_1.qraw"
+            raw_path = Path(test_dir + "DC op point_1.qraw")
             # log_file = test_dir + "DC op point_1.log"
-        raw = RawRead(raw_file)
+        raw = RawRead(str(raw_path))
 
         for trace, value_expected in zip(
             ("V(in)", "V(out)", "I(R1)", "I(R2)", "I(Vin)"),
@@ -406,10 +436,13 @@ class test_kupicelib(unittest.TestCase):
         print("Starting test_operating_point_step")
         if has_qspice:
             runner = SimRunner(output_folder="temp", simulator=qspice_simulator)
-            raw_file, log_file = runner.run_now(test_dir + "DC op point - STEP.net")
+            raw_file, _ = runner.run_now(test_dir + "DC op point - STEP.net")
+            self.assertIsNotNone(raw_file)
+            assert raw_file is not None
+            raw_path = raw_file
         else:
-            raw_file = test_dir + "DC op point - STEP_1.qraw"
-        raw = RawRead(raw_file)
+            raw_path = Path(test_dir + "DC op point - STEP_1.qraw")
+        raw = RawRead(str(raw_path))
         vin = raw.get_trace("V(in)")
 
         for i, b in enumerate(
@@ -428,11 +461,17 @@ class test_kupicelib(unittest.TestCase):
         if has_qspice:
             runner = SimRunner(output_folder="temp", simulator=qspice_simulator)
             raw_file, log_file = runner.run_now(test_dir + "TRAN.net")
+            self.assertIsNotNone(raw_file)
+            self.assertIsNotNone(log_file)
+            assert raw_file is not None
+            assert log_file is not None
+            raw_path = raw_file
+            log_path = log_file
         else:
-            raw_file = test_dir + "TRAN_1.raw"
-            log_file = test_dir + "TRAN_1.log"
-        raw = RawRead(raw_file)
-        log = QspiceLogReader(log_file)
+            raw_path = Path(test_dir + "TRAN_1.raw")
+            log_path = Path(test_dir + "TRAN_1.log")
+        raw = RawRead(str(raw_path))
+        log = QspiceLogReader(str(log_path))
         vout = raw.get_trace("V(out)")
         meas = (
             "t1",
@@ -449,8 +488,8 @@ class test_kupicelib(unittest.TestCase):
             5e-3,
         )
         for m, t in zip(meas, time, strict=False):
-            log_value = log.get_measure_value(m)
-            raw_value = vout.get_point_at(t)
+            log_value = cast(float, log.get_measure_value(m))
+            raw_value = cast(float, vout.get_point_at(t))
             print(log_value, raw_value, log_value - raw_value)
             self.assertAlmostEqual(
                 log_value, raw_value, 2, "Mismatch between log file and raw file"
@@ -463,12 +502,18 @@ class test_kupicelib(unittest.TestCase):
         if has_qspice:
             runner = SimRunner(output_folder="temp", simulator=qspice_simulator)
             raw_file, log_file = runner.run_now(test_dir + "QSPICE_TRAN - STEP.net")
+            self.assertIsNotNone(raw_file)
+            self.assertIsNotNone(log_file)
+            assert raw_file is not None
+            assert log_file is not None
+            raw_path = raw_file
+            log_path = log_file
         else:
-            raw_file = test_dir + "QSPICE_TRAN - STEP_1.qraw"
-            log_file = test_dir + "QSPICE_TRAN - STEP_1.log"
+            raw_path = Path(test_dir + "QSPICE_TRAN - STEP_1.qraw")
+            log_path = Path(test_dir + "QSPICE_TRAN - STEP_1.log")
 
-        raw = RawRead(raw_file)
-        log = QspiceLogReader(log_file)
+        raw = RawRead(str(raw_path))
+        log = QspiceLogReader(str(log_path))
         vout = raw.get_trace("V(out)")
         meas = (
             "t1",
@@ -484,10 +529,11 @@ class test_kupicelib(unittest.TestCase):
             4e-3,
             5e-3,
         )
+        steps = raw.steps or []
         for m, t in zip(meas, time, strict=False):
-            for step, step_dict in enumerate(raw.steps):
-                log_value = log.get_measure_value(m, step)
-                raw_value = vout.get_point_at(t, step)
+            for step, step_dict in enumerate(steps):
+                log_value = cast(float, log.get_measure_value(m, step))
+                raw_value = cast(float, vout.get_point_at(t, step))
                 self.assertAlmostEqual(
                     log_value,
                     raw_value,
@@ -512,12 +558,12 @@ class test_kupicelib(unittest.TestCase):
             r1_value = editor.get_component_floatvalue("R1")
             c1_value = editor.get_component_floatvalue("C1")
         else:
-            raw_path = test_dir + "AC_1.raw"
+            raw_path = Path(test_dir + "AC_1.raw")
             r1_value = 100.0
             c1_value = 10e-6
         # Compute the RC AC response with the resistor and capacitor values from
         # the netlist.
-        raw = RawRead(raw_path)
+        raw = RawRead(str(raw_path))
         vout_trace = raw.get_trace("V(out)")
         vin_trace = raw.get_trace("V(in)")
         axis = raw.axis
@@ -536,8 +582,8 @@ class test_kupicelib(unittest.TestCase):
                 5,
                 f"Difference between theoretical value and simulation at point {point}",
             )
-            phase_vout = float(angle(vout1))
-            phase_h = float(angle(h))
+            phase_vout = float(cast(float, angle(vout1)))
+            phase_h = float(cast(float, angle(h)))
             self.assertAlmostEqual(
                 phase_vout,
                 phase_h,
@@ -560,17 +606,17 @@ class test_kupicelib(unittest.TestCase):
             raw_path = raw_file
             c1_value = editor.get_component_floatvalue("C1")
         else:
-            raw_path = test_dir + "AC - STEP_1.raw"
+            raw_path = Path(test_dir + "AC - STEP_1.raw")
             c1_value = 159.1549e-6  # 159.1549uF
         # Compute the RC AC response with the resistor and capacitor values from
         # the netlist.
-        raw = RawRead(raw_path)
+        raw = RawRead(str(raw_path))
         vin_trace = raw.get_trace("V(in)")
         vout_trace = raw.get_trace("V(out)")
         axis = raw.axis
         assert axis is not None, "RAW file is expected to provide an axis"
-        for step, step_dict in enumerate(raw.steps):
-            r1_value = step_dict["r1"]
+        for step, step_dict in enumerate(raw.steps or []):
+            r1_value = cast(float, step_dict["r1"])
             # print(step, step_dict)
             for point in range(0, raw.get_len(step), 10):  # 10 times less points
                 print(point, end=" - ")

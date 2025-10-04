@@ -50,144 +50,136 @@ for the histogram in the                         form min:max. Example: -r -1:1 
 __author__ = "Nuno Canto Brum <me@nunobrum.com>"
 __copyright__ = "Copyright 2017, Fribourg Switzerland"
 
-from kupicelib.log.logfile_data import try_convert_value
+import argparse
+from typing import Any, cast
+
+from kupicelib.log.logfile_data import ConvertibleValue, try_convert_value
 from kupicelib.utils.detect_encoding import EncodingDetectError, detect_encoding
 
 
-def main():
-    from optparse import OptionParser
-
+def main() -> None:
     import matplotlib.pyplot as plt
     import numpy as np
     from scipy.stats import norm  # type: ignore
 
-    usage = "usage: %prog [options] LOG_FILE TRACE"
-    opts = OptionParser(usage=usage, version="%prog 0.1")
-    # opts.add_option(
-    #     'v', "var", action="store", type="string", dest="trace",
-    #     help="The trace to be used in the histogram",
-    # )
-    opts.add_option(
+    parser = argparse.ArgumentParser(
+        prog="histogram.py",
+        description=(
+            "Plot a histogram for a trace in an LTspice log file or a list of values "
+            "copied to the clipboard."
+        ),
+    )
+    parser.add_argument("log_file", nargs="?", help="Path to the LTspice log file.")
+    parser.add_argument("trace", nargs="?", help="Name of the trace to analyse.")
+    parser.add_argument(
         "-s",
         "--sigma",
-        action="store",
-        type="int",
-        dest="sigma",
+        type=int,
         default=3,
-        help="Sigma to be used in the distribution fit. Default=3",
+        help="Sigma to be used in the distribution fit. Default: 3",
     )
-    opts.add_option(
+    parser.add_argument(
         "-n",
         "--nbins",
-        action="store",
-        type="int",
-        dest="nbins",
+        type=int,
         default=20,
-        help="Number of bins to be used in the histogram. Default=20",
+        help="Number of bins to be used in the histogram. Default: 20",
     )
-    opts.add_option(
+    parser.add_argument(
         "-c",
         "--condition",
-        action="append",
-        type="string",
         dest="filters",
+        action="append",
+        default=[],
         help=(
             "Filter condition written in Python. Provide multiple expressions by "
-            "repeating -c.\n"
-            "Example: -c V(N001)>4 -c parameter==1 -c I(V1)<0.5"
+            "repeating -c. Example: -c V(N001)>4 -c parameter==1 -c I(V1)<0.5\n"
             "Note: when parsing log files, the > and < operators are not supported."
         ),
     )
-    opts.add_option(
+    parser.add_argument(
         "-f",
         "--format",
-        action="store",
-        type="string",
         dest="format",
         help="Format string for the X axis. Example: -f %3.4f",
     )
-    # opts.add_option(
-    #     '-p', "--scaling", action="store", type="string", dest="prescaling",
-    #     help="Prescaling function to be applied to the input value.",
-    # )
-    opts.add_option(
+    parser.add_argument(
         "-t",
         "--title",
-        action="store",
-        type="string",
         dest="title",
         help="Title to appear on the top of the histogram.",
     )
-    opts.add_option(
+    parser.add_argument(
         "-r",
         "--range",
-        action="store",
-        type="string",
-        dest="range",
-        help="Range of the X axis to use for the histogram in the form min:max. Example: -r -1:1",
+        dest="range_expr",
+        help=(
+            "Range of the X axis to use for the histogram in the form min:max. "
+            "Example: -r -1:1"
+        ),
     )
-    opts.add_option(
+    parser.add_argument(
         "-C",
         "--clipboard",
         action="store_true",
         dest="clipboard",
-        help="If the data from the clipboard is to be used.",
+        help="Read newline-separated values from the clipboard instead of a log file.",
     )
-    # opts.add_option(
-    #     '-x', "--xname", action="store", dest="xname",
-    #     help="Name for the variable displayed",
-    # )
-    opts.add_option(
+    parser.add_argument(
         "-o",
         "--output",
-        action="store",
-        type="string",
         dest="imagefile",
         help=(
-            "Output the image to a file. Argument is the PNG image name.\n"
-            "Example: -o image.png"
+            "Output the image to a PNG file. Provide the output filename, e.g. -o image.png"
         ),
     )
-    opts.add_option(
+    parser.add_argument(
         "-1",
         "--nonorm",
-        action="store_false",
         dest="normalized",
+        action="store_false",
         default=True,
-        help="Doesn't normalize the histogram so that area of the bell curve is 1.",
+        help="Disable histogram normalization so the bell curve area is not forced to 1.",
     )
-    (options, args) = opts.parse_args()
+    parser.add_argument(
+        "--version",
+        action="version",
+        version="%(prog)s 0.1",
+    )
 
-    values = []
+    args = parser.parse_args()
 
-    if options.clipboard:
+    values: list[Any] = []
+
+    trace_name: str
+    logfile: str | None = None
+
+    if args.clipboard:
         try:
             import clipboard  # type: ignore
         except ImportError:
             print("Failed to load clipboard package. Use PiP to install it.")
             exit(1)
-        TRACE = args[-1] if len(args) > 0 else "var"
+        trace_name = args.trace or "var"
         text = clipboard.paste()
         for line in text.split("\n"):
             try:
                 values.append(try_convert_value(line))
             except ValueError:
                 print("Failed to convert line: '", line, "'")
-    elif len(args) == 0:
-        opts.print_help()
-        exit(-1)
     else:
-        if len(args) < 2:
-            opts.error(
-                "Wrong number of parameters. Need to give the filename and the trace."
+        if args.log_file is None or args.trace is None:
+            parser.print_help()
+            parser.error(
+                "Wrong number of parameters. Provide both the log file and the trace name"
             )
-            opts.print_help()
-            exit(-1)
-        TRACE = args[1]
-        logfile = args[0]
+        logfile = args.log_file
+        trace_name = args.trace
+        assert logfile is not None
+        assert trace_name is not None
 
-        if options.filters is not None:
-            print("Filters Applied:", options.filters)
+        if args.filters:
+            print("Filters Applied:", args.filters)
         else:
             print("No filters defined")
 
@@ -202,15 +194,14 @@ def main():
                     f"Failed to load file '{logfile}'. Use ltsteps first to convert to tlog format")
                 exit(-1)
             else:
-                if options.filters is None:
-                    values = log.get_measure_values_at_steps(TRACE, None)
+                if not args.filters:
+                    values = log.get_measure_values_at_steps(trace_name, None)
                 else:
-                    # This implementation only allows equal operators
-                    filters = {}
-                    for expression in options.filters:
+                    step_filters: dict[str, Any] = {}
+                    for expression in args.filters:
                         lhs_rhs = expression.split("==")
                         if len(lhs_rhs) == 2:
-                            filters[lhs_rhs[0]] = try_convert_value(lhs_rhs[1])
+                            step_filters[lhs_rhs[0]] = try_convert_value(lhs_rhs[1])
                         else:
                             print(
                                 "Unsupported comparison operator in reading .log files."
@@ -219,8 +210,10 @@ def main():
                                 "For enhanced comparators convert the file to tlog "
                                 "using the ltsteps script"
                             )
-                    log.steps_with_conditions(**filters)
-                    values = log.get_measure_values_at_steps(TRACE, options.filters)
+                    selected_steps = log.steps_with_conditions(**step_filters)
+                    values = log.get_measure_values_at_steps(
+                        trace_name, selected_steps
+                    )
 
         if len(values) == 0:
             encoding = detect_encoding(logfile)
@@ -236,15 +229,15 @@ def main():
                 vars = header.split(sep)
                 if len(vars) > 1:
                     try:
-                        sav_col = vars.index(TRACE)
+                        sav_col = vars.index(trace_name)
                     except ValueError:
-                        print(f"File '{logfile}' doesn't have trace '{TRACE}'")
+                        print(f"File '{logfile}' doesn't have trace '{trace_name}'")
                         print(f"LOG FILE contains {vars}")
                         exit(-1)
                 else:
                     sav_col = 0
 
-                if (options.filters is None) or (len(options.filters) == 0):
+                if not args.filters:
                     for line in log:
                         vs = line.split(sep)
                         values.append(try_convert_value(vs[sav_col]))
@@ -255,32 +248,38 @@ def main():
                             for var, value in zip(vars, line.split(sep), strict=False)
                         }
 
-                        for expression in options.filters:
+                        for expression in args.filters:
                             test = eval(expression, None, env)
                             if test is False:
                                 break
                         else:
-                            values.append(try_convert_value(env[TRACE]))
+                            raw_val = env.get(trace_name)
+                            if raw_val is None:
+                                continue
+                            converted = try_convert_value(
+                                cast(ConvertibleValue, raw_val)
+                            )
+                            values.append(converted)
 
     if len(values) == 0:
         print("No elements found")
-    elif len(values) < options.nbins:
+    elif len(values) < args.nbins:
         print(
             "Not enough elements for an histogram."
-            f"Only found {len(values)} elements. Histogram is specified for {options.nbins} bins")
+            f"Only found {len(values)} elements. Histogram is specified for {args.nbins} bins")
     else:
         x = np.array(values, dtype=float)
         mu = x.mean()
         mn = x.min()
         mx = x.max()
         sd = np.std(x)
-        sigmin = mu - options.sigma * sd
-        sigmax = mu + options.sigma * sd
+        sigmin = mu - args.sigma * sd
+        sigmax = mu + args.sigma * sd
 
-        if options.range is None:
+        if args.range_expr is None:
             # Automatic calculation of the range
-            axisXmin = mu - (options.sigma + 1) * sd
-            axisXmax = mu + (options.sigma + 1) * sd
+            axisXmin = mu - (args.sigma + 1) * sd
+            axisXmax = mu + (args.sigma + 1) * sd
 
             if mn < axisXmin:
                 axisXmin = mn
@@ -289,69 +288,68 @@ def main():
                 axisXmax = mx
         else:
             try:
-                smin, smax = options.range.split(":")
+                smin, smax = args.range_expr.split(":")
                 axisXmin = try_convert_value(smin)
                 axisXmax = try_convert_value(smax)
             except (ValueError, TypeError):
-                opts.error("Invalid range setting")
-                exit(-1)
-        fmt = options.format or "%f"
+                parser.error("Invalid range setting")
+        fmt = args.format or "%f"
         format_spec = fmt.lstrip("%")
 
-        def fmt_value(value: float) -> str:
-            return format(value, format_spec)
+        def fmt_value(value: float | np.floating[Any]) -> str:
+            return format(float(value), format_spec)
 
         print(f"Collected {len(values)} elements")
-        print(f"Distributing in {options.nbins} bins")
+        print(f"Distributing in {args.nbins} bins")
         print(f"Minimum is {fmt_value(mn)}")
         print(f"Maximum is {fmt_value(mx)}")
         print(f"Mean is {fmt_value(mu)}")
         print(f"Standard Deviation is {fmt_value(sd)}")
         print(
-            f"Sigma {options.sigma} boundaries are {fmt_value(sigmin)} "
+            f"Sigma {args.sigma} boundaries are {fmt_value(sigmin)} "
             f"and {fmt_value(sigmax)}"
         )
-        n, bins, patches = plt.hist(
+        n, bins, _patches = plt.hist(
             x,
-            options.nbins,
-            density=options.normalized,
+            args.nbins,
+            density=args.normalized,
             facecolor="green",
             alpha=0.75,
             range=(axisXmin, axisXmax),
         )
         axisYmax = n.max() * 1.1
 
-        if options.normalized:
+        if args.normalized:
             # add a 'best fit' line
-            y = norm.pdf(bins, mu, sd)
+            y = cast(np.ndarray, norm.pdf(bins, mu, sd))
             plt.plot(bins, y, "r--", linewidth=1)
             plt.axvspan(
-                mu - options.sigma * sd,
-                mu + options.sigma * sd,
+                mu - args.sigma * sd,
+                mu + args.sigma * sd,
                 alpha=0.2,
                 color="cyan",
             )
             plt.ylabel("Distribution [Normalised]")
         else:
             plt.ylabel("Distribution")
-        plt.xlabel(TRACE)
+        plt.xlabel(trace_name)
 
-        if options.title is None:
+        if args.title is None:
             title = (
                 r"$\mathrm{Histogram\ of\ %s:}\ \mu="
                 + fmt
                 + r",\ stdev="
                 + fmt
                 + r",\ \sigma=%d$"
-            ) % (TRACE, mu, sd, options.sigma)
+            ) % (trace_name, mu, sd, args.sigma)
         else:
-            title = options.title
+            title = args.title
         plt.title(title)
 
         plt.axis([axisXmin, axisXmax, 0, axisYmax])
         plt.grid(True)
-        if options.imagefile is not None:
-            plt.savefig(options.imagefile)
+        if args.imagefile is not None:
+            plt.savefig(args.imagefile)
         else:
             plt.show()
 

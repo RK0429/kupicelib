@@ -73,7 +73,8 @@ for opamp in (
         netlist["V1"].value = supply_voltage
         netlist["V2"].value = -supply_voltage
         # overriding the automatic netlist naming
-        run_netlist_file = f"{netlist.netlist_file.stem}_{opamp}_{supply_voltage}.net"
+        circuit_path = netlist.circuit_file
+        run_netlist_file = f"{circuit_path.stem}_{opamp}_{supply_voltage}.net"
         if use_run_now:
             runner.run_now(netlist, run_filename=run_netlist_file)
         else:
@@ -84,8 +85,9 @@ for opamp in (
                 callback_args=(supply_voltage, opamp),
             )
 
-for results in runner:
-    print(results)
+for result in runner:
+    if result is not None:
+        print(result)
 
 netlist.reset_netlist()
 netlist.remove_Xinstruction(

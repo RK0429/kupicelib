@@ -22,6 +22,8 @@
 import os
 import sys
 import unittest
+from os import PathLike
+from pathlib import Path
 
 import kupicelib
 from kupicelib.editor.base_editor import to_float
@@ -239,10 +241,12 @@ class SpiceEditor_Test(unittest.TestCase):
             golden_dir + "test_instructions_output_2.net",
         )
 
-    def equalFiles(self, file1, file2):
-        with open(file1) as f1:
+    def equalFiles(self, file1: str | PathLike[str], file2: str | PathLike[str]) -> None:
+        path1 = Path(file1)
+        path2 = Path(file2)
+        with path1.open(encoding="utf-8") as f1:
             lines1 = f1.readlines()
-        with open(file2) as f2:
+        with path2.open(encoding="utf-8") as f2:
             lines2 = f2.readlines()
         self.assertEqual(
             len(lines1),

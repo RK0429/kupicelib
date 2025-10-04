@@ -29,7 +29,7 @@ from typing import Any
 
 from numpy import array, float32, ndarray, zeros
 
-from .raw_classes import DataSet
+from .raw_classes import Axis, DataSet, TraceRead
 from .raw_read import RawRead
 
 
@@ -119,7 +119,7 @@ class RawWrite:
         self.plot_name: str | None = plot_name
         self.offset: float = 0.0
         self.encoding: str = encoding
-        self._imported_data: list[Any] = []
+        self._imported_data: list[TraceRead] = []
         self._new_axis: list[float] | None = None
 
     def _str_flags(self) -> str:
@@ -242,7 +242,7 @@ class RawWrite:
                         total_bytes += f.write(fmts[trace](trace.data[i]))
 
     @staticmethod
-    def _rename_netlabel(name: str, **kwargs) -> str:
+    def _rename_netlabel(name: str, **kwargs: Any) -> str:
         """Rename a trace name while preserving V() or I() containers.
 
         Args:     name (str): The original trace name     **kwargs: Keyword arguments
@@ -255,15 +255,16 @@ class RawWrite:
         inside the     parentheses is formatted.
         """
         # Make the rename as requested
-        if "rename_format" in kwargs:
+        rename_format = kwargs.get("rename_format")
+        if isinstance(rename_format, str):
             if name.endswith(")") and (name.startswith("V(") or name.startswith("I(")):
                 new_name = (
                     name[:2]
-                    + kwargs["rename_format"].format(name[2:-1], **kwargs)
+                    + rename_format.format(name[2:-1], **kwargs)
                     + name[-1]
                 )
             else:
-                new_name = kwargs["rename_format"].format(name, **kwargs)
+                new_name = rename_format.format(name, **kwargs)
             return new_name
         else:
             return name
@@ -282,7 +283,7 @@ class RawWrite:
         self,
         other: RawRead,
         trace_filter: list[str] | tuple[str, ...] | str,
-        **kwargs,
+        **kwargs: Any,
     ) -> None:
         """Merge traces from a RawRead instance into this RawWrite instance.
 
@@ -303,12 +304,15 @@ class RawWrite:
 
         Note:     This feature is partially implemented and may not work in all cases.
         """
-        force_axis_alignment = kwargs.get("force_axis_alignment", False)
-        admissible_error = kwargs.get("admissible_error", 1e-11)
-        from_step = kwargs.get("step", 0)
-        minimum_timestep = kwargs.get("minimum_timestep", 0.0)
-        if isinstance(trace_filter, str):
-            trace_filter = [trace_filter]
+        options: dict[str, Any] = dict(kwargs)
+        force_axis_alignment = bool(options.get("force_axis_alignment", False))
+        admissible_error = float(options.get("admissible_error", 1e-11))
+        from_step = int(options.get("step", 0))
+        minimum_timestep = float(options.get("minimum_timestep", 0.0))
+
+        trace_names = (
+            [trace_filter] if isinstance(trace_filter, str) else list(trace_filter)
+        )
 
         other_flags = other.get_raw_property("Flags").split(" ")
         for flag in other_flags:
@@ -330,7 +334,7 @@ class RawWrite:
                     f"Source is {other.get_trace(0).whattype} and Destination is "
                     f"{self._traces[0].whattype}"
                 )
-            if len(trace_filter) == 0:
+            if len(trace_names) == 0:
                 return  # There is nothing to add stop here
 
         else:  # No traces are present
@@ -379,9 +383,12 @@ class RawWrite:
                 # Creating the New Axis
                 self._new_axis = new_axis_list
 
-                for trace_name in trace_filter:
+                for trace_name in trace_names:
                     imported_trace = other.get_trace(trace_name)
-                    new_name = self._rename_netlabel(trace_name, **kwargs)
+                    if not isinstance(imported_trace, TraceRead):
+                        msg = f"Trace '{trace_name}' is not a readable data trace"
+                        raise TypeError(msg)
+                    new_name = self._rename_netlabel(trace_name, **options)
                     imported_trace.name = new_name
                     self._imported_data.append(imported_trace)
         else:
@@ -389,9 +396,12 @@ class RawWrite:
                 "The two instances should have the same size. "
                 "To avoid this use force_axis_alignment=True option"
             )
-            for trace_name in trace_filter:
+            for trace_name in trace_names:
                 trace = other.get_trace(trace_name)
-                new_name = self._rename_netlabel(trace_name, **kwargs)
+                if not isinstance(trace, TraceRead):
+                    msg = f"Trace '{trace_name}' is not a readable data trace"
+                    raise TypeError(msg)
+                new_name = self._rename_netlabel(trace_name, **options)
                 data = trace.get_wave(from_step)
                 self._traces.append(
                     Trace(
@@ -401,6 +411,13 @@ class RawWrite:
                         numerical_type=trace.numerical_type,
                     )
                 )
+
+    @staticmethod
+    def _ensure_axis(trace: TraceRead) -> Axis:
+        axis = trace.axis
+        if axis is None:
+            raise TypeError("Imported trace is not associated with an axis")
+        return axis
 
     @staticmethod
     def _interpolate(
@@ -450,7 +467,7 @@ class RawWrite:
                     imported_trace.name,
                     self._interpolate(
                         imported_trace.get_wave(),
-                        imported_trace.axis.get_wave(),
+                        self._ensure_axis(imported_trace).get_wave(),
                         new_axis,
                     ),
                     imported_trace.whattype,

@@ -20,8 +20,8 @@ import logging
 from collections.abc import Callable, Mapping, Sequence
 from typing import Any, Literal, cast
 
-from ...editor.base_editor import BaseEditor
-from ...log.logfile_data import LogfileData
+from ...editor.base_editor import BaseEditor, scan_eng
+from ...log.logfile_data import LogfileData, LTComplex, ValueType
 from ..sim_runner import AnyRunner, ProcessCallback
 from .tolerance_deviations import (
     ComponentDeviation,
@@ -34,6 +34,20 @@ _logger = logging.getLogger("kupicelib.SimAnalysis")
 WorstCaseType = Literal["component", "parameter"]
 WorstCaseEntry = tuple[str | float, ComponentDeviation, WorstCaseType]
 CallbackArgs = tuple[Any, ...] | dict[str, Any]
+
+
+def _value_to_float(value: ValueType) -> float | None:
+    """Convert a measurement value to a float when possible."""
+    if isinstance(value, int | float):
+        return float(value)
+    if isinstance(value, LTComplex):
+        return float(value.real)
+    if isinstance(value, str):
+        try:
+            return float(scan_eng(value))
+        except ValueError:
+            return None
+    return None
 
 
 class QuickSensitivityAnalysis(ToleranceDeviations):
@@ -109,20 +123,11 @@ class QuickSensitivityAnalysis(ToleranceDeviations):
             error_data: list[float] = []
             for idx in range(len(self.elements_analysed)):
                 step_data = log_data.get_measure_value(measure, run=idx)
-                # Convert data to float to ensure proper subtraction
-                nom_val = (
-                    float(nominal_data)
-                    if isinstance(nominal_data, str)
-                    else nominal_data
-                )
-                step_val = float(step_data) if isinstance(step_data, str) else step_data
-
-                # Handle complex numbers if present
-                if isinstance(nom_val, complex):
-                    nom_val = nom_val.real
-                if isinstance(step_val, complex):
-                    step_val = step_val.real
-
+                nom_val = _value_to_float(nominal_data)
+                step_val = _value_to_float(step_data)
+                if nom_val is None or step_val is None:
+                    error_data.append(0.0)
+                    continue
                 error_data.append(abs(step_val - nom_val))
             total_error = sum(error_data)
             if ref == "*":

@@ -1,5 +1,6 @@
 # -- Start of Example 1 --
 import logging
+from typing import Any, cast
 
 import kupicelib
 from kupicelib import (  # Imports the class that manipulates the asc file
@@ -11,11 +12,14 @@ from kupicelib.simulators.ltspice_simulator import LTspice
 
 kupicelib.set_log_level(logging.INFO)
 
+
 sallenkey = AscEditor("./testfiles/sallenkey.asc")  # Reads the asc file into memory
 runner = SimRunner(
     simulator=LTspice, output_folder="./temp_wca", verbose=True
 )  # Instantiates the runner with a temp folder set
-wca = WorstCaseAnalysis(sallenkey, runner)  # Instantiates the Worst Case Analysis class
+wca = WorstCaseAnalysis(
+    cast(Any, sallenkey), cast(Any, runner)
+)  # Instantiates the Worst Case Analysis class
 
 # The following lines set the default tolerances for the components
 wca.set_tolerance("R", 0.01)  # 1% tolerance

@@ -1,4 +1,6 @@
 #!/usr/bin/env python
+from __future__ import annotations
+
 # -------------------------------------------------------------------------------
 #
 #  ███████╗██████╗ ██╗ ██████╗███████╗██╗     ██╗██████╗
@@ -16,211 +18,156 @@
 # Created:     16-02-2024
 # Licence:     refer to the LICENSE file
 # -------------------------------------------------------------------------------
+import argparse
 import logging
 import os
 import xml.etree.ElementTree as ET
+from collections.abc import Sequence
+from pathlib import Path
 
 from kupicelib.editor.asc_editor import AscEditor
 from kupicelib.editor.asy_reader import AsyReader
-from kupicelib.editor.qsch_editor import QschEditor
+from kupicelib.editor.base_schematic import BaseSchematic, ERotation
+from kupicelib.editor.qsch_editor import QschEditor, QschTag
 from kupicelib.utils.file_search import find_file_in_directory
 
 _logger = logging.getLogger("kupicelib.AscToQsch")
 
+SymbolStock = dict[str, QschTag]
 
-def main():
-    """Converts an ASC file to a QSCH schematic."""
-    import os.path
-    from optparse import OptionParser
 
-    opts = OptionParser(
-        usage="usage: %prog [options] ASC_FILE [QSCH_FILE]", version="%prog 0.1"
+def main() -> None:
+    """Parse command line arguments and run the converter."""
+
+    parser = argparse.ArgumentParser(
+        description=(
+            "Convert an LTspice ASC schematic to a QSPICE QSCH schematic while "
+            "optionally providing additional symbol search paths."
+        )
     )
-
-    opts.add_option(
+    parser.add_argument("asc_file", type=Path, help="Path to the source ASC schematic")
+    parser.add_argument(
+        "qsch_file",
+        nargs="?",
+        type=Path,
+        help="Optional output QSCH file path. Defaults to the ASC stem.",
+    )
+    parser.add_argument(
         "-a",
         "--add",
+        dest="additional_paths",
         action="append",
-        type="string",
-        dest="path",
-        help="Add a path for searching for symbols",
+        default=[],
+        type=str,
+        help="Additional directories to search when resolving symbols.",
     )
 
-    (options, args) = opts.parse_args()
+    args = parser.parse_args()
 
-    if len(args) < 1:
-        opts.print_help()
-        exit(-1)
-
-    asc_file = args[0]
-    qsch_file = args[1] if len(args) > 1 else os.path.splitext(asc_file)[0] + ".qsch"
-
-    search_paths = [] if options.path is None else options.path
+    asc_file: Path = args.asc_file
+    qsch_file: Path = args.qsch_file or asc_file.with_suffix(".qsch")
+    search_paths: list[str] = [str(path) for path in args.additional_paths]
 
     print(f"Using {qsch_file} as output file")
     convert_asc_to_qsch(asc_file, qsch_file, search_paths)
 
 
-def convert_asc_to_qsch(asc_file, qsch_file, search_paths=None):
-    """Converts an ASC file to a QSCH schematic."""
-    if search_paths is None:
-        search_paths = []
-    symbol_stock = {}
-    # Open the ASC file
-    asc_editor = AscEditor(asc_file)
+def convert_asc_to_qsch(
+    asc_file: str | Path,
+    qsch_file: str | Path,
+    search_paths: Sequence[str] | None = None,
+) -> None:
+    """Convert an LTspice ASC schematic into a QSPICE QSCH schematic."""
 
-    # import the conversion data from xml file
-    # need first to find the file. It is in the same directory as the script
-    parent_dir = os.path.dirname(os.path.realpath(__file__))
-    xml_file = os.path.join(parent_dir, "asc_to_qsch_data.xml")
+    asc_path = Path(asc_file)
+    qsch_path = Path(qsch_file)
+    search_path_list: list[str] = list(search_paths) if search_paths is not None else []
+
+    symbol_stock: SymbolStock = {}
+    asc_editor = AscEditor(asc_path)
+
+    # Import the conversion data from xml file located alongside this script
+    parent_dir = Path(__file__).resolve().parent
+    xml_file = parent_dir / "asc_to_qsch_data.xml"
     conversion_data = ET.parse(xml_file)
 
-    # Get the root element
     root = conversion_data.getroot()
 
-    # Get the offset and scaling
     offset = root.find("offset")
-    offset_x = float(offset.get("x"))
-    offset_y = float(offset.get("y"))
-    scale = root.find("scaling")
-    scale_x = float(scale.get("x"))
-    scale_y = float(scale.get("y"))
+    if offset is None:
+        raise ValueError("Conversion data XML missing <offset> element")
+    offset_x_text = offset.get("x")
+    offset_y_text = offset.get("y")
+    if offset_x_text is None or offset_y_text is None:
+        raise ValueError("Offset element must include x and y attributes")
+    offset_x = float(offset_x_text)
+    offset_y = float(offset_y_text)
 
-    # Scaling the schematic
+    scale = root.find("scaling")
+    if scale is None:
+        raise ValueError("Conversion data XML missing <scaling> element")
+    scale_x_text = scale.get("x")
+    scale_y_text = scale.get("y")
+    if scale_x_text is None or scale_y_text is None:
+        raise ValueError("Scaling element must include x and y attributes")
+    scale_x = float(scale_x_text)
+    scale_y = float(scale_y_text)
+
     asc_editor.scale(
-        offset_x=offset_x, offset_y=offset_y, scale_x=scale_x, scale_y=scale_y
+        offset_x=offset_x,
+        offset_y=offset_y,
+        scale_x=scale_x,
+        scale_y=scale_y,
     )
 
-    # Adding symbols to components
-    # symbol_stock = {
-    #     sym.find('LT_name').text: sym
-    #     for sym in root.findall('component_symbols/symbol')
-    # }
-    # The symbol_stock map holds native QSPICE symbols and suggestions for
-    # replacing LTspice symbols. This functionality is currently disabled.
+    candidate_roots: list[str] = [
+        *search_path_list,
+        str(asc_path.parent),
+        os.path.expanduser("~/AppData/Local/LTspice/lib/sym"),
+        os.path.expanduser("~/Documents/LtspiceXVII/lib/sym"),
+    ]
+
     for comp in asc_editor.components.values():
-        symbol_tag = symbol_stock.get(comp.symbol, None)
+        symbol_key = comp.symbol
+        if not symbol_key:
+            continue
+        symbol_tag: QschTag | None = symbol_stock.get(symbol_key)
         if symbol_tag is None:
-            # Will try to get it from the sym folder
-            print(f"Searching for symbol {comp.symbol}...")
-            # TODO: this should use the default locations from AscEditor, and use
-            # search_file_in_containers, just like AscEditor does.
-            for sym_root in [
-                *search_paths,
-                # os.path.curdir,  # The current script directory
-                os.path.split(asc_file)[0],  # The directory where the script is located
-                os.path.expanduser("~/AppData/Local/LTspice/lib/sym"),
-                os.path.expanduser("~/Documents/LtspiceXVII/lib/sym"),
-                # os.path.expanduser(r"~\AppData\Local\Programs\ADI\LTspice\lib.zip"), #
-                # TODO: implement this
-            ]:
+            print(f"Searching for symbol {symbol_key}...")
+            for sym_root in candidate_roots:
                 print(f"   {os.path.abspath(sym_root)}")
-                if not os.path.exists(sym_root):  # Skipping invalid paths
+                if not os.path.exists(sym_root):
                     continue
-                if sym_root.endswith(".zip"):  # TODO: test if it is a file
-                    pass
-                    # Using an IO buffer to pass the file to the AsyEditor
-                else:
-                    symbol_asc_file = find_file_in_directory(
-                        sym_root, comp.symbol + ".asy"
-                    )
-                    if symbol_asc_file is not None:
-                        print(f"Found {symbol_asc_file}")
-                        symbol_asc = AsyReader(symbol_asc_file)
-                        value = comp.attributes.get("Value", "<val>")
-                        symbol_tag = symbol_asc.to_qsch(comp.reference, value)
-                        symbol_stock[comp.symbol] = symbol_tag
-                        break
+                if sym_root.endswith(".zip"):
+                    continue
+                symbol_asc_file = find_file_in_directory(sym_root, symbol_key + ".asy")
+                if symbol_asc_file is None:
+                    continue
+                print(f"Found {symbol_asc_file}")
+                symbol_asc = AsyReader(symbol_asc_file)
+                value_attr = comp.attributes.get("Value", "<val>")
+                symbol_tag = symbol_asc.to_qsch(
+                    comp.reference,
+                    str(value_attr),
+                )
+                symbol_stock[symbol_key] = symbol_tag
+                break
 
-        # if symbol_tree:
-        #     name = symbol_tree.find("name").text
-        #     offset = symbol_tree.find('LT_origin')
-        #     offset_x = int(offset.get('x'))
-        #     offset_y = int(offset.get('y'))
-        #
-        #     if comp.rotation == ERotation.R0:
-        #         comp.position.X += offset_x
-        #         comp.position.Y += offset_y
-        #     elif comp.rotation == ERotation.R90:
-        #         comp.position.X += offset_y
-        #         comp.position.Y -= offset_x
-        #     elif comp.rotation == ERotation.R180:
-        #         comp.position.X -= offset_x
-        #         comp.position.Y -= offset_y
-        #     elif comp.rotation == ERotation.R270:
-        #         comp.position.X -= offset_y
-        #         comp.position.Y += offset_x
-        #     elif comp.rotation == ERotation.M0:
-        #         comp.position.X += offset_x
-        #         comp.position.Y -= offset_y
-        #     elif comp.rotation == ERotation.M90:
-        #         comp.position.X -= offset_y
-        #         comp.position.Y -= offset_x
-        #     elif comp.rotation == ERotation.M180:
-        #         comp.position.X -= offset_x
-        #         comp.position.Y += offset_y
-        #     elif comp.rotation == ERotation.M270:
-        #         comp.position.X += offset_y
-        #         comp.position.Y += offset_x
-        #     rotation = symbol_tree.find('rotation').text
-        #     if rotation == 'R0':
-        #         pass  # basically do nothing
-        #     elif rotation == 'R90':
-        #         comp.rotation = comp.rotation + ERotation.R90
-        #     elif rotation == 'R180':
-        #         comp.rotation = comp.rotation + ERotation.R180
-        #     elif rotation == 'R270':
-        #         comp.rotation = comp.rotation + ERotation.R270
-        #     elif rotation == 'M0':
-        #         comp.rotation = comp.rotation.mirror_x_axis()
-        #     elif rotation == 'M90':
-        #         comp.rotation = comp.rotation
-        #     elif rotation == 'M180':
-        #         comp.rotation = comp.rotation.M180
-        #     elif rotation == 'M270':
-        #         comp.rotation = comp.rotation
-        #
-        #     # typ = symbol_tree.find("type").text
-        #     # description = symbol_tree.find("description").text
-        #
-        #     symbol_tag = QschTag("symbol", name)
-        #     # symbol_tag.items.append(QschTag("type", typ))
-        #     # symbol_tag.items.append(QschTag("description:", description))
-        #     for item in symbol_tree.findall('items/item'):
-        #         text = item.text
-        #         if item.attrib:
-        #             # need to include the needed attributes
-        #             fmt_dict = {}
-        #             for key, value in item.attrib.items():
-        #                 if key == "reference":
-        #                     fmt_dict[value] = comp.reference
-        #                 elif key == "value":
-        #                     fmt_dict[value] = comp.attributes.get("Value", "<val>")
-        #                 else:
-        #                     fmt_dict[value] = comp.attributes[key]
-        #             text = text.format(**fmt_dict)
-        #
-        #         item_tag, _ = QschTag.parse(text)
-        #         symbol_tag.items.append(item_tag)
-        # else:
-        if comp.rotation == 90:
-            comp.rotation = 270
-        elif comp.rotation == 270:
-            comp.rotation = 90
-        elif comp.rotation == 90 + 360:
-            comp.rotation = 270 + 360
-        elif comp.rotation == 270 + 360:
-            comp.rotation = 90 + 360
+        rotation_value = int(comp.rotation) % 360
+        if rotation_value == 90:
+            comp.rotation = ERotation.R270
+        elif rotation_value == 270:
+            comp.rotation = ERotation.R90
 
-        if symbol_tag:
+        if symbol_tag is not None:
             comp.attributes["symbol"] = symbol_tag
 
-    qsch_editor = QschEditor(qsch_file, create_blank=True)
-    qsch_editor.copy_from(asc_editor)
-    # Save the netlist
-    qsch_editor.save_netlist(qsch_file)
+    qsch_editor = QschEditor(str(qsch_path), create_blank=True)
+    source_schematic: BaseSchematic = asc_editor
+    BaseSchematic.copy_from(qsch_editor, source_schematic)
+    qsch_editor.save_netlist(qsch_path)
 
-    print(f"File {asc_file} converted to {qsch_file}")
+    print(f"File {asc_path} converted to {qsch_path}")
 
 
 if __name__ == "__main__":

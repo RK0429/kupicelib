@@ -21,11 +21,12 @@ import logging
 import os
 from abc import ABC, abstractmethod
 from collections import OrderedDict
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable, Mapping, MutableMapping
 from math import floor, log
 from pathlib import Path
-from typing import ClassVar, cast
+from typing import Any, ClassVar, cast
 
+from ..log.logfile_data import ValueType
 from ..sim.simulator import Simulator
 
 __author__ = "Nuno Canto Brum <nuno.brum@gmail.com>"
@@ -77,6 +78,8 @@ SPICE_DOT_INSTRUCTIONS = (
     ".TEXT",
     ".WAVE",  # Write Selected Nodes to a .Wav File
 )
+
+ParameterValue = ValueType | dict[str, ValueType]
 
 
 def PARAM_REGEX(pname: str) -> str:
@@ -287,7 +290,7 @@ class Component(Primitive):
     def __init__(self, parent: BaseEditor, line: str):
         super().__init__(line)
         self.reference: str = ""
-        self.attributes: OrderedDict[str, object] = OrderedDict()
+        self.attributes: OrderedDict[str, Any] = OrderedDict()
         self.ports: list[str] = []
         self.parent: BaseEditor = parent
 
@@ -308,7 +311,7 @@ class Component(Primitive):
         self.parent.set_component_value(self.reference, value)
 
     @property
-    def params(self) -> Mapping[str, object]:
+    def params(self) -> Mapping[str, ParameterValue]:
         """Gets all parameters to the component.
 
         This behaves like the `get_component_parameters()` method of the editor, but it
@@ -317,7 +320,7 @@ class Component(Primitive):
         return self.parent.get_component_parameters(self.reference)
 
     @params.setter
-    def params(self, param_dict: Mapping[str, str | int | float | None]) -> None:
+    def params(self, param_dict: Mapping[str, ParameterValue]) -> None:
         """Sets parameters to the component.
 
         :param param_dict: Dictionary containing parameter names as keys and their
@@ -330,7 +333,7 @@ class Component(Primitive):
             raise ValueError("Editor is read-only")
         self.parent.set_component_parameters(self.reference, **param_dict)
 
-    def set_params(self, **param_dict: str | int | float | None) -> None:
+    def set_params(self, **param_dict: ParameterValue) -> None:
         """Adds one or more parameters to the component.
 
         The argument is in the form of a key-value pair where each parameter is the key
@@ -597,7 +600,7 @@ class BaseEditor(ABC):
 
     @abstractmethod
     def set_component_parameters(
-        self, element: str, **kwargs: str | int | float | None
+        self, element: str, **kwargs: ParameterValue
     ) -> None:
         """Adds one or more parameters to the component on the netlist. The argument is
         in the form of a key-value pair where each parameter is the key and the value is
@@ -654,7 +657,7 @@ class BaseEditor(ABC):
         ...
 
     @abstractmethod
-    def get_component_parameters(self, element: str) -> dict[str, object]:
+    def get_component_parameters(self, element: str) -> MutableMapping[str, ParameterValue]:
         """Returns the parameters of a component retrieved from the netlist.
 
         :param element: Reference of the circuit element to get the parameters.

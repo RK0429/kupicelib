@@ -23,7 +23,7 @@ from enum import Enum
 from typing import Any, Protocol, cast
 
 from ...editor.base_editor import BaseEditor, scan_eng
-from ...log.logfile_data import LogfileData, LTComplex
+from ...log.logfile_data import LogfileData, LTComplex, ValueType
 from ..run_task import RunTask
 from .sim_analysis import AnyRunner, ProcessCallback, SimAnalysis
 
@@ -204,8 +204,8 @@ class ToleranceDeviations(SimAnalysis, ABC):
             self.prepare_testbench()
         super().save_netlist(filename)
 
-    def _reset_netlist(self):
-        super()._reset_netlist()
+    def _reset_netlist(self, create_blank: bool = False) -> None:
+        super()._reset_netlist(create_blank=create_blank)
         self.testbench_prepared = False
 
     @abstractmethod
@@ -386,11 +386,22 @@ class ToleranceDeviations(SimAnalysis, ABC):
             dataset = self.log_data.dataset
             if "runm" in dataset and len(dataset["runm"]) > 0:
                 if isinstance(dataset["runm"][0], LTComplex):
-                    self.log_data.stepset = {
-                        "run": [round(val.real) for val in dataset["runm"]]
-                    }
+                    run_entries: list[ValueType] = []
+                    for val in dataset["runm"]:
+                        if isinstance(val, LTComplex):
+                            run_entries.append(round(val.real))
+                        elif isinstance(val, int | float):
+                            run_entries.append(round(float(val)))
+                    if run_entries:
+                        self.log_data.stepset = {"run": run_entries}
                 else:
-                    self.log_data.stepset = {"run": dataset["runm"]}
+                    numeric_runs: list[ValueType] = [
+                        round(float(val))
+                        for val in dataset["runm"]
+                        if isinstance(val, int | float)
+                    ]
+                    if numeric_runs:
+                        self.log_data.stepset = {"run": numeric_runs}
             else:
                 # auto assign a step starting from 0 and incrementing by 1
                 # will use the size of the first element found in the dataset

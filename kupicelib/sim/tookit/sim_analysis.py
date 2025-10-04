@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+from __future__ import annotations
 
 # -------------------------------------------------------------------------------
 #
@@ -18,10 +19,8 @@
 # Created:     06-07-2021
 # Licence:     refer to the LICENSE file
 # -------------------------------------------------------------------------------
-
 import logging
 from collections.abc import Callable, Mapping, Sequence
-from functools import wraps
 from typing import Any, Literal, Protocol, TypeAlias, cast, overload, runtime_checkable
 
 from ...editor.base_editor import BaseEditor
@@ -30,6 +29,8 @@ from ...log.ltsteps import LTSpiceLogReader
 from ...log.qspice_log_reader import QspiceLogReader
 from ...utils.detect_encoding import EncodingDetectError
 from ..sim_runner import AnyRunner, ProcessCallback, RunTask
+
+NumericValue = str | int | float
 
 _logger = logging.getLogger("kupicelib.SimAnalysis")
 
@@ -45,10 +46,11 @@ InstructionType = Literal[
 
 ReceivedInstruction: TypeAlias = (
     tuple[
-        Literal["set_component_value", "set_element_model", "set_parameter"],
+        Literal["set_component_value", "set_parameter"],
         str,
-        str,
+        NumericValue,
     ]
+    | tuple[Literal["set_element_model"], str, str]
     | tuple[
         Literal["add_instruction", "remove_instruction", "remove_Xinstruction"],
         str,
@@ -62,11 +64,11 @@ class RunnerWithCleanup(Protocol):
 
 
 class InstructionEditor(Protocol):
-    def set_component_value(self, ref: str, value: str) -> None: ...
+    def set_component_value(self, ref: str, value: NumericValue) -> None: ...
 
     def set_element_model(self, ref: str, model: str) -> None: ...
 
-    def set_parameter(self, ref: str, value: str) -> None: ...
+    def set_parameter(self, ref: str, value: NumericValue) -> None: ...
 
     def add_instruction(self, instruction: str) -> None: ...
 
@@ -109,9 +111,7 @@ class SimAnalysis:
     @property
     def runner(self) -> AnyRunner:
         if self._runner is None:
-            from ...sim.sim_runner import SimRunner
-
-            self._runner = SimRunner()
+            raise RuntimeError("Simulation runner is not configured; assign 'runner' before use.")
         return self._runner
 
     @runner.setter
@@ -151,30 +151,29 @@ class SimAnalysis:
     def wait_completion(self):
         self.runner.wait_completion()
 
-    @wraps(BaseEditor.reset_netlist)
-    def reset_netlist(self):
+    def reset_netlist(self, create_blank: bool = False) -> None:
         """Resets the netlist to the original state and clears the instructions added by
         the user."""
-        self._reset_netlist()
+        self._reset_netlist(create_blank=create_blank)
         self.received_instructions.clear()
 
-    def _reset_netlist(self):
+    def _reset_netlist(self, create_blank: bool = False) -> None:
         """Unlike the reset_netlist method of the BaseEditor, this method does not clear
         the instructions added by the user.
 
         This is useful for the case where the user wants to run multiple simulations
         with different parameters without having to add the instructions again.
         """
-        self.editor.reset_netlist()
+        self.editor.reset_netlist(create_blank=create_blank)
         self.instructions_added = False
 
-    def set_component_value(self, ref: str, new_value: str):
+    def set_component_value(self, ref: str, new_value: NumericValue) -> None:
         self.received_instructions.append(("set_component_value", ref, new_value))
 
-    def set_element_model(self, ref: str, new_model: str):
+    def set_element_model(self, ref: str, new_model: str) -> None:
         self.received_instructions.append(("set_element_model", ref, new_model))
 
-    def set_parameter(self, ref: str, new_value: str):
+    def set_parameter(self, ref: str, new_value: NumericValue) -> None:
         self.received_instructions.append(("set_parameter", ref, new_value))
 
     def add_instruction(self, new_instruction: str):
@@ -194,7 +193,7 @@ class SimAnalysis:
             tag = instruction[0]
             if tag == "set_component_value":
                 _, ref, value = cast(
-                    tuple[Literal["set_component_value"], str, str], instruction
+                    tuple[Literal["set_component_value"], str, NumericValue], instruction
                 )
                 editor.set_component_value(ref, value)
             elif tag == "set_element_model":
@@ -204,7 +203,7 @@ class SimAnalysis:
                 editor.set_element_model(ref, model)
             elif tag == "set_parameter":
                 _, ref, value = cast(
-                    tuple[Literal["set_parameter"], str, str], instruction
+                    tuple[Literal["set_parameter"], str, NumericValue], instruction
                 )
                 editor.set_parameter(ref, value)
             elif tag == "add_instruction":

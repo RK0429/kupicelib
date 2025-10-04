@@ -25,7 +25,7 @@ import sys
 from collections.abc import Callable
 from ctypes import create_unicode_buffer, wintypes
 from os import PathLike
-from typing import overload, cast
+from typing import cast, overload
 
 _ShortPathFunc = Callable[[str, wintypes.LPWSTR, int], wintypes.DWORD]
 

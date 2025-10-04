@@ -36,15 +36,16 @@ with the I() qualifier.
 """
 
 from optparse import OptionParser
+from typing import Any
 
 import clipboard  # type: ignore
 
 from kupicelib.raw.raw_read import RawRead
 
 
-def main():
+def main() -> None:
     usage = "usage: %prog [options] <rawfile> <trace_list>"
-    parser = OptionParser(usage=usage, version="%prog 0.1")
+    parser: Any = OptionParser(usage=usage, version="%prog 0.1")
     parser.add_option(
         "-o",
         "--output",
@@ -77,7 +78,8 @@ def main():
         help='Value separator for CSV output. Default: "\\t" <TAB>\n' 'Example: -d ";"',
     )
 
-    (options, args) = parser.parse_args()
+    options, args = parser.parse_args()
+    args = list(args)
 
     if len(args) < 1:
         print("Error: Missing arguments")
@@ -95,7 +97,7 @@ def main():
     if traces != "*":
         raw_data = RawRead(rawfile, "*", header_only=True, verbose=False)
         raw_traces = raw_data.get_trace_names()
-        found_traces = []
+        found_traces: list[str] = []
         for trace in traces:
             if trace in raw_traces:
                 found_traces.append(trace)
@@ -133,10 +135,11 @@ def main():
 
     # Output the file
     if options.output is None:
-        data = raw_data.export()
+        data: dict[str, list[Any]] = raw_data.export()
 
         text = options.separator.join(data.keys()) + "\n"
-        data_size = len(data[data.__iter__().__next__()])
+        first_key = next(iter(data))
+        data_size = len(data[first_key])
         for i in range(data_size):
             text += (
                 options.separator.join([str(data[col][i]) for col in data])

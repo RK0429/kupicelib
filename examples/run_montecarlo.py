@@ -1,4 +1,6 @@
 # -- Start of Example 1 --
+from typing import Any, cast
+
 from kupicelib import (  # Imports the class that manipulates the asc file
     AscEditor,
     SimRunner,
@@ -12,8 +14,9 @@ sallenkey = AscEditor("./testfiles/sallenkey.asc")  # Reads the asc file into me
 runner = SimRunner(
     simulator=LTspice, output_folder="./temp_mc", verbose=True
 )  # Instantiates the runner with a temp folder set
-mc = Montecarlo(
-    sallenkey, runner
+mc: Montecarlo = Montecarlo(
+    cast(Any, sallenkey),
+    cast(Any, runner),
 )  # Instantiates the Montecarlo class, with the asc file already in memory
 
 # The following lines set the default tolerances for the components

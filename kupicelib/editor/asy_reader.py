@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 # -------------------------------------------------------------------------------
+from __future__ import annotations
+
 #
 #  ███████╗██████╗ ██╗ ██████╗███████╗██╗     ██╗██████╗
 #  ██╔════╝██╔══██╗██║██╔════╝██╔════╝██║     ██║██╔══██╗
@@ -15,11 +17,11 @@
 #
 # Licence:     refer to the LICENSE file
 # -------------------------------------------------------------------------------
-
 import logging
 import re
 from collections import OrderedDict
 from pathlib import Path
+from typing import Final
 
 from ..utils.detect_encoding import EncodingDetectError, detect_encoding
 from .base_schematic import (
@@ -36,27 +38,28 @@ from .ltspice_utils import asc_text_align_set
 from .qsch_editor import QschTag
 
 _logger = logging.getLogger("kupicelib.AsyReader")
-SCALE_X = 6.25
-SCALE_Y = -6.25
+SCALE_X: Final[float] = 6.25
+SCALE_Y: Final[float] = -6.25
 
 
 class AsyReader:
     """Symbol parser."""
 
-    def __init__(self, asy_file: Path | str, encoding="autodetect"):
+    def __init__(self, asy_file: Path | str, encoding: str = "autodetect") -> None:
         super().__init__()
         self.version: str = "4"  # Store version as string
-        self.symbol_type = None
-        self.pins = []
-        self.lines = []
-        self.shapes = []
-        self.attributes: dict[str, str] = OrderedDict()  # Store attributes as strings
+        self.symbol_type: str | None = None
+        self.pins: list[Text] = []
+        self.lines: list[Line] = []
+        self.shapes: list[Shape] = []
+        self.attributes: OrderedDict[str, str] = OrderedDict()  # Store attributes as strings
         self._asy_file_path = Path(asy_file)
-        self.windows = []
-        pin = None
+        self.windows: list[Text] = []
+        pin: Text | None = None
         if not self._asy_file_path.exists():
             raise FileNotFoundError(f"File {asy_file} not found")
         # determine encoding
+        self.encoding: str
         if encoding == "autodetect":
             try:
                 self.encoding = detect_encoding(
@@ -71,7 +74,7 @@ class AsyReader:
             _logger.info(f"Parsing ASY file {self._asy_file_path}")
             for line_text in asc_file:
                 if line_text.startswith("WINDOW"):
-                    tag, num_ref, posX, posY, alignment, size_str = line_text.split()
+                    _tag, num_ref, posX, posY, alignment, size_str = line_text.split()
                     coord = Point(int(posX), int(posY))
                     text_obj = Text(
                         coord=coord,
@@ -84,9 +87,9 @@ class AsyReader:
                 elif line_text.startswith("SYMATTR"):
                     tokens = line_text.split(maxsplit=2)
                     if len(tokens) == 3:
-                        tag, ref, attr_text = tokens
+                        _tag, ref, attr_text = tokens
                     elif len(tokens) == 2:
-                        tag, ref = tokens
+                        _tag, ref = tokens
                         attr_text = ""
                     else:
                         continue
@@ -96,7 +99,7 @@ class AsyReader:
                         attr_text = attr_text.upper()
                     self.attributes[ref] = attr_text
                 elif line_text.startswith("Version"):
-                    tag, version = line_text.split()
+                    _tag, version = line_text.split()
                     assert version in [
                         "4",
                         "4.0",
@@ -107,13 +110,13 @@ class AsyReader:
                     self.symbol_type = line_text[len("SymbolType "):].strip()
                 elif line_text.startswith("PINATTR"):
                     assert pin is not None, "A PIN was already created."
-                    tag, attribute, value = line_text.split(" ", maxsplit=3)
+                    _tag, attribute, value = line_text.split(" ", maxsplit=3)
                     value = value.strip()  # gets rid of the \n
                     pin.text += f"{attribute}={value};"
                 elif line_text.startswith("PIN"):
                     if pin is not None:
                         self.pins.append(pin)
-                    tag, x, y, justification, offset = line_text.split()
+                    _tag, x, y, justification, offset = line_text.split()
                     coord = Point(int(x), int(y))
                     angle = ERotation.R0
 
@@ -237,7 +240,7 @@ class AsyReader:
             if pin is not None:
                 self.pins.append(pin)
 
-    def to_qsch(self, *args):
+    def to_qsch(self, *args: str) -> QschTag:
         """Create a QschTag representing a component symbol."""
         spice_prefix = self.attributes["Prefix"]
         symbol = QschTag("symbol", spice_prefix[0])
@@ -315,7 +318,7 @@ class AsyReader:
 
         for pin in self.pins:
             coord = pin.coord
-            attr_dict = {}
+            attr_dict: dict[str, str] = {}
             for pair in pin.text.split(";"):
                 if "=" in pair:
                     k, v = pair.split("=")
@@ -329,7 +332,7 @@ class AsyReader:
 
         return symbol
 
-    def is_subcircuit(self):
+    def is_subcircuit(self) -> bool:
         # Prefix is guaranteed to be uppercase
         return self.symbol_type == "BLOCK" or self.attributes.get("Prefix") == "X"
 
@@ -390,7 +393,7 @@ class AsyReader:
             except ValueError:
                 return value.strip()  # Removes the leading trailing spaces
 
-    def get_schematic_file(self):
+    def get_schematic_file(self) -> Path:
         """Returns the file name of the component, if it were a .asc file."""
         assert self._asy_file_path.suffix == ".asy", "File is not an asy file"
         assert self.symbol_type == "BLOCK", "File is not a sub-circuit"

@@ -18,9 +18,8 @@ from __future__ import annotations
 # Created:     10-08-2023
 # Licence:     refer to the LICENSE file
 # -------------------------------------------------------------------------------
-
 import logging
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from typing import Any, cast
 
 from ...log.logfile_data import LogfileData
@@ -130,8 +129,8 @@ class WorstCaseAnalysis(ToleranceDeviations):
     def run_analysis(
         self,
         callback: type[ProcessCallback] | Callable[..., Any] | None = None,
-        callback_args: tuple[Any, ...] | dict[str, Any] | None = None,
-        switches: list[str] | None = None,
+        callback_args: Sequence[Any] | Mapping[str, Any] | None = None,
+        switches: Sequence[str] | None = None,
         timeout: float | None = None,
         exe_log: bool = True,
     ) -> None:

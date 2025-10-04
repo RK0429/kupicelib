@@ -44,6 +44,7 @@ from pathlib import Path
 from typing import Any, cast
 
 from kupicelib.editor.spice_editor import SpiceEditor
+from kupicelib.log.logfile_data import LTComplex
 from kupicelib.log.ltsteps import LTSpiceLogReader
 from kupicelib.raw.raw_read import RawRead
 from kupicelib.sim.sim_runner import SimRunner
@@ -205,22 +206,24 @@ class test_kupicelib(unittest.TestCase):
         if raw_file is None or log_file is None:
             self.fail("Runner did not return output files")
         print("no_callback", raw_file, log_file)
-        log = LTSpiceLogReader(log_file)
+        log = LTSpiceLogReader(str(log_file))
         for measure in log.get_measure_names():
             print(measure, "=", log.get_measure_value(measure))
-        print("vout1m.mag_db=", log.get_measure_value("vout1m").mag_db())
-        print("vout1m.ph=", log.get_measure_value("vout1m").ph)
+        vout1m = cast(LTComplex, log.get_measure_value("vout1m"))
+        print("vout1m.mag_db=", vout1m.mag_db())
+        print("vout1m.ph=", vout1m.ph)
 
+        fcutac = cast(float, log.get_measure_value("fcutac"))
         self.assertAlmostEqual(
-            log.get_measure_value("fcutac"), 6.3e06, delta=0.1e6
+            fcutac, 6.3e06, delta=0.1e6
         )  # have to be imprecise, different ltspice versions give different replies
         # self.assertEqual(log.get_measure_value('vout1m'), 1.9999977173843142 -
         # 1.8777417486008045e-09j)  # excluded, diffifult to make compatible
         self.assertAlmostEqual(
-            log.get_measure_value("vout1m").mag_db(), 6.0206, delta=0.0001
+            vout1m.mag_db(), 6.0206, delta=0.0001
         )
         self.assertAlmostEqual(
-            log.get_measure_value("vout1m").ph, -1.7676e-05, delta=0.0001e-05
+            vout1m.ph, -1.7676e-05, delta=0.0001e-05
         )
 
     @unittest.skipIf(skip_ltspice_tests, "Skip if not in windows environment")
@@ -481,18 +484,20 @@ class test_kupicelib(unittest.TestCase):
             self.assertIsNotNone(log_file, "Batch_Test_Simple.asc log missing")
             assert raw_file is not None
             assert log_file is not None
+            log_path = log_file
         else:
-            log_file = test_dir + "Batch_Test_Simple_1.log"
-        log = LTSpiceLogReader(log_file)
+            log_path = Path(test_dir + "Batch_Test_Simple_1.log")
+        log = LTSpiceLogReader(str(log_path))
 
         self.assertEqual(log.step_count, 21, "Batch_Test_Simple step_count is wrong")
         # raw = RawRead(raw_file)
         for measure in assert_data:
             print("measure", measure)
             for step in range(log.step_count):
-                print(log.get_measure_value(measure, step), assert_data[measure][step])
+                actual = cast(float, log.get_measure_value(measure, step))
+                print(actual, assert_data[measure][step])
                 self.assertAlmostEqual(
-                    log.get_measure_value(measure, step),
+                    actual,
                     assert_data[measure][step],
                     places=1,
                 )  # TODO the reference data should be adapted, is too imprecise
@@ -512,7 +517,7 @@ class test_kupicelib(unittest.TestCase):
         else:
             raw_file = test_dir + "DC op point_1.raw"
             # log_file = test_dir + "DC op point_1.log"
-        raw = RawRead(raw_file)
+        raw = RawRead(str(raw_file))
         traces = [raw.get_trace(trace)[0] for trace in sorted(raw.get_trace_names())]
         self.assertListEqual(
             traces,
@@ -564,11 +569,13 @@ class test_kupicelib(unittest.TestCase):
             self.assertIsNotNone(log_file, "TRAN log missing")
             assert raw_file is not None
             assert log_file is not None
+            raw_path = raw_file
+            log_path = log_file
         else:
-            raw_file = test_dir + "TRAN_1.raw"
-            log_file = test_dir + "TRAN_1.log"
-        raw = RawRead(raw_file)
-        log = LTSpiceLogReader(log_file)
+            raw_path = Path(test_dir + "TRAN_1.raw")
+            log_path = Path(test_dir + "TRAN_1.log")
+        raw = RawRead(str(raw_path))
+        log = LTSpiceLogReader(str(log_path))
         vout = raw.get_trace("V(out)")
         meas = (
             "t1",
@@ -585,8 +592,8 @@ class test_kupicelib(unittest.TestCase):
             5e-3,
         )
         for m, t in zip(meas, time, strict=False):
-            log_value = log.get_measure_value(m)
-            raw_value = vout.get_point_at(t)
+            log_value = cast(float, log.get_measure_value(m))
+            raw_value = cast(float, vout.get_point_at(t))
             print(log_value, raw_value, log_value - raw_value)
             self.assertAlmostEqual(
                 log_value, raw_value, 2, "Mismatch between log file and raw file"
@@ -606,12 +613,14 @@ class test_kupicelib(unittest.TestCase):
             self.assertIsNotNone(log_file, "TRAN - STEP log missing")
             assert raw_file is not None
             assert log_file is not None
+            raw_path = raw_file
+            log_path = log_file
         else:
-            raw_file = test_dir + "TRAN - STEP_1.raw"
-            log_file = test_dir + "TRAN - STEP_1.log"
+            raw_path = Path(test_dir + "TRAN - STEP_1.raw")
+            log_path = Path(test_dir + "TRAN - STEP_1.log")
 
-        raw = RawRead(raw_file)
-        log = LTSpiceLogReader(log_file)
+        raw = RawRead(str(raw_path))
+        log = LTSpiceLogReader(str(log_path))
         vout = raw.get_trace("V(out)")
         meas = (
             "t1",
@@ -629,9 +638,9 @@ class test_kupicelib(unittest.TestCase):
         )
         for m, t in zip(meas, time, strict=False):
             print(m)
-            for step, step_dict in enumerate(raw.steps):
-                log_value = log.get_measure_value(m, step)
-                raw_value = vout.get_point_at(t, step)
+            for step, step_dict in enumerate(raw.steps or []):
+                log_value = cast(float, log.get_measure_value(m, step))
+                raw_value = cast(float, vout.get_point_at(t, step))
                 print(step, step_dict, log_value, raw_value, log_value - raw_value)
                 self.assertAlmostEqual(
                     log_value,
@@ -725,20 +734,21 @@ class test_kupicelib(unittest.TestCase):
             self.assertIsNotNone(raw_file, "AC - STEP run failed")
             assert raw_file is not None
             cap_value = editor.get_component_floatvalue("C1")
+            raw_path = raw_file
         else:
-            raw_file = test_dir + "AC - STEP_1.raw"
+            raw_path = Path(test_dir + "AC - STEP_1.raw")
             # log_file = test_dir + "AC - STEP_1.log"
             cap_value = 159.1549e-6  # 159.1549uF
         # Compute the RC AC response with the resistor and capacitor values from
         # the netlist.
-        raw = RawRead(raw_file)
+        raw = RawRead(str(raw_path))
         vin_trace = raw.get_trace("V(in)")
         vout_trace = raw.get_trace("V(out)")
         axis_trace = raw.axis
         if axis_trace is None:
             self.fail("Raw data missing axis information")
-        for step, step_dict in enumerate(raw.steps):
-            res_value = step_dict["r1"]
+        for step, step_dict in enumerate(raw.steps or []):
+            res_value = cast(float, step_dict["r1"])
             # print(step, step_dict)
             for point in range(0, raw.get_len(step), 10):  # 10 times less points
                 print(point, end=" - ")
@@ -780,25 +790,29 @@ class test_kupicelib(unittest.TestCase):
             self.assertIsNotNone(log_file, "Fourier log missing")
             assert raw_file is not None
             assert log_file is not None
+            raw_path = raw_file
+            log_path = log_file
         else:
-            raw_file = test_dir + "Fourier_30MHz_1.raw"
-            log_file = test_dir + "Fourier_30MHz_1.log"
-        raw = RawRead(raw_file)
-        log = LTSpiceLogReader(log_file)
+            raw_path = Path(test_dir + "Fourier_30MHz_1.raw")
+            log_path = Path(test_dir + "Fourier_30MHz_1.log")
+        raw = RawRead(str(raw_path))
+        log = LTSpiceLogReader(str(log_path))
         print(log.fourier)
-        tmax = max(raw.get_time_axis())
-        dc_component = raw.get_wave("V(a)").mean()
-        fundamental = log.fourier["V(a)"][0].fundamental
+        axis = raw.axis
+        assert axis is not None
+        tmax = float(max(axis))
+        dc_component = float(raw.get_wave("V(a)").mean())
+        fundamental = float(log.fourier["V(a)"][0].fundamental)
         self.assertEqual(fundamental, 30e6, "Fundamental frequency is not 30MHz")
         n_periods_calc = tmax * fundamental
         self.assertAlmostEqual(
-            log.fourier["V(a)"][0].n_periods,
+            float(log.fourier["V(a)"][0].n_periods),
             n_periods_calc,
             5,
             "Mismatch in calculated number of periods",
         )
         self.assertAlmostEqual(
-            log.fourier["V(a)"][0].dc_component,
+            float(log.fourier["V(a)"][0].dc_component),
             dc_component,
             2,
             "Mismatch in DC component",

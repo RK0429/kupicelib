@@ -26,11 +26,30 @@ LTSpice only supports for the time being a reduced set of encodings.
 """
 
 import re
+from collections.abc import Iterable
 from pathlib import Path
+from typing import Final
 
 
 class EncodingDetectError(Exception):
     """Exception raised when the encoding of a file cannot be detected."""
+
+
+_CANDIDATE_ENCODINGS: Final[tuple[str, ...]] = (
+    "utf-8",
+    "utf-16",
+    "windows-1252",
+    "utf_16_le",
+    "cp1252",
+    "cp1250",
+    "shift_jis",
+)
+
+
+def _iter_candidate_encodings() -> Iterable[str]:
+    """Return the ordered list of encodings to try when sniffing a file."""
+
+    return _CANDIDATE_ENCODINGS
 
 
 def detect_encoding(
@@ -49,19 +68,10 @@ def detect_encoding(
 
     :rtype: str
     """
-    for encoding in (
-        "utf-8",
-        "utf-16",
-        "windows-1252",
-        "utf_16_le",
-        "cp1252",
-        "cp1250",
-        "shift_jis",
-    ):
+    for encoding in _iter_candidate_encodings():
         try:
             with open(file_path, encoding=encoding) as f:
                 lines = f.read()
-                f.seek(0)
         except UnicodeDecodeError:
             # This encoding didn't work, let's try again
             continue
@@ -69,7 +79,7 @@ def detect_encoding(
             # This encoding didn't work, let's try again
             continue
         else:
-            if len(lines) == 0:
+            if not lines:
                 # Empty file
                 continue
             if expected_pattern and not re.search(
@@ -77,7 +87,7 @@ def detect_encoding(
             ):
                 # File did not have the expected string for this encoding
                 continue
-            if encoding == "utf-8" and lines[1] == "\x00":
+            if encoding == "utf-8" and len(lines) > 1 and lines[1] == "\x00":
                 continue
             return encoding
     # Handle failure after trying all encodings

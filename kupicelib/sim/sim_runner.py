@@ -131,7 +131,7 @@ _logger = logging.getLogger("kupicelib.SimRunner")
 END_LINE_TERM = "\n"
 
 # Define a callback type alias for readability
-CallbackType = type[ProcessCallback] | Callable[[Path, Path], Any]
+CallbackType = type[ProcessCallback] | Callable[..., Any]
 
 
 class SimRunnerTimeoutError(TimeoutError):

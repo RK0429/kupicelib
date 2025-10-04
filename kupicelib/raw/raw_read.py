@@ -17,8 +17,6 @@
 # Licence:     refer to the LICENSE file
 # -------------------------------------------------------------------------------
 
-from __future__ import annotations
-
 """This module reads data from an Spice RAW file. The main class object is the RawRead
 which is initialized with the filename of the RAW file to be processed. The object wil
 read the file and construct a structure of objects which can be used to access the data
@@ -190,17 +188,18 @@ vout.get_wave(step))
 plt.show()  # Creates the matplotlib's interactive window with the plots.
 """
 
-__author__ = "Nuno Canto Brum <nuno.brum@gmail.com>"
-__copyright__ = "Copyright 2022, Fribourg Switzerland"
+from __future__ import annotations
 
 import logging
 import os
 import re
 from collections import OrderedDict
+from collections.abc import Callable
 from pathlib import Path
 from struct import unpack
 from typing import Any, BinaryIO
 
+import numpy as np
 from numpy import float32, float64, frombuffer
 from numpy.typing import NDArray
 
@@ -209,7 +208,14 @@ from kupicelib.log.logfile_data import try_convert_value
 from ..utils.detect_encoding import EncodingDetectError, detect_encoding
 from .raw_classes import Axis, DummyTrace, SpiceReadException, TraceRead
 
+__author__ = "Nuno Canto Brum <nuno.brum@gmail.com>"
+__copyright__ = "Copyright 2022, Fribourg Switzerland"
+
 _logger = logging.getLogger("kupicelib.RawRead")
+
+TraceType = Axis | TraceRead
+
+ScanFunction = Callable[[BinaryIO], float | complex | None]
 
 
 def read_float64(f: BinaryIO) -> float:
@@ -300,7 +306,7 @@ def consume16bytes(f: BinaryIO) -> None:
     f.read(16)
 
 
-def namify(spice_ref: str):
+def namify(spice_ref: str) -> str:
     """Translate from V(0,n01) to V__n01__ and I(R1) to I__R1__"""
     matchobj = re.match(r"(V|I|P)\((\w+)\)", spice_ref)
     if matchobj:
@@ -358,15 +364,17 @@ class RawRead:
         raw_filename: str | Path,
         traces_to_read: str | list[str] | tuple[str, ...] | None = "*",
         dialect: str | None = None,
-        **kwargs,
-    ):
+        **kwargs: Any,
+    ) -> None:
         self.dialect: str | None = None
         """The dialect of the spice file read.
 
         This is either set on init, or detected
         """
 
-        self.verbose = kwargs.get("verbose", True)
+        options: dict[str, Any] = dict(kwargs)
+        self.verbose = bool(options.get("verbose", True))
+        self.flags: list[str] = []
 
         raw_filename_path = Path(raw_filename)
         if traces_to_read is not None:
@@ -377,6 +385,8 @@ class RawRead:
         raw_file_size = os.stat(
             raw_filename_path
         ).st_size  # Get the file size in order to know the data size
+        header_only = bool(options.get("headeronly", False))
+
         with open(raw_filename_path, "rb") as raw_file:
 
             ch = raw_file.read(6)
@@ -440,8 +450,8 @@ class RawRead:
                     if k == "Variables":
                         break
                     self.raw_params[k] = v.strip()
-            self.nPoints = int(self.raw_params["No. Points"], 10)
-            self.nVariables = int(self.raw_params["No. Variables"], 10)
+            self.nPoints: int = int(self.raw_params["No. Points"], 10)
+            self.nVariables: int = int(self.raw_params["No. Variables"], 10)
             if self.nPoints == 0 or self.nVariables == 0:
                 raise RuntimeError(
                     "Invalid RAW file. No points or variables found: "
@@ -606,7 +616,7 @@ class RawRead:
                 # The read is stopped here if there is nothing to read.
                 return
 
-            if kwargs.get("headeronly", False):
+            if header_only:
                 return
 
             if self.verbose:
@@ -625,18 +635,24 @@ class RawRead:
                 self.block_size = (raw_file_size - binary_start) // self.nPoints
                 self.data_size = self.block_size // len(self._traces)
 
-                scan_functions = []
+                scan_functions: list[ScanFunction] = []
                 calc_block_size = 0
                 for trace in self._traces:
                     if trace.numerical_type == "double":
                         calc_block_size += 8
-                        fun = consume8bytes if isinstance(trace, DummyTrace) else read_float64
+                        fun: ScanFunction = (
+                            consume8bytes if isinstance(trace, DummyTrace) else read_float64
+                        )
                     elif trace.numerical_type == "complex":
                         calc_block_size += 16
-                        fun = consume16bytes if isinstance(trace, DummyTrace) else read_complex
+                        fun = (
+                            consume16bytes if isinstance(trace, DummyTrace) else read_complex
+                        )
                     elif trace.numerical_type == "real":  # data size is only 4 bytes
                         calc_block_size += 4
-                        fun = consume4bytes if isinstance(trace, DummyTrace) else read_float32
+                        fun = (
+                            consume4bytes if isinstance(trace, DummyTrace) else read_float32
+                        )
 
                     else:
                         raise RuntimeError(
@@ -658,21 +674,21 @@ class RawRead:
                         if isinstance(var, DummyTrace):
                             # TODO: replace this by a seek
                             raw_file.read(self.nPoints * self.data_size)
-                        elif isinstance(var, Axis | TraceRead):
-                            if var.numerical_type == "double":
-                                s = raw_file.read(self.nPoints * 8)
-                                var.data = frombuffer(s, dtype=float64)
-                            elif var.numerical_type == "complex":
-                                s = raw_file.read(self.nPoints * 16)
-                                var.data = frombuffer(s, dtype=complex)
-                            elif var.numerical_type == "real":
-                                s = raw_file.read(self.nPoints * 4)
-                                var.data = frombuffer(s, dtype=float32)
-                            else:
-                                raise RuntimeError(
-                                    f"Invalid data type {var.numerical_type} for trace {var.name}"
-                                )
+                            continue
 
+                        if var.numerical_type == "double":
+                            s = raw_file.read(self.nPoints * 8)
+                            var.data = frombuffer(s, dtype=float64)
+                        elif var.numerical_type == "complex":
+                            s = raw_file.read(self.nPoints * 16)
+                            var.data = frombuffer(s, dtype=complex)
+                        elif var.numerical_type == "real":
+                            s = raw_file.read(self.nPoints * 4)
+                            var.data = frombuffer(s, dtype=float32)
+                        else:
+                            raise RuntimeError(
+                                f"Invalid data type {var.numerical_type} for trace {var.name}"
+                            )
                 else:
                     if self.verbose:
                         _logger.debug("Binary RAW file with Normal access")
@@ -680,9 +696,12 @@ class RawRead:
                     # scattered
                     for point in range(self.nPoints):
                         for i, var in enumerate(self._traces):
-                            value = scan_functions[i](raw_file)
-                            if value is not None and not isinstance(var, DummyTrace):
-                                var.data[point] = value
+                            numeric_value: float | complex | None = scan_functions[i](raw_file)
+                            if (
+                                numeric_value is not None
+                                and not isinstance(var, DummyTrace)
+                            ):
+                                var.data[point] = numeric_value
 
             elif self.raw_type == "Values:":
                 if self.verbose:
@@ -763,7 +782,7 @@ class RawRead:
                 # the Axis
                 self.axis._set_steps(self.steps)
 
-    def get_raw_property(self, property_name=None):
+    def get_raw_property(self, property_name: str | None = None) -> Any:
         """Get a property. By default, it returns all properties defined in the RAW
         file.
 
@@ -780,7 +799,7 @@ class RawRead:
         else:
             raise ValueError(f"Invalid property. Use {self.raw_params.keys()!s}")
 
-    def get_trace_names(self):
+    def get_trace_names(self) -> list[str]:
         """Returns a list of exiting trace names of the RAW file.
 
         :return: trace names
@@ -811,7 +830,7 @@ class RawRead:
         else:
             raise NotImplementedError(f'Unrecognized alias type for alias : "{alias}"')
         trace = TraceRead(alias, whattype, self.nPoints, self.axis, "double")
-        local_vars = {
+        local_vars: dict[str, Any] = {
             "pi": 3.1415926536,
             "e": 2.7182818285,
         }  # This is the dictionary that will be used to compute the alias
@@ -826,14 +845,15 @@ class RawRead:
             }
         )
         try:
-            trace.data = eval(formula, local_vars)
+            computed = eval(formula, local_vars)
         except Exception as err:
             raise RuntimeError(
                 f'Error computing alias "{alias}" with formula "{formula}"'
             ) from err
+        trace.data = np.asarray(computed)
         return trace
 
-    def get_trace(self, trace_ref: str | int):
+    def get_trace(self, trace_ref: str | int) -> TraceType:
         """Retrieves the trace with the requested name (trace_ref).
 
         :param trace_ref: Name of the trace or the index of the trace
@@ -847,7 +867,10 @@ class RawRead:
                 if (
                     trace_ref.casefold() == trace.name.casefold()
                 ):  # The trace names are case-insensitive
-                    # assert isinstance(trace, DataSet)
+                    if isinstance(trace, DummyTrace):
+                        raise IndexError(
+                            f"Trace '{trace_ref}' was not loaded into memory"
+                        )
                     return trace
             for alias in self.aliases:
                 if trace_ref.casefold() == alias.casefold():
@@ -856,10 +879,14 @@ class RawRead:
                 f'{self} doesn\'t contain trace "{trace_ref}"\n'
                 f"Valid traces are {[trc.name for trc in self._traces]}"
             )
-        else:
-            return self._traces[trace_ref]
+        result = self._traces[trace_ref]
+        if isinstance(result, DummyTrace):
+            raise IndexError(
+                f"Trace at index {trace_ref} was not loaded into memory"
+            )
+        return result
 
-    def get_wave(self, trace_ref: str | int, step: int = 0):
+    def get_wave(self, trace_ref: str | int, step: int = 0) -> NDArray[Any]:
         """Retrieves the trace data with the requested name (trace_ref), optionally
         providing the step number.
 
@@ -871,18 +898,22 @@ class RawRead:
         :rtype: numpy.array
         :raises IndexError: When a trace is not found
         """
-        return self.get_trace(trace_ref).get_wave(step)
+        trace = self.get_trace(trace_ref)
+        return trace.get_wave(step)
 
-    def get_time_axis(self, step: int = 0):
+    def get_time_axis(self, step: int = 0) -> NDArray[Any]:
         """.. deprecated:: 1.0 Use `get_axis()` method instead.
 
         This function is equivalent to get_trace('time').get_time_axis(step)
         instruction. It's workaround on a LTSpice issue when using 2nd Order
         compression, where some values on the time trace have a negative value.
         """
-        return self.get_trace("time").get_time_axis(step)
+        trace = self.get_trace("time")
+        if not isinstance(trace, Axis):
+            raise TypeError("Trace 'time' is not an axis trace")
+        return trace.get_time_axis(step)
 
-    def get_axis(self, step: int = 0) -> NDArray | list[float]:
+    def get_axis(self, step: int = 0) -> NDArray[Any] | list[float]:
         """This function is equivalent to get_trace(0).get_wave(step) instruction. It
         also implements a workaround on a LTSpice issue when using 2nd Order
         compression, where some values on the time trace have a negative value.
@@ -1003,11 +1034,11 @@ class RawRead:
                 "Unsupported simulator. Only LTspice and QSPICE are supported."
             )
 
-    def __getitem__(self, item):
+    def __getitem__(self, item: str | int) -> TraceType:
         """Helper function to access traces by using the [ ] operator."""
         return self.get_trace(item)
 
-    def get_steps(self, **kwargs):
+    def get_steps(self, **kwargs: Any) -> list[int]:
         """Returns the steps that correspond to the query set in the `**kwargs`
         parameters. Example: ::
 
@@ -1025,27 +1056,27 @@ class RawRead:
         :rtype: list[int]
         """
         if self.steps is None:
-            return [0]  # returns a single step
-        else:
-            if len(kwargs) > 0:
-                ret_steps: list[int] = []
-                for idx, step_dict in enumerate(self.steps):
-                    for key, expected_value in kwargs.items():
-                        ll = step_dict.get(key, None)
-                        if ll is None or expected_value != ll:
-                            break
-                    else:
-                        ret_steps.append(idx)
-                return ret_steps
-            else:
-                return range(len(self.steps))  # Returns all the steps
+            return [0]
+
+        if kwargs:
+            matching_steps: list[int] = []
+            for idx, step_dict in enumerate(self.steps):
+                for key, expected_value in kwargs.items():
+                    actual_value = step_dict.get(key, None)
+                    if actual_value is None or expected_value != actual_value:
+                        break
+                else:
+                    matching_steps.append(idx)
+            return matching_steps
+
+        return list(range(len(self.steps)))
 
     def export(
         self,
         columns: list[str] | None = None,
         step: int | list[int] = -1,
-        **kwargs,
-    ) -> dict[str, list]:
+        **kwargs: Any,
+    ) -> dict[str, list[Any]]:
         """Returns a native python class structure with the requested trace data and
         steps. It consists of an ordered dictionary where the columns are the keys and
         the values are lists with the data.
@@ -1079,7 +1110,7 @@ class RawRead:
             steps_to_read = [step]  # If a single step is given, pass it as a list
 
         step_columns: list[str] = []
-        if self.steps is not None and len(self.steps) > 0:
+        if self.steps:
             for key in self.steps[0]:
                 step_columns.append(key)
 
@@ -1104,8 +1135,8 @@ class RawRead:
         self,
         columns: list[str] | None = None,
         step: int | list[int] = -1,
-        **kwargs,
-    ):
+        **kwargs: Any,
+    ) -> Any:
         """Returns a pandas DataFrame with the requested data.
 
         :param step: Step number to retrieve. If not given, it
@@ -1132,9 +1163,9 @@ class RawRead:
         filename: str | Path,
         columns: list[str] | None = None,
         step: int | list[int] = -1,
-        separator=",",
-        **kwargs,
-    ):
+        separator: str = ",",
+        **kwargs: Any,
+    ) -> None:
         """Saves the data to a CSV file.
 
         :param filename: Name of the file to save the data to
@@ -1150,11 +1181,8 @@ class RawRead:
         :type kwargs:``**dict``
         """
         try:
-            # Import pandas with alias to make usage explicit for linters
-            import pandas as pd
-
             df = self.to_dataframe(columns=columns, step=step)
-            pd.DataFrame.to_csv(df, filename, sep=separator, **kwargs)
+            df.to_csv(filename, sep=separator, **kwargs)
         except ImportError:
             # Export to CSV using python built-in functions
             data = self.export(columns=columns, step=step)
@@ -1173,8 +1201,8 @@ class RawRead:
         filename: str | Path,
         columns: list[str] | None = None,
         step: int | list[int] = -1,
-        **kwargs,
-    ):
+        **kwargs: Any,
+    ) -> None:
         """Saves the data to an Excel file.
 
         :param filename: Name of the file to save the data to
@@ -1190,11 +1218,8 @@ class RawRead:
         :raises ImportError: when the 'pandas' module is not installed
         """
         try:
-            # Import pandas with alias to make usage explicit for linters
-            import pandas as pd
-
             df = self.to_dataframe(columns=columns, step=step)
-            pd.DataFrame.to_excel(df, filename, **kwargs)
+            df.to_excel(filename, **kwargs)
         except ImportError as err:
             raise ImportError(
                 "The 'pandas' module is required to use this function.\n"

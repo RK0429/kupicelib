@@ -1,5 +1,6 @@
 
 from pathlib import Path
+from typing import Any, cast
 
 from kupicelib import SimRunner, SpiceEditor
 from kupicelib.sim.sim_stepping import SimStepper
@@ -13,7 +14,10 @@ def processing_data(raw_file: Path, log_file: Path) -> None:
 runner = SimRunner(parallel_sims=4, output_folder="./temp2", simulator=LTspice)
 
 # select spice model
-Stepper = SimStepper(SpiceEditor("./testfiles/Batch_Test.net"), runner)
+Stepper = SimStepper(
+    cast(Any, SpiceEditor("./testfiles/Batch_Test.net")),
+    cast(Any, runner),
+)
 # set default arguments
 
 Stepper.set_parameters(res=0, cap=100e-6)
