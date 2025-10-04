@@ -77,7 +77,7 @@ class WorstCaseAnalysis(ToleranceDeviations):
             self.elements_analysed.append(ref)
         return True
 
-    def prepare_testbench(self, **kwargs: Any) -> None:
+    def prepare_testbench(self, **kwargs: object) -> None:
         """Prepares the simulation by setting the tolerances for the components."""
         index = 0
         self.elements_analysed.clear()

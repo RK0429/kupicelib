@@ -86,7 +86,7 @@ import os.path
 import re
 from collections.abc import Iterator
 from pathlib import Path
-from typing import Any, TypeVar, cast
+from typing import TypeVar, cast
 
 from ..utils.detect_encoding import detect_encoding
 from .logfile_data import ConvertibleValue, LogfileData, ValueType, try_convert_value
@@ -182,7 +182,7 @@ class LTSpiceExport:
     :type export_filename: str
     """
 
-    def __init__(self, export_filename: str):
+    def __init__(self, export_filename: str) -> None:
         self.encoding = detect_encoding(export_filename)
         with open(export_filename, encoding=self.encoding) as fin:
             file_header = fin.readline()
@@ -313,9 +313,9 @@ class LTSpiceLogReader(LogfileData):
         self,
         log_filename: str,
         read_measures: bool = True,
-        step_set: dict[str, list[Any]] | None = None,
+        step_set: dict[str, list[ValueType]] | None = None,
         encoding: str | None = None,
-    ):
+    ) -> None:
         super().__init__(step_set)
         self.logname = log_filename
         self.fourier: dict[str, list[FourierData]] = {}

@@ -71,10 +71,10 @@ class DataSet:
     def __len__(self) -> int:
         return len(self.data)
 
-    def __iter__(self) -> Iterator[Any]:
+    def __iter__(self) -> Iterator[object]:
         return iter(self.data)
 
-    def __getitem__(self, item: int | slice) -> Any:
+    def __getitem__(self, item: int | slice) -> object:
         return self.data[item]
 
     def get_wave(self) -> NumericArray:
@@ -209,7 +209,7 @@ class Axis(DataSet):
         """
         return self.data[n + self.step_offset(step)]
 
-    def __getitem__(self, item: int | slice) -> Any:
+    def __getitem__(self, item: int | slice) -> object:
         """This is only here for compatibility with previous code."""
         assert (
             self.step_info is None
@@ -259,12 +259,12 @@ class Axis(DataSet):
         """
         return self.step_offset(step + 1) - self.step_offset(step)
 
-    def __len__(self):
+    def __len__(self) -> int:
         if self.step_info is None:
             return len(self.data)
         return self.get_len()
 
-    def __iter__(self) -> Iterator[Any]:
+    def __iter__(self) -> Iterator[object]:
         assert (
             self.step_info is None
         ), "Iteration can't be used with stepped data. Use get_wave() method."
@@ -313,7 +313,7 @@ class TraceRead(DataSet):
         assert self.axis is not None
         return cast(float | complex, self.data[self.axis.step_offset(step) + n])
 
-    def __getitem__(self, item: int | slice) -> Any:
+    def __getitem__(self, item: int | slice) -> object:
         """This is only here for compatibility with previous code."""
         if self.axis is not None and self.axis.step_info is not None:
             msg = "Indexing should not be used with stepped data. Use get_point() method"

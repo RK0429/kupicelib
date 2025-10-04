@@ -446,7 +446,7 @@ class QschEditor(BaseSchematic):
     :meta hide-value:
     """
 
-    def __init__(self, qsch_file: str, create_blank: bool = False):
+    def __init__(self, qsch_file: str, create_blank: bool = False) -> None:
         super().__init__()
         self._qsch_file_path = Path(qsch_file)
         self.schematic: QschTag | None = None
@@ -490,7 +490,7 @@ class QschEditor(BaseSchematic):
                 if sub_circuit is not None and sub_circuit.updated:
                     sub_circuit.save_as(sub_circuit._qsch_file_path)
 
-    def write_spice_to_file(self, netlist_file: TextIO):
+    def write_spice_to_file(self, netlist_file: TextIO) -> None:
         """Appends the netlist to a file buffer.
 
         :param netlist_file: The file buffer to save the netlist
@@ -1179,14 +1179,14 @@ class QschEditor(BaseSchematic):
             return list(self.components.keys())
         return [k for k in self.components if k[0] in prefixes]
 
-    def remove_component(self, designator: str):
+    def remove_component(self, designator: str) -> None:
         # docstring inherited from BaseEditor
         component = self.get_component(designator)
         comp_tag: QschTag = component.attributes["tag"]
         if self.schematic is not None:
             self.schematic.items.remove(comp_tag)
 
-    def _get_text_space(self):
+    def _get_text_space(self) -> tuple[int, int]:
         """Returns the coordinate on the Schematic File canvas where a text can be
         appended."""
         if self.schematic is None:

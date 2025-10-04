@@ -104,14 +104,14 @@ from concurrent.futures import Future, ThreadPoolExecutor
 from pathlib import Path
 from time import sleep
 from time import thread_time as clock
-from typing import TYPE_CHECKING, Any, Protocol
+from typing import TYPE_CHECKING, Protocol
 
 if TYPE_CHECKING:
     from psutil import Process
 
 from ..editor.base_editor import BaseEditor
 from ..sim.run_task import RunTask, clock_function
-from ..sim.simulator import Simulator
+from ..sim.simulator import Simulator, SimulatorLike
 from .process_callback import ProcessCallback
 
 __author__ = "Nuno Canto Brum <nuno.brum@gmail.com>"
@@ -131,7 +131,8 @@ _logger = logging.getLogger("kupicelib.SimRunner")
 END_LINE_TERM = "\n"
 
 # Define a callback type alias for readability
-CallbackType = type[ProcessCallback] | Callable[..., Any]
+CallbackType = type[ProcessCallback] | Callable[..., object]
+RunResult = tuple[Path | None, Path | None] | object | None
 
 
 class SimRunnerTimeoutError(TimeoutError):
@@ -149,7 +150,7 @@ class AnyRunner(Protocol):
         *,
         wait_resource: bool = True,
         callback: CallbackType | None = None,
-        callback_args: Sequence[Any] | Mapping[str, Any] | None = None,
+        callback_args: Sequence[object] | Mapping[str, object] | None = None,
         switches: Sequence[str] | None = None,
         timeout: float | None = None,
         run_filename: str | None = None,
@@ -187,7 +188,7 @@ class SimRunner(AnyRunner):
     def __init__(
         self,
         *,
-        simulator: object | None = None,
+        simulator: SimulatorLike | None = None,
         parallel_sims: int = 4,
         timeout: float | None = 600.0,
         verbose: bool = False,
@@ -253,7 +254,7 @@ class SimRunner(AnyRunner):
             logging.getLogger("kupicelib.RunTask").debug(
                 "RunTask logger level set to DEBUG")
 
-    def __del__(self):
+    def __del__(self) -> None:
         """Class Destructor : Closes Everything."""
         # Wait for all pending simulations to finish
         self.wait_completion(abort_all_on_timeout=True)
@@ -264,7 +265,7 @@ class SimRunner(AnyRunner):
             # older Python versions may not support cancel_futures
             self._executor.shutdown(wait=False)
 
-    def set_simulator(self, spice_tool: object) -> None:
+    def set_simulator(self, spice_tool: SimulatorLike) -> None:
         """Manually overriding the simulator to be used.
 
         :param spice_tool: String containing the path to the spice tool to be used, or
@@ -361,8 +362,8 @@ class SimRunner(AnyRunner):
     @staticmethod
     def validate_callback_args(
         callback: CallbackType | None,
-        callback_args: Sequence[Any] | Mapping[str, Any] | None,
-    ) -> Mapping[str, Any] | None:
+        callback_args: Sequence[object] | Mapping[str, object] | None,
+    ) -> Mapping[str, object] | None:
         """It validates that the callback_args are matching the callback function.
 
         Note that the first two parameters of the callback functions need to be the raw
@@ -432,7 +433,7 @@ class SimRunner(AnyRunner):
         *,
         wait_resource: bool = True,
         callback: CallbackType | None = None,
-        callback_args: Sequence[Any] | Mapping[str, Any] | None = None,
+        callback_args: Sequence[object] | Mapping[str, object] | None = None,
         switches: Sequence[str] | None = None,
         timeout: float | None = None,
         run_filename: str | None = None,
@@ -727,7 +728,7 @@ class SimRunner(AnyRunner):
         return self.failed_simulations == 0
 
     @staticmethod
-    def _del_file_if_exists(workfile: Path | None):
+    def _del_file_if_exists(workfile: Path | None) -> None:
         """Deletes a file if it exists.
 
         :param workfile: File to be deleted
@@ -739,7 +740,7 @@ class SimRunner(AnyRunner):
             workfile.unlink()
 
     @staticmethod
-    def _del_file_ext_if_exists(workfile: Path, ext: str):
+    def _del_file_ext_if_exists(workfile: Path, ext: str) -> None:
         """Deletes a file extension if it exists.
 
         :param workfile: File to be deleted
@@ -814,13 +815,13 @@ class SimRunner(AnyRunner):
 
         return self.run_count
 
-    def __iter__(self) -> Iterator[Any]:
+    def __iter__(self) -> Iterator[RunResult]:
         self._iterator_counter = (
             0  # Reset the iterator counter. Note: nested iterators are not supported
         )
         return self
 
-    def __next__(self) -> Any:
+    def __next__(self) -> RunResult:
         while True:
             self.update_completed()  # update active and completed tasks
             # First go through the completed tasks

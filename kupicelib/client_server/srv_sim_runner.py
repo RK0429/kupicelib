@@ -24,10 +24,11 @@ import threading
 import time
 import zipfile
 from pathlib import Path
-from typing import Any, TypedDict
+from typing import TypedDict
 
 from ..editor.base_editor import BaseEditor
 from ..sim.sim_runner import SimRunner
+from ..sim.simulator import SimulatorLike
 
 _logger = logging.getLogger("kupicelib.ServerSimRunner")
 
@@ -68,7 +69,7 @@ class ServerSimRunner(threading.Thread):
         timeout: float | None = None,
         verbose: bool = False,
         output_folder: str | None = None,
-        simulator: Any = None,
+        simulator: SimulatorLike | None = None,
     ) -> None:
         super().__init__(name="SimManager")
         # SimRunner expects a float for timeout, so use 600.0 as default if None

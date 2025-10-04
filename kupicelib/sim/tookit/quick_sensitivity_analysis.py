@@ -18,7 +18,7 @@
 # -------------------------------------------------------------------------------
 import logging
 from collections.abc import Callable, Mapping, Sequence
-from typing import Any, Literal, cast
+from typing import Literal, cast
 
 from ...editor.base_editor import BaseEditor, scan_eng
 from ...log.logfile_data import LogfileData, LTComplex, ValueType
@@ -33,7 +33,7 @@ _logger = logging.getLogger("kupicelib.SimAnalysis")
 
 WorstCaseType = Literal["component", "parameter"]
 WorstCaseEntry = tuple[str | float, ComponentDeviation, WorstCaseType]
-CallbackArgs = tuple[Any, ...] | dict[str, Any]
+CallbackArgs = tuple[object, ...] | dict[str, object]
 
 
 def _value_to_float(value: ValueType) -> float | None:
@@ -55,10 +55,10 @@ class QuickSensitivityAnalysis(ToleranceDeviations):
 
     def __init__(
         self, circuit_file: str | BaseEditor, runner: AnyRunner | None = None
-    ):
+    ) -> None:
         super().__init__(circuit_file, runner)
 
-    def prepare_testbench(self, **kwargs: Any) -> None:
+    def prepare_testbench(self, **kwargs: object) -> None:
         """Prepares the simulation by setting the tolerances for each component."""
         no = 0
         self.elements_analysed.clear()
@@ -147,8 +147,8 @@ class QuickSensitivityAnalysis(ToleranceDeviations):
 
     def run_analysis(
         self,
-        callback: type[ProcessCallback] | Callable[..., Any] | None = None,
-        callback_args: Sequence[Any] | Mapping[str, Any] | None = None,
+        callback: type[ProcessCallback] | Callable[..., object] | None = None,
+        callback_args: Sequence[object] | Mapping[str, object] | None = None,
         switches: Sequence[str] | None = None,
         timeout: float | None = None,
         exe_log: bool = True,
@@ -159,7 +159,7 @@ class QuickSensitivityAnalysis(ToleranceDeviations):
 
         worst_case_elements: dict[str, WorstCaseEntry] = {}
 
-        def check_and_add_component(ref1: str):
+        def check_and_add_component(ref1: str) -> None:
             val1, dev1 = self.get_component_value_deviation_type(
                 ref1
             )  # get there present value
@@ -197,10 +197,10 @@ class QuickSensitivityAnalysis(ToleranceDeviations):
         self.editor.add_instruction(".meas runm PARAM {run}")
         # Run the simulation in the nominal case
         # Handle optional parameters to match required types
-        def _noop_callback(*_args: Any, **_kwargs: Any) -> None:
+        def _noop_callback(*_args: object, **_kwargs: object) -> None:
             return None
 
-        actual_callback: type[ProcessCallback] | Callable[..., Any]
+        actual_callback: type[ProcessCallback] | Callable[..., object]
         actual_callback = callback if callback is not None else _noop_callback
 
         if callback_args is None:
@@ -286,7 +286,7 @@ class QuickSensitivityAnalysis(ToleranceDeviations):
         self.runner.wait_completion()
 
         if callback is not None:
-            callback_rets: list[Any] = []
+            callback_rets: list[object | None] = []
             for rt in self.simulations:
                 if rt is not None:
                     callback_rets.append(rt.get_results())
@@ -297,14 +297,14 @@ class QuickSensitivityAnalysis(ToleranceDeviations):
         # Force already the reading of logfiles
         log_data: LogfileData = self.read_logfiles()
         # if applicable, the run parameter shall be transformed into an int
-        runs: list[Any] = []
+        runs: list[ValueType] = []
 
         # Access dataset safely
         if hasattr(log_data, "dataset"):
             dataset_raw = getattr(log_data, "dataset", None)
             if isinstance(dataset_raw, dict):
-                dataset = cast(dict[str, list[Any]], dataset_raw)
-                runm_list: list[Any] = dataset.get("runm", [])
+                dataset = cast(dict[str, list[ValueType]], dataset_raw)
+                runm_list: list[ValueType] = dataset.get("runm", [])
                 for run_val in runm_list:
                     if isinstance(run_val, complex):
                         runs.append(round(run_val.real))

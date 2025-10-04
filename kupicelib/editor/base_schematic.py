@@ -148,7 +148,7 @@ class Line:
 
     def __init__(
         self, v1: Point, v2: Point, style: LineStyle | None = None, net: str = ""
-    ):
+    ) -> None:
         self.V1: Point = v1
         self.V2: Point = v2
         self.style: LineStyle = style if style is not None else LineStyle()
@@ -260,7 +260,7 @@ class Port:
 class SchematicComponent(Component):
     """Holds component information."""
 
-    def __init__(self, parent: BaseEditor, line: str):
+    def __init__(self, parent: BaseEditor, line: str) -> None:
         super().__init__(parent, line)
         self.position: Point = Point(0, 0)
         self.rotation: ERotation = ERotation.R0

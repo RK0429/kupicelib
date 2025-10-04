@@ -21,9 +21,7 @@ from __future__ import annotations
 import logging
 import random
 from collections.abc import Callable, Mapping, Sequence
-from typing import Any
-
-from ...log.logfile_data import LogfileData
+from ...log.logfile_data import LogfileData, ValueType
 from ..process_callback import ProcessCallback
 from ..sim_runner import SimRunner
 from .tolerance_deviations import ComponentDeviation, DeviationType, ToleranceDeviations
@@ -31,7 +29,7 @@ from .tolerance_deviations import ComponentDeviation, DeviationType, ToleranceDe
 _logger = logging.getLogger("kupicelib.SimAnalysis")
 
 
-def _noop_callback(*_args: Any, **_kwargs: Any) -> None:
+def _noop_callback(*_args: object, **_kwargs: object) -> None:
     """Default callback used when no callback is provided."""
     return None
 
@@ -71,7 +69,7 @@ class Montecarlo(ToleranceDeviations):
     when it is prone to crashes and stalls.
     """
 
-    def prepare_testbench(self, **kwargs: Any) -> None:
+    def prepare_testbench(self, **kwargs: object) -> None:
         """Prepares the simulation by setting the tolerances for the components :keyword
         num_runs: Number of runs to be performed.
 
@@ -236,8 +234,8 @@ class Montecarlo(ToleranceDeviations):
 
     def run_analysis(
         self,
-        callback: type[ProcessCallback] | Callable[..., Any] | None = None,
-        callback_args: Sequence[Any] | Mapping[str, Any] | None = None,
+        callback: type[ProcessCallback] | Callable[..., object] | None = None,
+        callback_args: Sequence[object] | Mapping[str, object] | None = None,
         switches: Sequence[str] | None = None,
         timeout: float | None = None,
         exe_log: bool = True,
@@ -272,12 +270,14 @@ class Montecarlo(ToleranceDeviations):
             # Run the simulation
             # Handle optional parameters properly before passing to run
             if callback is None:
-                actual_callback: type[ProcessCallback] | Callable[..., Any]
+                actual_callback: type[ProcessCallback] | Callable[..., object]
                 actual_callback = _noop_callback
             else:
                 actual_callback = callback
-            actual_callback_args: Sequence[Any] | Mapping[str, Any]
-            actual_callback_args = callback_args if callback_args is not None else {}
+            actual_callback_args: Sequence[object] | Mapping[str, object]
+            actual_callback_args = (
+                callback_args if callback_args is not None else {}
+            )
 
             rt = self.run(
                 wait_resource=True,
@@ -290,14 +290,14 @@ class Montecarlo(ToleranceDeviations):
 
         self.runner.wait_completion()
         if callback is not None:
-            callback_rets: list[Any] = []
+            callback_rets: list[object] = []
             for rt in self.simulations:
                 if rt is not None:
                     callback_rets.append(rt.get_results())
             self.simulation_results["callback_returns"] = callback_rets
         self.analysis_executed = True
 
-    def analyse_measurement(self, meas_name: str):
+    def analyse_measurement(self, meas_name: str) -> list[ValueType] | None:
         """Returns the measurement data for the given measurement name.
 
         If the measurement is not found, it returns None Note: It is up to the user to

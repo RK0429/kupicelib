@@ -26,7 +26,7 @@ import shutil
 import subprocess
 from collections.abc import Sequence
 from pathlib import Path
-from typing import Any, ClassVar
+from typing import ClassVar
 
 from ..sim.simulator import (
     Simulator,
@@ -153,7 +153,7 @@ class XyceSimulator(Simulator):
     _default_run_switches: ClassVar[list[str]] = ["-l", "-r"]
 
     @classmethod
-    def valid_switch(cls, switch: str, switch_param: Any = "") -> list[str]:
+    def valid_switch(cls, switch: str, switch_param: str | None = "") -> list[str]:
         """Validates a command line switch. The following options are available for
         Xyce:
 
@@ -200,7 +200,12 @@ class XyceSimulator(Simulator):
         :rtype: list
         """
         ret: list[str] = []
-        parameter_text = str(switch_param).strip() if switch_param is not None else ""
+        if isinstance(switch_param, Sequence) and not isinstance(switch_param, str):
+            parameter_text = " ".join(str(part) for part in switch_param).strip()
+        else:
+            parameter_text = (
+                str(switch_param).strip() if switch_param is not None else ""
+            )
 
         switch_clean = switch.strip()
         if not switch_clean:

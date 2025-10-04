@@ -97,7 +97,9 @@ class LTspice(Simulator):
         )
 
     @classmethod
-    def valid_switch(cls, switch: str, switch_param: str = "") -> list[str]:
+    def valid_switch(
+        cls, switch: str, switch_param: str | Sequence[str] | None = None
+    ) -> list[str]:
         """Validate a command line switch.
 
         Available options for Windows/wine LTspice:
@@ -142,9 +144,16 @@ class LTspice(Simulator):
             _logger.info(f"Switch {switch} is already in the default switches")
             return []
 
+        if isinstance(switch_param, Sequence) and not isinstance(switch_param, str):
+            parameter = " ".join(str(part) for part in switch_param)
+        elif switch_param is None:
+            parameter = ""
+        else:
+            parameter = str(switch_param)
+
         if switch in cls.ltspice_args:
             switches = cls.ltspice_args[switch]
-            return [opt.replace("<path>", switch_param) for opt in switches]
+            return [opt.replace("<path>", parameter) for opt in switches]
         else:
             valid_keys = ", ".join(sorted(cls.ltspice_args.keys()))
             raise ValueError(
@@ -226,7 +235,7 @@ class LTspice(Simulator):
 
         return run_function(cmd_run, timeout=timeout, stdout=stdout, stderr=stderr)
     @classmethod
-    def _detect_executable(cls):
+    def _detect_executable(cls) -> None:
         """Detect and set spice_exe and process_name based on platform."""
         if sys.platform in ("linux", "darwin"):
             cls._detect_unix_executable()
@@ -234,7 +243,7 @@ class LTspice(Simulator):
             cls._detect_windows_executable()
 
     @classmethod
-    def _detect_unix_executable(cls):
+    def _detect_unix_executable(cls) -> None:
         """Detect on Linux/Mac using wine and environment variables."""
         spice_folder = os.environ.get("LTSPICEFOLDER")
         spice_executable = os.environ.get("LTSPICEEXECUTABLE")
@@ -269,7 +278,7 @@ class LTspice(Simulator):
                 cls.process_name = cls.guess_process_name(exe)
 
     @classmethod
-    def _detect_windows_executable(cls):
+    def _detect_windows_executable(cls) -> None:
         """Detect on Windows using default executable paths."""
         for exe in cls._spice_exe_win_paths:
             path = exe

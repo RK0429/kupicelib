@@ -21,7 +21,7 @@ from __future__ import annotations
 # -------------------------------------------------------------------------------
 import logging
 from collections.abc import Callable, Mapping, Sequence
-from typing import Any, Literal, Protocol, TypeAlias, cast, overload, runtime_checkable
+from typing import Literal, Protocol, TypeAlias, cast, overload, runtime_checkable
 
 from ...editor.base_editor import BaseEditor
 from ...log.logfile_data import LogfileData
@@ -89,7 +89,7 @@ class SimAnalysis:
 
     def __init__(
         self, circuit_file: str | BaseEditor, runner: AnyRunner | None = None
-    ):
+    ) -> None:
         from ...editor.spice_editor import SpiceEditor
 
         self.editor: BaseEditor
@@ -104,7 +104,7 @@ class SimAnalysis:
         self.instructions_added = False
         self.log_data = LogfileData()
 
-    def clear_simulation_data(self):
+    def clear_simulation_data(self) -> None:
         """Clears the data from the simulations."""
         self.simulations.clear()
 
@@ -122,8 +122,8 @@ class SimAnalysis:
         self,
         *,
         wait_resource: bool = True,
-        callback: type[ProcessCallback] | Callable[..., Any] | None = None,
-        callback_args: Sequence[Any] | Mapping[str, Any] | None = None,
+        callback: type[ProcessCallback] | Callable[..., object] | None = None,
+        callback_args: Sequence[object] | Mapping[str, object] | None = None,
         switches: Sequence[str] | None = None,
         timeout: float | None = None,
         run_filename: str | None = None,
@@ -148,7 +148,7 @@ class SimAnalysis:
             return sim
         return None
 
-    def wait_completion(self):
+    def wait_completion(self) -> None:
         self.runner.wait_completion()
 
     def reset_netlist(self, create_blank: bool = False) -> None:
@@ -176,16 +176,16 @@ class SimAnalysis:
     def set_parameter(self, ref: str, new_value: NumericValue) -> None:
         self.received_instructions.append(("set_parameter", ref, new_value))
 
-    def add_instruction(self, new_instruction: str):
+    def add_instruction(self, new_instruction: str) -> None:
         self.received_instructions.append(("add_instruction", new_instruction))
 
-    def remove_instruction(self, instruction: str):
+    def remove_instruction(self, instruction: str) -> None:
         self.received_instructions.append(("remove_instruction", instruction))
 
-    def remove_Xinstruction(self, search_pattern: str):
+    def remove_Xinstruction(self, search_pattern: str) -> None:
         self.received_instructions.append(("remove_Xinstruction", search_pattern))
 
-    def play_instructions(self):
+    def play_instructions(self) -> None:
         if self.instructions_added:
             return  # Nothing to do
         editor = cast(InstructionEditor, self.editor)
@@ -225,7 +225,7 @@ class SimAnalysis:
                 raise ValueError(f"Unknown instruction tag: {tag}")
         self.instructions_added = True
 
-    def save_netlist(self, filename: str):
+    def save_netlist(self, filename: str) -> None:
         self.play_instructions()
         self.editor.save_netlist(filename)
 
@@ -305,7 +305,7 @@ class SimAnalysis:
 
     def configure_measurement(
         self, meas_name: str, meas_expression: str, meas_type: str = "tran"
-    ):
+    ) -> None:
         """Configures a measurement to be done in the simulation."""
         self.editor.add_instruction(
             f".meas {meas_type} {meas_name} {meas_expression}"

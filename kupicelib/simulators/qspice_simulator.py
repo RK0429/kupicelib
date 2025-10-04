@@ -26,7 +26,7 @@ import subprocess
 import sys
 from collections.abc import Sequence
 from pathlib import Path
-from typing import Any, ClassVar
+from typing import ClassVar
 
 from ..sim.simulator import (
     Simulator,
@@ -93,10 +93,15 @@ class Qspice(Simulator):
     _default_run_switches: ClassVar[list[str]] = ["-o"]
 
     @classmethod
-    def valid_switch(cls, switch: str, switch_param: Any = "") -> list[str]:
+    def valid_switch(
+        cls, switch: str, switch_param: str | Sequence[str] | None = None
+    ) -> list[str]:
         """Validate and format a QSPICE command-line switch."""
 
-        parameter = str(switch_param).strip() if switch_param is not None else ""
+        if isinstance(switch_param, Sequence) and not isinstance(switch_param, str):
+            parameter = " ".join(str(part) for part in switch_param)
+        else:
+            parameter = str(switch_param).strip() if switch_param is not None else ""
         switch_clean = switch.strip()
         if not switch_clean:
             return []

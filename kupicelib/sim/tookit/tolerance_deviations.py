@@ -20,7 +20,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Callable, Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Protocol, cast
+from typing import Protocol, cast
 
 from ...editor.base_editor import BaseEditor, scan_eng
 from ...log.logfile_data import LogfileData, LTComplex, ValueType
@@ -46,17 +46,19 @@ class ComponentDeviation:
     distribution: str = "uniform"
 
     @classmethod
-    def from_tolerance(cls, tolerance: float, distribution: str = "uniform"):
+    def from_tolerance(
+        cls, tolerance: float, distribution: str = "uniform"
+    ) -> ComponentDeviation:
         return cls(tolerance, -tolerance, DeviationType.tolerance, distribution)
 
     @classmethod
     def from_min_max(
         cls, min_val: float, max_val: float, distribution: str = "uniform"
-    ):
+    ) -> ComponentDeviation:
         return cls(min_val, max_val, DeviationType.minmax, distribution)
 
     @classmethod
-    def none(cls):
+    def none(cls) -> ComponentDeviation:
         return cls(0.0, 0.0, DeviationType.none)
 
 
@@ -75,7 +77,7 @@ class ToleranceDeviations(SimAnalysis, ABC):
 
     def __init__(
         self, circuit_file: str | BaseEditor, runner: AnyRunner | None = None
-    ):
+    ) -> None:
         super().__init__(circuit_file, runner)
         self.default_tolerance = {
             prefix: ComponentDeviation.none()
@@ -87,17 +89,17 @@ class ToleranceDeviations(SimAnalysis, ABC):
         self.testbench_executed = False
         self.analysis_executed = False
         self.last_run_number = 0
-        self.simulation_results: dict[str, Any] = {}
+        self.simulation_results: dict[str, object] = {}
         self.elements_analysed: list[str] = []
 
-    def reset_tolerances(self):
+    def reset_tolerances(self) -> None:
         """Clears all the settings for the simulation."""
         self.device_deviations.clear()
         self.parameter_deviations.clear()
         self.testbench_prepared = False
         self.last_run_number = 0
 
-    def clear_simulation_data(self):
+    def clear_simulation_data(self) -> None:
         """Clears the data from the simulations."""
         super().clear_simulation_data()
         self.simulation_results.clear()
@@ -199,7 +201,7 @@ class ToleranceDeviations(SimAnalysis, ABC):
         value: str = self.editor.get_parameter(param)
         return value, self.parameter_deviations[param]
 
-    def save_netlist(self, filename: str):
+    def save_netlist(self, filename: str) -> None:
         if self.testbench_prepared is False:
             self.prepare_testbench()
         super().save_netlist(filename)
@@ -209,20 +211,20 @@ class ToleranceDeviations(SimAnalysis, ABC):
         self.testbench_prepared = False
 
     @abstractmethod
-    def prepare_testbench(self, **kwargs: Any) -> None: ...
+    def prepare_testbench(self, **kwargs: object) -> None: ...
 
     def run_testbench(
         self,
         *,
         runs_per_sim: int = 512,
         wait_resource: bool = True,
-        callback: type[ProcessCallback] | Callable[..., Any] | None = None,
-        callback_args: Sequence[Any] | Mapping[str, Any] | None = None,
+        callback: type[ProcessCallback] | Callable[..., object] | None = None,
+        callback_args: Sequence[object] | Mapping[str, object] | None = None,
         switches: Sequence[str] | None = None,
         timeout: float | None = None,
         run_filename: str | None = None,
         exe_log: bool = False,
-    ) -> Iterator[Any] | None:
+    ) -> Iterator[object | None] | None:
         """Runs the simulations.
 
         :param runs_per_sim: Maximum number of runs per simulation. If the number of
@@ -367,7 +369,7 @@ class ToleranceDeviations(SimAnalysis, ABC):
         self.add_log_data(log_results)
         return log_results
 
-    def read_logfiles(self):
+    def read_logfiles(self) -> LogfileData:
         """Returns the logdata for the simulations."""
         if self.analysis_executed is False and self.testbench_executed is False:
             raise RuntimeError("The analysis has not been executed yet")
@@ -418,8 +420,8 @@ class ToleranceDeviations(SimAnalysis, ABC):
     @abstractmethod
     def run_analysis(
         self,
-        callback: type[ProcessCallback] | Callable[..., Any] | None = None,
-        callback_args: Sequence[Any] | Mapping[str, Any] | None = None,
+        callback: type[ProcessCallback] | Callable[..., object] | None = None,
+        callback_args: Sequence[object] | Mapping[str, object] | None = None,
         switches: Sequence[str] | None = None,
         timeout: float | None = None,
         exe_log: bool = True,

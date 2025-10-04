@@ -88,7 +88,7 @@ ConvertibleValue = int | float | str | bytes | LTComplex | list["ConvertibleValu
 
 # Create a protocol for types that can be compared
 class Comparable(Protocol):
-    def __lt__(self, other: Any) -> bool: ...
+    def __lt__(self, other: object) -> bool: ...
 
 
 T = TypeVar("T", bound=Comparable)
@@ -183,7 +183,7 @@ class LogfileData:
         self,
         step_set: dict[str, list[ValueType]] | None = None,
         dataset: dict[str, list[ValueType]] | None = None,
-    ):
+    ) -> None:
         if step_set is None:
             self.stepset: dict[str, list[ValueType]] = {}
         else:
@@ -602,7 +602,7 @@ class LogfileData:
         sigma: float = 3.0,
         title: str | None = None,
         image_file: str | Path | None = None,
-        **kwargs: Any,
+        **kwargs: object,
     ) -> None:
         """Plots a histogram of the parameter."""
         import matplotlib.pyplot as plt

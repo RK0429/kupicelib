@@ -27,8 +27,6 @@ import time
 from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 from time import sleep
-from typing import Any
-
 from .process_callback import ProcessCallback
 from .simulator import Simulator
 
@@ -87,8 +85,8 @@ class RunTask:
         simulator: type[Simulator],
         runno: int,
         netlist_file: Path,
-        callback: type[ProcessCallback] | Callable[[Path, Path], Any] | None,
-        callback_args: Mapping[str, Any] | None = None,
+        callback: type[ProcessCallback] | Callable[[Path, Path], object] | None,
+        callback_args: Mapping[str, object] | None = None,
         switches: Sequence[str] | None = None,
         timeout: float | None = None,
         verbose: bool = False,
@@ -102,23 +100,23 @@ class RunTask:
         self.simulator: type[Simulator] = simulator
         self.runno: int = runno
         self.netlist_file: Path = netlist_file
-        self.callback: type[ProcessCallback] | Callable[[Path, Path], Any] | None = (
+        self.callback: type[ProcessCallback] | Callable[[Path, Path], object] | None = (
             callback
         )
-        self.callback_args: dict[str, Any] | None = (
+        self.callback_args: dict[str, object] | None = (
             dict(callback_args) if callback_args is not None else None
         )
         self.retcode: int = -1  # Signals an error by default
         self.raw_file: Path | None = None
         self.log_file: Path | None = None
-        self.callback_return: Any = None
+        self.callback_return: object | None = None
         self.exe_log = exe_log
         # Create a LoggerAdapter to include run number and netlist in logs
         self.logger: logging.LoggerAdapter[logging.Logger] = logging.LoggerAdapter(
             _logger, {"runno": self.runno, "netlist": str(self.netlist_file)}
         )
 
-    def print_info(self, logger_fun: Callable[[str], Any], message: str) -> None:
+    def print_info(self, logger_fun: Callable[[str], object], message: str) -> None:
         # Use contextual logger for info/error messages
         logger_fun(message)
         if self.verbose:
@@ -222,7 +220,7 @@ class RunTask:
             if log_file.exists():
                 self.log_file = log_file.replace(log_file.with_suffix(".fail"))
 
-    def get_results(self) -> None | Any | tuple[Path | None, Path | None]:
+    def get_results(self) -> object | tuple[Path | None, Path | None] | None:
         """Returns the simulation outputs if the simulation and callback function has
         already finished.
 
@@ -246,7 +244,7 @@ class RunTask:
             else:
                 return self.raw_file, self.log_file
 
-    def wait_results(self) -> Any | tuple[Path | None, Path | None]:
+    def wait_results(self) -> object | tuple[Path | None, Path | None]:
         """Waits for the completion of the task and returns a tuple with the raw and log
         files.
 

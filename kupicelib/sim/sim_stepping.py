@@ -132,7 +132,7 @@ class SimStepper:
     speed up the simulation times.
     """
 
-    def __init__(self, circuit: BaseEditor, runner: RunnerWithStats):
+    def __init__(self, circuit: BaseEditor, runner: RunnerWithStats) -> None:
         self.runner: RunnerWithStats = runner
         self.netlist: BaseEditor = circuit
         self._instruction_editor: InstructionEditor = cast(InstructionEditor, circuit)
@@ -250,7 +250,7 @@ class SimStepper:
             # Now waits for the simulations to end
             self.runner.wait_completion()
 
-    def run(self):
+    def run(self) -> None:
         """Rather uses run_all instead."""
         self.run_all()
 

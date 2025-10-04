@@ -228,7 +228,7 @@ class Simulator(ABC):
         else:
             return Path(exe).name
 
-    def __init__(self):
+    def __init__(self) -> None:
         raise SpiceSimulatorError("This class is not supposed to be instanced.")
 
     @classmethod
@@ -252,7 +252,9 @@ class Simulator(ABC):
 
     @classmethod
     @abstractmethod
-    def valid_switch(cls, switch: str, switch_param: Any) -> list[str]:
+    def valid_switch(
+        cls, switch: str, switch_param: str | Sequence[str] | None
+    ) -> list[str]:
         """This method validates that a switch exist and is valid.
 
         This should be overriden by its subclass.
@@ -260,7 +262,7 @@ class Simulator(ABC):
         ...
 
     @classmethod
-    def is_available(cls):
+    def is_available(cls) -> bool:
         """This method checks if the simulator exists in the system.
 
         It will return a boolean value indicating if the simulator is installed or not.
@@ -379,3 +381,7 @@ class Simulator(ABC):
         if os.path.exists(path) and os.path.isdir(path):
             return path
         return None
+
+
+# Type alias used across the package to refer to either a simulator class or instance.
+SimulatorLike = type[Simulator] | Simulator

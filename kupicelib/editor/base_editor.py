@@ -262,7 +262,7 @@ class ComponentNotFoundError(Exception):
 class ParameterNotFoundError(Exception):
     """ParameterNotFound Error."""
 
-    def __init__(self, parameter: str):
+    def __init__(self, parameter: str) -> None:
         super().__init__(f'Parameter "{parameter}" not found')
 
 
@@ -273,7 +273,7 @@ class Primitive:
     netlist primitives, such as .PARAM, .OPTIONS, .IC, .NODESET, .GLOBAL, etc.
     """
 
-    def __init__(self, line: str):
+    def __init__(self, line: str) -> None:
         self.line = line
 
     def append(self, line: str) -> None:
@@ -287,7 +287,7 @@ class Primitive:
 class Component(Primitive):
     """Holds component information."""
 
-    def __init__(self, parent: BaseEditor, line: str):
+    def __init__(self, parent: BaseEditor, line: str) -> None:
         super().__init__(line)
         self.reference: str = ""
         self.attributes: OrderedDict[str, Any] = OrderedDict()
@@ -359,7 +359,7 @@ class Component(Primitive):
         return to_float(self.value_str, accept_invalid=True)
 
     @value.setter
-    def value(self, value: str | int | float):
+    def value(self, value: str | int | float) -> None:
         if self.parent.is_read_only():
             raise ValueError("Editor is read-only")
         if isinstance(value, int | float):
@@ -384,7 +384,7 @@ class Component(Primitive):
             raise ValueError("Editor is read-only")
         self.parent.set_element_model(self.reference, model)
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"{self.reference} = {self.value}"
 
     def __getitem__(self, item: str) -> object:
@@ -899,7 +899,7 @@ class BaseEditor(ABC):
 class HierarchicalComponent:
     """Helper class to allow setting parameters when using object oriented access."""
 
-    def __init__(self, component: Component, parent: BaseEditor, reference: str):
+    def __init__(self, component: Component, parent: BaseEditor, reference: str) -> None:
         self._component = component
         self._parent = parent
         self._reference = reference

@@ -24,7 +24,7 @@ import re
 from collections import OrderedDict
 from collections.abc import Callable, Iterator
 from pathlib import Path
-from typing import Any
+from typing import TextIO
 
 from ..log.logfile_data import ValueType, try_convert_value
 from ..sim.run_task import RunTask
@@ -40,6 +40,7 @@ from .base_editor import (
     Component,
     ComponentNotFoundError,
     ParameterNotFoundError,
+    ParameterValue,
     format_eng,
 )
 
@@ -271,8 +272,9 @@ def _parse_params(params_str: str) -> OrderedDict[str, ValueType]:
 class UnrecognizedSyntaxError(Exception):
     """Line doesn't match expected Spice syntax."""
 
-    def __init__(self, line, regex):
-        super().__init__(f'Line: "{line}" doesn\'t match regular expression "{regex}"')
+    def __init__(self, line: str, regex: str | re.Pattern[str]) -> None:
+        pattern = regex.pattern if isinstance(regex, re.Pattern) else regex
+        super().__init__(f'Line: "{line}" doesn\'t match regular expression "{pattern}"')
 
 
 class MissingExpectedClauseError(Exception):
@@ -342,7 +344,7 @@ class SpiceComponent(Component):
                 self.attributes[attr] = info[attr]
         return match
 
-    def update_from_reference(self):
+    def update_from_reference(self) -> None:
         """:meta private:"""
         line_no = self._parent_circuit().get_line_starting_with(self.reference)
         self.update_attributes_from_line_no(line_no)
@@ -354,13 +356,13 @@ class SpiceComponent(Component):
         return self.attributes["value"]
 
     @value_str.setter
-    def value_str(self, value: str | int | float):
+    def value_str(self, value: str | int | float) -> None:
         # docstring inherited from Component
         if self.parent.is_read_only():
             raise ValueError("Editor is read-only")
         self.parent.set_component_value(self.reference, value)
 
-    def __getitem__(self, item: str) -> Any:
+    def __getitem__(self, item: str) -> object:
         self.update_from_reference()
         try:
             return super().__getitem__(item)
@@ -368,14 +370,16 @@ class SpiceComponent(Component):
             # If the attribute is not found, then it is a parameter
             return self.params[item]
 
-    def __setitem__(self, key: str, value: Any) -> None:
+    def __setitem__(self, key: str, value: ValueType | dict[str, ValueType]) -> None:
         if self.parent.is_read_only():
             raise ValueError("Editor is read-only")
         if key == "value":
             if isinstance(value, str):
                 self.value_str = value
-            else:
+            elif isinstance(value, int | float):
                 self.value = value
+            else:
+                self.value_str = str(value)
         else:
             self.set_params(**{key: value})
 
@@ -397,7 +401,7 @@ class SpiceCircuit(BaseEditor):
     :meta hide-value:
     """
 
-    def __init__(self, parent: SpiceCircuit | None = None):
+    def __init__(self, parent: SpiceCircuit | None = None) -> None:
         super().__init__()
         self.netlist: list[str | SpiceCircuit] = []
         self._readonly = False
@@ -432,7 +436,7 @@ class SpiceCircuit(BaseEditor):
             raise TypeError("Expected a raw netlist string, found subcircuit entry")
         return line
 
-    def _add_lines(self, line_iter: Iterator[str]):
+    def _add_lines(self, line_iter: Iterator[str]) -> bool:
         """Internal function.
 
         Do not use. Add a list of lines to the netlist.
@@ -468,7 +472,7 @@ class SpiceCircuit(BaseEditor):
                     return True  # If a sub-circuit is ended correctly, returns True
         return False  # If a sub-circuit ends abruptly, returns False
 
-    def _write_lines(self, f):
+    def _write_lines(self, f: TextIO) -> None:
         """Internal function.
 
         Do not use.
@@ -486,7 +490,7 @@ class SpiceCircuit(BaseEditor):
                         sub._write_lines(f)
                 f.write(command)
 
-    def _get_param_named(self, param_name) -> tuple[int, re.Match | None]:
+    def _get_param_named(self, param_name: str) -> tuple[int, re.Match | None]:
         """Internal function.
 
         Do not use. Returns a line starting with command and matching the search with
@@ -629,7 +633,12 @@ class SpiceCircuit(BaseEditor):
             raise UnrecognizedSyntaxError(line, regex.pattern)
         return line_no, match
 
-    def _set_component_attribute(self, reference, attribute, value):
+    def _set_component_attribute(
+        self,
+        reference: str,
+        attribute: str,
+        value: ValueType | dict[str, ValueType] | str | int | float,
+    ) -> None:
         """Internal method to set the model and value of a component."""
 
         # Using the first letter of the component to identify what is it
@@ -669,11 +678,13 @@ class SpiceCircuit(BaseEditor):
             if attribute in ("value", "model"):
                 # They are actually the same thing just the model is not converted.
                 if isinstance(value, int | float):
-                    value = format_eng(value)
+                    value_str = format_eng(value)
+                else:
+                    value_str = str(value)
                 start = match.start("value")
                 end = match.end("value")
                 line = self._line_as_str(line_no)
-                self.netlist[line_no] = line[:start] + value + line[end:]
+                self.netlist[line_no] = line[:start] + value_str + line[end:]
             elif attribute == "params":
                 if not isinstance(value, dict):
                     raise ValueError(
@@ -737,7 +748,7 @@ class SpiceCircuit(BaseEditor):
         elif self.netlist_file is not None:
             _logger.error(f"Netlist file not found: {self.netlist_file}")
 
-    def clone(self, **kwargs) -> SpiceCircuit:
+    def clone(self, *, new_name: str | None = None) -> SpiceCircuit:
         """Creates a new copy of the SpiceCircuit. Changes done at the new copy do not
         affect the original.
 
@@ -752,7 +763,6 @@ class SpiceCircuit(BaseEditor):
             0, "***** SpiceEditor Manipulated this sub-circuit ****" + END_LINE_TERM
         )
         clone.netlist.append("***** ENDS SpiceEditor ****" + END_LINE_TERM)
-        new_name = kwargs.get("new_name")
         if new_name is not None:
             clone.setname(new_name)
         return clone
@@ -773,7 +783,7 @@ class SpiceCircuit(BaseEditor):
         else:
             raise RuntimeError("Empty Subcircuit")
 
-    def setname(self, new_name: str):
+    def setname(self, new_name: str) -> None:
         """Renames the sub-circuit to a new name. No check is done to the new name. It
         is up to the user to make sure that the new name is valid.
 
@@ -863,7 +873,7 @@ class SpiceCircuit(BaseEditor):
             line_no = self.get_line_starting_with(reference)
             return SpiceComponent(self, line_no)
 
-    def __getitem__(self, item) -> Component:
+    def __getitem__(self, item: str) -> Component:
         component = super().__getitem__(item)
         if component.parent != self:
             # The HierarchicalComponent class must inherit from Component for this to work,
@@ -872,12 +882,12 @@ class SpiceCircuit(BaseEditor):
         else:
             return component
 
-    def __delitem__(self, key):
+    def __delitem__(self, key: str) -> None:
         """This method allows the user to delete a component using the syntax: del
         circuit['R1']"""
         self.remove_component(key)
 
-    def __contains__(self, key):
+    def __contains__(self, key: str) -> bool:
         """This method allows the user to check if a component is in the circuit using
         the syntax: 'R1' in circuit."""
         try:
@@ -886,7 +896,7 @@ class SpiceCircuit(BaseEditor):
         except ComponentNotFoundError:
             return False
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[Component]:
         """This method allows the user to iterate over the components in the circuit
         using the syntax: for component in circuit: print(component)"""
         for line_no, line in enumerate(self.netlist):
@@ -1108,7 +1118,7 @@ class SpiceCircuit(BaseEditor):
                 pass
         return answer
 
-    def add_component(self, component: Component, **kwargs) -> None:
+    def add_component(self, component: Component, **kwargs: object) -> None:
         """Adds a component to the netlist. The component is added to the end of the
         netlist, just before the .END statement. If the component already exists, it
         will be replaced by the new one.
@@ -1409,8 +1419,11 @@ class SpiceEditor(SpiceCircuit):
     """
 
     def __init__(
-        self, netlist_file: str | Path, encoding="autodetect", create_blank=False
-    ):
+        self,
+        netlist_file: str | Path,
+        encoding: str = "autodetect",
+        create_blank: bool = False,
+    ) -> None:
         super().__init__()
         self.netlist_file = Path(netlist_file)
         if create_blank:
@@ -1569,7 +1582,7 @@ class SpiceEditor(SpiceCircuit):
     def run(
         self,
         wait_resource: bool = True,
-        callback: type | Callable[[Path, Path], Any] | None = None,
+        callback: type | Callable[[Path, Path], object] | None = None,
         timeout: float | None = None,
         run_filename: str | None = None,
         simulator: type[Simulator] | None = None,

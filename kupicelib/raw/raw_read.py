@@ -203,7 +203,7 @@ import numpy as np
 from numpy import float32, float64, frombuffer
 from numpy.typing import NDArray
 
-from kupicelib.log.logfile_data import try_convert_value
+from kupicelib.log.logfile_data import ValueType, try_convert_value
 
 from ..utils.detect_encoding import EncodingDetectError, detect_encoding
 from .raw_classes import Axis, DummyTrace, SpiceReadException, TraceRead
@@ -364,7 +364,7 @@ class RawRead:
         raw_filename: str | Path,
         traces_to_read: str | list[str] | tuple[str, ...] | None = "*",
         dialect: str | None = None,
-        **kwargs: Any,
+        **kwargs: object,
     ) -> None:
         self.dialect: str | None = None
         """The dialect of the spice file read.
@@ -372,7 +372,7 @@ class RawRead:
         This is either set on init, or detected
         """
 
-        options: dict[str, Any] = dict(kwargs)
+        options: dict[str, object] = dict(kwargs)
         self.verbose = bool(options.get("verbose", True))
         self.flags: list[str] = []
 
@@ -403,9 +403,9 @@ class RawRead:
             if self.verbose:
                 _logger.debug(f"Reading the file with encoding: '{self.encoding}'")
             # Storing the filename as part of the dictionary
-            self.raw_params: OrderedDict[str, Any] = OrderedDict(
-                Filename=raw_filename_path
-            )  # Initializing the dict that contains all raw file info
+            self.raw_params: OrderedDict[str, str] = OrderedDict(
+                Filename=str(raw_filename_path)
+            )
             self.backannotations: list[str] = []  # Storing backannotations
             header: list[str] = []
             binary_start = 6
@@ -551,7 +551,7 @@ class RawRead:
             )  # qspice uses double also for frequency for AC files
 
             self._traces: list[Axis | TraceRead | DummyTrace] = []
-            self.steps: list[dict[str, Any]] | None = None
+            self.steps: list[dict[str, ValueType]] | None = None
             self.axis: Axis | None = None  # Creating the axis
             self.flags = self.raw_params["Flags"].split()
 
@@ -782,7 +782,9 @@ class RawRead:
                 # the Axis
                 self.axis._set_steps(self.steps)
 
-    def get_raw_property(self, property_name: str | None = None) -> Any:
+    def get_raw_property(
+        self, property_name: str | None = None
+    ) -> OrderedDict[str, object] | object:
         """Get a property. By default, it returns all properties defined in the RAW
         file.
 
@@ -808,7 +810,7 @@ class RawRead:
         # parsing the aliases needs to be done before implementing this.
         return [trace.name for trace in self._traces] + list(self.aliases.keys())
 
-    def _compute_alias(self, alias: str):
+    def _compute_alias(self, alias: str) -> TraceRead:
         """Constants like mho need to be replaced and  V(ref1,ref2) need to be replaced
         by (V(ref1)-V(ref2)) and after that the aliases can be computed, using the
         eval() function."""
@@ -830,7 +832,7 @@ class RawRead:
         else:
             raise NotImplementedError(f'Unrecognized alias type for alias : "{alias}"')
         trace = TraceRead(alias, whattype, self.nPoints, self.axis, "double")
-        local_vars: dict[str, Any] = {
+        local_vars: dict[str, object] = {
             "pi": 3.1415926536,
             "e": 2.7182818285,
         }  # This is the dictionary that will be used to compute the alias
@@ -943,7 +945,7 @@ class RawRead:
             raise RuntimeError("This RAW file does not have an axis.")
         return self.axis.get_len(step)
 
-    def _load_step_information(self, filename: Path):
+    def _load_step_information(self, filename: Path) -> None:
         if "Command" not in self.raw_params:
             # Probably ngspice before v44 or Xyce. In any case, ngspice does not
             # support the '.step' directive.
@@ -976,7 +978,7 @@ class RawRead:
                 with open(logfile, errors="replace", encoding=encoding) as log:
                     for line in log:
                         if line.startswith(".step"):
-                            step_dict: dict[str, Any] = {}
+                            step_dict: dict[str, ValueType] = {}
                             for tok in line[6:-1].split(" "):
                                 key, value = tok.split("=")
                                 step_dict[key] = try_convert_value(value)
@@ -1006,7 +1008,7 @@ class RawRead:
                     for line in log:
                         match = step_regex.match(line)
                         if match:
-                            step_info: dict[str, Any] = {}
+                            step_info: dict[str, ValueType] = {}
                             step = int(match.group(1))
                             stepset = match.group(2)
                             _logger.debug(
@@ -1038,7 +1040,7 @@ class RawRead:
         """Helper function to access traces by using the [ ] operator."""
         return self.get_trace(item)
 
-    def get_steps(self, **kwargs: Any) -> list[int]:
+    def get_steps(self, **kwargs: object) -> list[int]:
         """Returns the steps that correspond to the query set in the `**kwargs`
         parameters. Example: ::
 
@@ -1075,8 +1077,8 @@ class RawRead:
         self,
         columns: list[str] | None = None,
         step: int | list[int] = -1,
-        **kwargs: Any,
-    ) -> dict[str, list[Any]]:
+        **kwargs: object,
+    ) -> dict[str, list[object]]:
         """Returns a native python class structure with the requested trace data and
         steps. It consists of an ordered dictionary where the columns are the keys and
         the values are lists with the data.
@@ -1114,7 +1116,7 @@ class RawRead:
             for key in self.steps[0]:
                 step_columns.append(key)
 
-        data: OrderedDict[str, list[Any]] = OrderedDict()
+        data: OrderedDict[str, list[object]] = OrderedDict()
         # Create the headers with the column names and empty lists
         for col in columns:
             data[col] = []
@@ -1135,8 +1137,8 @@ class RawRead:
         self,
         columns: list[str] | None = None,
         step: int | list[int] = -1,
-        **kwargs: Any,
-    ) -> Any:
+        **kwargs: object,
+    ) -> object:
         """Returns a pandas DataFrame with the requested data.
 
         :param step: Step number to retrieve. If not given, it
@@ -1164,7 +1166,7 @@ class RawRead:
         columns: list[str] | None = None,
         step: int | list[int] = -1,
         separator: str = ",",
-        **kwargs: Any,
+        **kwargs: object,
     ) -> None:
         """Saves the data to a CSV file.
 
@@ -1201,7 +1203,7 @@ class RawRead:
         filename: str | Path,
         columns: list[str] | None = None,
         step: int | list[int] = -1,
-        **kwargs: Any,
+        **kwargs: object,
     ) -> None:
         """Saves the data to an Excel file.
 

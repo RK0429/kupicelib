@@ -22,9 +22,6 @@ from __future__ import annotations
 
 from multiprocessing import Process, Queue
 from pathlib import Path
-from typing import Any
-
-
 class ProcessCallback(Process):
     """Wrapper for the callback function."""
 
@@ -36,13 +33,13 @@ class ProcessCallback(Process):
         name: str | None = None,
         *,
         daemon: bool | None = None,
-        **kwargs: Any,
+        **kwargs: object,
     ) -> None:
         super().__init__(group=group, name=name, daemon=daemon)
-        self.queue: Queue[Any] = Queue()
+        self.queue: Queue[object] = Queue()
         self.raw_file: Path = raw
         self.log_file: Path = log
-        self.kwargs: dict[str, Any] = dict(kwargs)
+        self.kwargs: dict[str, object] = dict(kwargs)
 
     def run(self) -> None:
         ret = self.callback(self.raw_file, self.log_file, **self.kwargs)
@@ -51,6 +48,6 @@ class ProcessCallback(Process):
         self.queue.put(ret)
 
     @staticmethod
-    def callback(raw_file: Path, log_file: Path, **kwargs: Any) -> Any:
+    def callback(raw_file: Path, log_file: Path, **kwargs: object) -> object:
         """This function needs to be overriden."""
         ...
