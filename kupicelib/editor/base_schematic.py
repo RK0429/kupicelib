@@ -15,12 +15,13 @@
 # Licence:     refer to the LICENSE file
 # -------------------------------------------------------------------------------
 
+from __future__ import annotations
 
-import dataclasses
 import enum
 import logging
 from collections import OrderedDict
 from collections.abc import Callable
+from dataclasses import dataclass, field
 
 from .base_editor import SUBCKT_DIVIDER, BaseEditor, Component, ComponentNotFoundError
 
@@ -50,39 +51,26 @@ class ERotation(enum.IntEnum):
     M270 = 360 + 270  # Mirror 270 Rotation
     M315 = 360 + 315  # Mirror 315 Rotation
 
-    def __str__(self):
-        if self.value == 0:
-            return "0 Rotation"
-        elif self.value == 45:
-            return "45 Rotation"
-        elif self.value == 90:
-            return "90 Rotation"
-        elif self.value == 135:
-            return "135 Rotation"
-        elif self.value == 180:
-            return "180 Rotation"
-        elif self.value == 225:
-            return "225 Rotation"
-        elif self.value == 270:
-            return "270 Rotation"
-        elif self.value == 315:
-            return "315 Rotation"
-        elif self.value == 360 + 0:
-            return "Mirror 0 Rotation"
-        elif self.value == 360 + 45:
-            return "Mirror 45 Rotation"
-        elif self.value == 360 + 90:
-            return "Mirror 90 Rotation"
-        elif self.value == 360 + 135:
-            return "Mirror 135 Rotation"
-        elif self.value == 360 + 180:
-            return "Mirror 180 Rotation"
-        elif self.value == 360 + 225:
-            return "Mirror 225 Rotation"
-        elif self.value == 360 + 270:
-            return "Mirror 270 Rotation"
-        elif self.value == 360 + 315:
-            return "Mirror 315 Rotation"
+    def __str__(self) -> str:
+        rotation_names = {
+            ERotation.R0: "0 Rotation",
+            ERotation.R45: "45 Rotation",
+            ERotation.R90: "90 Rotation",
+            ERotation.R135: "135 Rotation",
+            ERotation.R180: "180 Rotation",
+            ERotation.R225: "225 Rotation",
+            ERotation.R270: "270 Rotation",
+            ERotation.R315: "315 Rotation",
+            ERotation.M0: "Mirror 0 Rotation",
+            ERotation.M45: "Mirror 45 Rotation",
+            ERotation.M90: "Mirror 90 Rotation",
+            ERotation.M135: "Mirror 135 Rotation",
+            ERotation.M180: "Mirror 180 Rotation",
+            ERotation.M225: "Mirror 225 Rotation",
+            ERotation.M270: "Mirror 270 Rotation",
+            ERotation.M315: "Mirror 315 Rotation",
+        }
+        return rotation_names.get(self, f"{self.value} Rotation")
 
     # def mirror_y_axis(self):
     #     if self == ERotation.R0:
@@ -107,7 +95,7 @@ class ERotation(enum.IntEnum):
     # def mirror_x_axis(self):
     #     return ERotation((((self.value + 180) % 360) + 360) % 720)
 
-    def __add__(self, rotation: int) -> "ERotation":
+    def __add__(self, rotation: int) -> ERotation:
         return ERotation((self.value + rotation) % 360)
 
 
@@ -138,21 +126,21 @@ class TextTypeEnum(enum.IntEnum):
     PIN = enum.auto()  # pin label
 
 
+@dataclass(slots=True)
 class LineStyle:
-    """Line style : width, color and pattern (dashed, dotted, etc...)"""
+    """Line style : width, color and pattern (dashed, dotted, etc...)."""
 
-    def __init__(self, width: str = "", color: str = "", pattern: str = ""):
-        self.width: str = width
-        self.color: str = color
-        self.pattern: str = pattern
+    width: str = ""
+    color: str = ""
+    pattern: str = ""
 
 
+@dataclass(slots=True)
 class Point:
     """X, Y coordinates."""
 
-    def __init__(self, X: float, Y: float):
-        self.X = X
-        self.Y = Y
+    X: float
+    Y: float
 
 
 class Line:
@@ -161,13 +149,10 @@ class Line:
     def __init__(
         self, v1: Point, v2: Point, style: LineStyle | None = None, net: str = ""
     ):
-        self.V1 = v1
-        self.V2 = v2
-        if style is None:
-            self.style = LineStyle()
-        else:
-            self.style = style
-        self.net = net
+        self.V1: Point = v1
+        self.V2: Point = v2
+        self.style: LineStyle = style if style is not None else LineStyle()
+        self.net: str = net
 
     def touches(self, point: Point) -> bool:
         """Returns True if the line passes through the given point."""
@@ -193,7 +178,7 @@ class Line:
                 return True
         return False
 
-    def intercepts(self, line: "Line") -> bool:
+    def intercepts(self, line: Line) -> bool:
         """Returns True if the line intercepts the given line.
 
         The intercepts is calculated by checking if the line touches any of the line
@@ -207,29 +192,20 @@ class Line:
         return bool(line.touches(self.V1) or line.touches(self.V2))
 
 
+@dataclass(slots=True)
 class Shape:
     """Polygon object.
 
     The shape is defined by a list of points. It can define a closed or open shape. The
     closed shape is defined by the first and last points being the same. In this case,
     it can have a fill. It is used to define polygons, arcs, circles or more complex
-    shapes like the ones found in QSPICE
+    shapes like the ones found in QSPICE.
     """
 
-    def __init__(
-        self,
-        name: str,
-        points: list[Point],
-        line_style: LineStyle | None = None,
-        fill: str = "",
-    ):
-        self.name = name
-        self.points = points
-        if line_style is None:
-            self.line_style = LineStyle()
-        else:
-            self.line_style = line_style
-        self.fill = fill
+    name: str
+    points: list[Point]
+    line_style: LineStyle = field(default_factory=LineStyle)
+    fill: str = ""
 
 
 # Rectangle = Shape
@@ -261,7 +237,7 @@ class Shape:
 #     # The Arcs are decorative, they don't have associated nets
 
 
-@dataclasses.dataclass
+@dataclass(slots=True)
 class Text:
     """Text object."""
 
@@ -275,7 +251,7 @@ class Text:
     visible: bool = True
 
 
-@dataclasses.dataclass
+@dataclass(slots=True)
 class Port:
     text: Text
     direction: str
@@ -284,13 +260,13 @@ class Port:
 class SchematicComponent(Component):
     """Holds component information."""
 
-    def __init__(self, parent, line):
+    def __init__(self, parent: BaseEditor, line: str):
         super().__init__(parent, line)
         self.position: Point = Point(0, 0)
         self.rotation: ERotation = ERotation.R0
-        self.symbol = None
+        self.symbol: str | None = None
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"{self.reference} {self.position.X} {self.position.Y} {self.rotation}"
 
 
@@ -298,7 +274,7 @@ class BaseSchematic(BaseEditor):
     """This defines the primitives (protocol) to be used for both SpiceEditor and
     AscEditor classes."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.components: OrderedDict[str, SchematicComponent] = OrderedDict()
         self.wires: list[Line] = []
         self.labels: list[Text] = []
@@ -307,7 +283,7 @@ class BaseSchematic(BaseEditor):
         self.lines: list[Line] = []
         self.shapes: list[Shape] = []
         # Indicates if an edit was done and the file has to be written back to disk.
-        self.updated = False
+        self.updated: bool = False
 
     def reset_netlist(self, create_blank: bool = False) -> None:
         """Resets the netlist to the original state."""
@@ -319,7 +295,7 @@ class BaseSchematic(BaseEditor):
         self.shapes.clear()
         self.updated = False
 
-    def copy_from(self, editor: "BaseSchematic") -> None:
+    def copy_from(self, editor: BaseSchematic) -> None:
         """Clones the contents of the given editor."""
         from copy import deepcopy
 
@@ -331,17 +307,20 @@ class BaseSchematic(BaseEditor):
         self.shapes = deepcopy(editor.shapes)
         self.updated = True
 
-    def _get_parent(self, reference) -> tuple["BaseSchematic", str]:
+    def _get_parent(self, reference: str) -> tuple[BaseSchematic, str]:
         if SUBCKT_DIVIDER in reference:
             sub_ref, sub_comp = reference.split(SUBCKT_DIVIDER, 1)
 
             subckt = self.get_component(sub_ref)
-            subcircuit = subckt.attributes["_SUBCKT"]
-            return subcircuit, sub_comp
-        else:
-            return self, reference
+            subcircuit_obj = subckt.attributes.get("_SUBCKT")
+            if not isinstance(subcircuit_obj, BaseSchematic):
+                raise ComponentNotFoundError(
+                    f"Component {reference} not found in Schematic hierarchy"
+                )
+            return subcircuit_obj, sub_comp
+        return self, reference
 
-    def set_updated(self, reference):
+    def set_updated(self, reference: str) -> None:
         """:meta private:"""
         sub_circuit, _ = self._get_parent(reference)
         sub_circuit.updated = True
@@ -388,7 +367,7 @@ class BaseSchematic(BaseEditor):
         comp.rotation = rotation
         self.set_updated(reference)
 
-    def add_component(self, component: Component, **kwargs) -> None:
+    def add_component(self, component: Component, **kwargs: object) -> None:
         if not isinstance(component, SchematicComponent):
             schematic_component = SchematicComponent(self, component.line)
             schematic_component.reference = component.reference
@@ -407,9 +386,9 @@ class BaseSchematic(BaseEditor):
 
     def scale(
         self,
-        offset_x,
-        offset_y,
-        scale_x,
+        offset_x: float,
+        offset_y: float,
+        scale_x: float,
         scale_y: float,
         round_fun: Callable[[float], int | float] | None = None,
     ) -> None:

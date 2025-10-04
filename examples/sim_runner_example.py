@@ -43,7 +43,7 @@ for opamp in (
         print("simulating OpAmp", opamp, "Voltage", supply_voltage)
 
         # small example on how to use options, here how to force the solver
-        opts = []
+        opts: list[str] = []
         if alt_solver:
             opts.append("-alt")
         else:

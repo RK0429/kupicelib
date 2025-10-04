@@ -15,19 +15,22 @@
 # Licence:     refer to the LICENSE file
 # -------------------------------------------------------------------------------
 
-__author__ = "Nuno Canto Brum <nuno.brum@gmail.com>"
-__version__ = "0.1.0"
-__copyright__ = "Copyright 2021, Fribourg Switzerland"
+from __future__ import annotations
 
 import logging
 import os
 from abc import ABC, abstractmethod
 from collections import OrderedDict
+from collections.abc import Iterable, Mapping
 from math import floor, log
 from pathlib import Path
-from typing import ClassVar
+from typing import ClassVar, cast
 
 from ..sim.simulator import Simulator
+
+__author__ = "Nuno Canto Brum <nuno.brum@gmail.com>"
+__version__ = "0.1.0"
+__copyright__ = "Copyright 2021, Fribourg Switzerland"
 
 _logger = logging.getLogger("kupicelib.BaseEditor")
 
@@ -76,7 +79,7 @@ SPICE_DOT_INSTRUCTIONS = (
 )
 
 
-def PARAM_REGEX(pname):
+def PARAM_REGEX(pname: str) -> str:
     return (
         r"(?P<name>"
         + pname
@@ -84,7 +87,7 @@ def PARAM_REGEX(pname):
     )
 
 
-def format_eng(value) -> str:
+def format_eng(value: float | int) -> str:
     """Helper function for formatting value with the SI qualifiers.  That is, it will
     use.
 
@@ -165,7 +168,7 @@ def scan_eng(value: str) -> float:
     return f
 
 
-def to_float(value, accept_invalid: bool = True) -> float | str:
+def to_float(value: str, accept_invalid: bool = True) -> float | str:
     _MULT = {
         "f": 1e-15,
         "p": 1e-12,
@@ -239,13 +242,14 @@ def to_float(value, accept_invalid: bool = True) -> float | str:
 
     try:
         if j < i:  # There is a suffix number
-            value = float(value[:k] + "." + value[j:i]) * multiplier
+            numeric_value = float(value[:k] + "." + value[j:i]) * multiplier
         else:
-            value = float(value[:k]) * multiplier
+            numeric_value = float(value[:k]) * multiplier
     except ValueError as err:
         if not accept_invalid:
             raise err
-    return value
+        return value
+    return numeric_value
 
 
 class ComponentNotFoundError(Exception):
@@ -255,7 +259,7 @@ class ComponentNotFoundError(Exception):
 class ParameterNotFoundError(Exception):
     """ParameterNotFound Error."""
 
-    def __init__(self, parameter):
+    def __init__(self, parameter: str):
         super().__init__(f'Parameter "{parameter}" not found')
 
 
@@ -269,23 +273,23 @@ class Primitive:
     def __init__(self, line: str):
         self.line = line
 
-    def append(self, line):
+    def append(self, line: str) -> None:
         """:meta private:"""
         self.line += line
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.line
 
 
 class Component(Primitive):
     """Holds component information."""
 
-    def __init__(self, parent, line: str):
+    def __init__(self, parent: BaseEditor, line: str):
         super().__init__(line)
-        self.reference = ""
-        self.attributes: OrderedDict = OrderedDict()
+        self.reference: str = ""
+        self.attributes: OrderedDict[str, object] = OrderedDict()
         self.ports: list[str] = []
-        self.parent = parent
+        self.parent: BaseEditor = parent
 
     @property
     def value_str(self) -> str:
@@ -298,13 +302,13 @@ class Component(Primitive):
         return self.parent.get_component_value(self.reference)
 
     @value_str.setter
-    def value_str(self, value):
+    def value_str(self, value: str) -> None:
         if self.parent.is_read_only():
             raise ValueError("Editor is read-only")
         self.parent.set_component_value(self.reference, value)
 
     @property
-    def params(self) -> OrderedDict:
+    def params(self) -> Mapping[str, object]:
         """Gets all parameters to the component.
 
         This behaves like the `get_component_parameters()` method of the editor, but it
@@ -313,7 +317,7 @@ class Component(Primitive):
         return self.parent.get_component_parameters(self.reference)
 
     @params.setter
-    def params(self, param_dict: dict):
+    def params(self, param_dict: Mapping[str, str | int | float | None]) -> None:
         """Sets parameters to the component.
 
         :param param_dict: Dictionary containing parameter names as keys and their
@@ -326,7 +330,7 @@ class Component(Primitive):
             raise ValueError("Editor is read-only")
         self.parent.set_component_parameters(self.reference, **param_dict)
 
-    def set_params(self, **param_dict):
+    def set_params(self, **param_dict: str | int | float | None) -> None:
         """Adds one or more parameters to the component.
 
         The argument is in the form of a key-value pair where each parameter is the key
@@ -343,7 +347,7 @@ class Component(Primitive):
         self.parent.set_component_parameters(self.reference, **param_dict)
 
     @property
-    def value(self) -> float | int | str:
+    def value(self) -> float | str:
         """The Value.
 
         :getter: Returns the value as a number. If the value is not a number, it will
@@ -368,10 +372,11 @@ class Component(Primitive):
         behaves like the `set_element_model()` method of the editor, but it is more
         convenient to use when dealing with a single component.
         """
-        return self.parent.get_element_value(self.reference)
+        model_attr = self.parent.get_component_attribute(self.reference, "model")
+        return str(model_attr)
 
     @model.setter
-    def model(self, model: str):
+    def model(self, model: str) -> None:
         if self.parent.is_read_only():
             raise ValueError("Editor is read-only")
         self.parent.set_element_model(self.reference, model)
@@ -379,10 +384,10 @@ class Component(Primitive):
     def __str__(self):
         return f"{self.reference} = {self.value}"
 
-    def __getitem__(self, item):
+    def __getitem__(self, item: str) -> object:
         return self.attributes[item]
 
-    def __setitem__(self, key, value):
+    def __setitem__(self, key: str, value: object) -> None:
         if self.parent.is_read_only():
             raise ValueError("Editor is read-only")
         self.attributes[key] = value
@@ -448,19 +453,19 @@ class BaseEditor(ABC):
         ...
 
     @abstractmethod
-    def get_subcircuit(self, reference: str) -> "BaseEditor":
+    def get_subcircuit(self, reference: str) -> BaseEditor:
         """Returns a hierarchical subdesign."""
         ...
 
-    def __getitem__(self, item) -> Component:
+    def __getitem__(self, item: str) -> Component:
         """This method allows the user to get the value of a component using the syntax:
         component = circuit['R1']"""
         return self.get_component(item)
 
-    def __setitem__(self, key, value):
+    def __setitem__(self, key: str, value: str | int | float) -> None:
         self.set_component_value(key, value)
 
-    def get_component_attribute(self, reference: str, attribute: str) -> str:
+    def get_component_attribute(self, reference: str, attribute: str) -> object:
         """Returns the value of the attribute of the component. Attributes are the
         values that are not related with SPICE parameters. For example, component
         manufacturer, footprint, schematic appearance, etc. User can define whatever
@@ -472,13 +477,13 @@ class BaseEditor(ABC):
         :param attribute: Name of the attribute to be retrieved
         :type attribute: str
         :return: Value of the attribute being sought
-        :rtype: str
+        :rtype: object
         :raises: ComponentNotFoundError - In case the component is not found KeyError -
             In case the attribute is not found
         """
         return self.get_component(reference).attributes[attribute]
 
-    def get_component_nodes(self, reference: str) -> list:
+    def get_component_nodes(self, reference: str) -> list[str]:
         """Returns the value of the port of the component.
 
         :param reference: Reference of the component
@@ -503,7 +508,7 @@ class BaseEditor(ABC):
         ...
 
     @abstractmethod
-    def get_all_parameter_names(self, param: str = "") -> list:
+    def get_all_parameter_names(self, param: str = "") -> list[str]:
         """Returns all parameter names from the netlist.
 
         :return: A list of parameter names found in the netlist
@@ -534,7 +539,7 @@ class BaseEditor(ABC):
         """
         ...
 
-    def set_parameters(self, **kwargs):
+    def set_parameters(self, **kwargs: str | int | float) -> None:
         """Adds one or more parameters to the netlist. Usage: ::
 
         for temp in (-40, 25, 125):     for freq in sweep_log(1, 100E3,):
@@ -591,7 +596,9 @@ class BaseEditor(ABC):
         ...
 
     @abstractmethod
-    def set_component_parameters(self, element: str, **kwargs) -> None:
+    def set_component_parameters(
+        self, element: str, **kwargs: str | int | float | None
+    ) -> None:
         """Adds one or more parameters to the component on the netlist. The argument is
         in the form of a key-value pair where each parameter is the key and the value is
         value to be set in the netlist.
@@ -647,7 +654,7 @@ class BaseEditor(ABC):
         ...
 
     @abstractmethod
-    def get_component_parameters(self, element: str) -> dict:
+    def get_component_parameters(self, element: str) -> dict[str, object]:
         """Returns the parameters of a component retrieved from the netlist.
 
         :param element: Reference of the circuit element to get the parameters.
@@ -672,7 +679,7 @@ class BaseEditor(ABC):
         """
         return scan_eng(self.get_component_value(element))
 
-    def set_component_values(self, **kwargs):
+    def set_component_values(self, **kwargs: str | int | float) -> None:
         """Adds one or more components on the netlist. The argument is in the form of a
         key-value pair where each component designator is the key and the value is value
         to be set in the netlist.
@@ -693,11 +700,11 @@ class BaseEditor(ABC):
         :return: Nothing
         :raises: ComponentNotFoundError - In case one of the component is not found.
         """
-        for value in kwargs:
-            self.set_component_value(value, kwargs[value])
+        for reference, component_value in kwargs.items():
+            self.set_component_value(reference, component_value)
 
     @abstractmethod
-    def get_components(self, prefixes="*") -> list:
+    def get_components(self, prefixes: str = "*") -> list[str]:
         """Returns a list of components that match the list of prefixes indicated on the
         parameter prefixes. In case prefixes is left empty, it returns all the ones that
         are defined by the REPLACE_REGEXES. The list will contain the designators of all
@@ -713,7 +720,7 @@ class BaseEditor(ABC):
         ...
 
     @abstractmethod
-    def add_component(self, component: Component, **kwargs) -> None:
+    def add_component(self, component: Component, **kwargs: object) -> None:
         """Adds a component to the design. If the component already exists, it will be
         replaced by the new one. kwargs are implementation specific and can be used to
         pass additional information to the implementation.
@@ -758,7 +765,7 @@ class BaseEditor(ABC):
         ...
 
     @abstractmethod
-    def remove_instruction(self, instruction) -> None:
+    def remove_instruction(self, instruction: str) -> None:
         """Removes a SPICE instruction from the netlist.
 
         Example:
@@ -800,7 +807,7 @@ class BaseEditor(ABC):
         """
         ...
 
-    def add_instructions(self, *instructions) -> None:
+    def add_instructions(self, *instructions: str) -> None:
         """Adds a list of instructions to the SPICE NETLIST.
 
         Example:
@@ -818,7 +825,7 @@ class BaseEditor(ABC):
             self.add_instruction(instruction)
 
     @classmethod
-    def prepare_for_simulator(cls, simulator: Simulator) -> None:
+    def prepare_for_simulator(cls, simulator: Simulator | None) -> None:
         """Sets the library paths that should be correct for the simulator object. The
         simulator object should have had the executable path (spice_exe) set correctly.
 
@@ -836,14 +843,12 @@ class BaseEditor(ABC):
         :returns: Nothing
         """
         if simulator is None:
-            raise NotImplementedError(
-                "The prepare_for_simulator method requires a simulator object"
-            )
+            raise ValueError("The prepare_for_simulator method requires a simulator object")
         cls.simulator_lib_paths = simulator.get_default_library_paths()
         return
 
     @classmethod
-    def _check_and_append_custom_library_path(cls, path) -> None:
+    def _check_and_append_custom_library_path(cls, path: str) -> None:
         """:meta private:"""
         if path.startswith("~"):
             path = os.path.expanduser(path)
@@ -857,7 +862,7 @@ class BaseEditor(ABC):
             )
 
     @classmethod
-    def set_custom_library_paths(cls, *paths) -> None:
+    def set_custom_library_paths(cls, *paths: str | Iterable[str]) -> None:
         """Set the given library search paths to the list of directories to search when
         needed. It will delete any previous list of custom paths, but will not affect
         the default paths (be it from `init()` or from `prepare_for_simulator()`).
@@ -874,9 +879,9 @@ class BaseEditor(ABC):
         for path in paths:
             if isinstance(path, str):
                 cls._check_and_append_custom_library_path(path)
-            elif isinstance(path, list):
-                for p in path:
-                    cls._check_and_append_custom_library_path(p)
+            else:
+                for entry in path:
+                    cls._check_and_append_custom_library_path(entry)
 
     def is_read_only(self) -> bool:
         """Check if the component can be edited. This is useful when the editor is used
@@ -896,17 +901,27 @@ class HierarchicalComponent:
         self._parent = parent
         self._reference = reference
 
-    def __getattr__(self, attr):
+    def __getattr__(self, attr: str) -> object:
         return getattr(self._component, attr)
 
-    def __setattr__(self, attr, value):
+    def __setattr__(self, attr: str, value: object) -> None:
         if attr.startswith("_"):
             self.__dict__[attr] = value
         elif attr in ("value", "value_str"):
+            if not isinstance(value, str | int | float):
+                raise ValueError("Value must be a string, int, or float")
             self._parent.set_component_value(self._reference, value)
         elif attr == "params":
-            if not isinstance(value, dict):
+            if not isinstance(value, Mapping):
                 raise ValueError("Expecting value to be a dictionary type")
-            self._parent.set_component_parameters(self._reference, **value)
+            params: dict[str, str | int | float | None] = {}
+            typed_mapping = cast(Mapping[str, str | int | float | None], value)
+            for key, param_value in typed_mapping.items():
+                if not isinstance(param_value, str | int | float) and param_value is not None:
+                    raise ValueError(
+                        "Parameter values must be str, int, float, or None"
+                    )
+                params[key] = param_value
+            self._parent.set_component_parameters(self._reference, **params)
         else:
             setattr(self._component, attr, value)

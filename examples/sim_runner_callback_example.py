@@ -1,4 +1,8 @@
+from __future__ import annotations
+
 import logging
+from pathlib import Path
+from typing import cast
 
 from kupicelib.simulators.ltspice_simulator import LTspice
 
@@ -18,7 +22,13 @@ if RichHandler is not None:
     kupicelib.add_log_handler(RichHandler())
 
 
-def processing_data(raw_file, log_file, supply_voltage, opamp):
+def processing_data(
+    raw_file: Path,
+    log_file: Path,
+    *,
+    supply_voltage: float | int,
+    opamp: str,
+) -> str:
     print(
         "Handling the simulation data of "
         f"{raw_file}"
@@ -26,7 +36,7 @@ def processing_data(raw_file, log_file, supply_voltage, opamp):
         f"{log_file}"
     )
     print(f"Supply Voltage: {supply_voltage}, OpAmp: {opamp}")
-    time_to_sleep = random() * 5
+    time_to_sleep: float = random() * 5
     print(f"Sleeping for {time_to_sleep} seconds")
     sleep(time_to_sleep)
     return "This is the result passed to the iterator"
@@ -88,8 +98,16 @@ netlist.add_instructions(  # Adding additional instructions
     ".meas AC Fcut TRIG mag(V(out))=Gain/sqrt(2) FALL=last",
 )
 
-raw, log = runner.run(netlist, run_filename="no_callback.net").wait_results()
-processing_data(raw, log, 0, 0)
+callback_task = runner.run(netlist, run_filename="no_callback.net")
+if callback_task is None:
+    raise RuntimeError("Simulation task failed to start")
+results = callback_task.wait_results()
+if not isinstance(results, tuple):
+    raise RuntimeError("Expected raw/log tuple from simulation run")
+raw_path, log_path = cast(tuple[Path | None, Path | None], results)
+if raw_path is None or log_path is None:
+    raise RuntimeError("Simulation did not produce raw/log files")
+processing_data(raw_path, log_path, supply_voltage=0, opamp="0")
 
 if use_run_now is False:
     results = runner.wait_completion(1, abort_all_on_timeout=True)

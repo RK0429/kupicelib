@@ -1,10 +1,12 @@
 
+from pathlib import Path
+
 from kupicelib import SimRunner, SpiceEditor
 from kupicelib.sim.sim_stepping import SimStepper
 from kupicelib.simulators.ltspice_simulator import LTspice
 
 
-def processing_data(raw_file, log_file):
+def processing_data(raw_file: Path, log_file: Path) -> None:
     print(f"Handling the simulation data of {log_file}")
 
 

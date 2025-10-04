@@ -1,12 +1,15 @@
+from __future__ import annotations
 
 import sys
+from pathlib import Path
+from typing import Any
+
+sys.path.insert(0, "..")  # This is to allow the import from the kupicelib folder
 
 from kupicelib import SimRunner, SpiceEditor
 from kupicelib.sim.process_callback import (
     ProcessCallback,  # Importing the ProcessCallback class type
 )
-
-sys.path.insert(0, "..")  # This is to allow the import from the kupicelib folder
 
 
 class CallbackProc(ProcessCallback):
@@ -16,15 +19,23 @@ class CallbackProc(ProcessCallback):
     """
 
     @staticmethod
-    def callback(raw_file, log_file):
+    def callback(
+        raw_file: str | Path,
+        log_file: str | Path,
+        **kwargs: Any,
+    ) -> str:
+        raw_path = Path(raw_file)
+        log_path = Path(log_file)
         print(
             "Handling the simulation data of "
-            f"{raw_file}"
+            f"{raw_path}"
             ", log file "
-            f"{log_file}"
+            f"{log_path}"
         )
         # Doing some processing here
-        return "Parsed Result of " f"{raw_file}" + ", log file " f"{log_file}"
+        if kwargs:
+            print(f"Additional arguments: {kwargs}")
+        return f"Parsed Result of {raw_path}, log file {log_path}"
 
 
 if __name__ == "__main__":
@@ -76,6 +87,8 @@ if __name__ == "__main__":
     )
 
     raw, log = runner.run_now(netlist, run_filename="no_callback.net")
+    if raw is None or log is None:
+        raise RuntimeError("Synchronous run did not produce raw/log files")
     CallbackProc.callback(raw, log)
 
     results = runner.wait_completion(1, abort_all_on_timeout=True)

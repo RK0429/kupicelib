@@ -1,4 +1,6 @@
 
+from pathlib import Path
+
 from kupicelib.editor.asc_editor import AscEditor
 
 E = AscEditor("testfiles\\top_circuit.asc")
@@ -32,5 +34,5 @@ E.set_parameters(
     test_add_parameter=34.45,
 )
 S = E.get_subcircuit("X1")
-S.asc_file_path = "testfiles\\subcircuit_edit.asc"  # Only for test purposes
+S.asc_file_path = Path("testfiles\\subcircuit_edit.asc")  # Only for test purposes
 E.save_netlist("testfiles\\top_circuit_edit.asc")
