@@ -382,6 +382,3 @@ class Simulator(ABC):
             return path
         return None
 
-
-# Type alias used across the package to refer to either a simulator class or instance.
-SimulatorLike = type[Simulator] | Simulator

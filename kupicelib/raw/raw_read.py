@@ -197,7 +197,7 @@ from collections import OrderedDict
 from collections.abc import Callable
 from pathlib import Path
 from struct import unpack
-from typing import Any, BinaryIO
+from typing import Any, BinaryIO, TYPE_CHECKING
 
 import numpy as np
 from numpy import float32, float64, frombuffer
@@ -207,6 +207,9 @@ from kupicelib.log.logfile_data import ValueType, try_convert_value
 
 from ..utils.detect_encoding import EncodingDetectError, detect_encoding
 from .raw_classes import Axis, DummyTrace, SpiceReadException, TraceRead
+
+if TYPE_CHECKING:
+    from pandas import DataFrame
 
 __author__ = "Nuno Canto Brum <nuno.brum@gmail.com>"
 __copyright__ = "Copyright 2022, Fribourg Switzerland"
@@ -1138,7 +1141,7 @@ class RawRead:
         columns: list[str] | None = None,
         step: int | list[int] = -1,
         **kwargs: object,
-    ) -> object:
+    ) -> DataFrame:
         """Returns a pandas DataFrame with the requested data.
 
         :param step: Step number to retrieve. If not given, it
@@ -1151,14 +1154,14 @@ class RawRead:
         :rtype: pandas.DataFrame
         """
         try:
-            import pandas
+            import pandas as pd
         except ImportError as err:
             raise ImportError(
                 "The 'pandas' module is required to use this function.\n"
                 "Use 'pip install pandas' to install it."
             ) from err
         data = self.export(columns=columns, step=step, **kwargs)
-        return pandas.DataFrame(data, **kwargs)
+        return pd.DataFrame(data, **kwargs)
 
     def to_csv(
         self,

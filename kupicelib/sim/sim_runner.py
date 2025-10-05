@@ -111,7 +111,7 @@ if TYPE_CHECKING:
 
 from ..editor.base_editor import BaseEditor
 from ..sim.run_task import RunTask, clock_function
-from ..sim.simulator import Simulator, SimulatorLike
+from ..sim.simulator import Simulator
 from .process_callback import ProcessCallback
 
 __author__ = "Nuno Canto Brum <nuno.brum@gmail.com>"
@@ -188,7 +188,7 @@ class SimRunner(AnyRunner):
     def __init__(
         self,
         *,
-        simulator: SimulatorLike | None = None,
+        simulator: type[Simulator] | Simulator | None = None,
         parallel_sims: int = 4,
         timeout: float | None = 600.0,
         verbose: bool = False,
@@ -265,7 +265,7 @@ class SimRunner(AnyRunner):
             # older Python versions may not support cancel_futures
             self._executor.shutdown(wait=False)
 
-    def set_simulator(self, spice_tool: SimulatorLike) -> None:
+    def set_simulator(self, spice_tool: type[Simulator] | Simulator) -> None:
         """Manually overriding the simulator to be used.
 
         :param spice_tool: String containing the path to the spice tool to be used, or
