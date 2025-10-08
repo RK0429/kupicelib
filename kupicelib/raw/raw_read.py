@@ -197,7 +197,7 @@ from collections import OrderedDict
 from collections.abc import Callable
 from pathlib import Path
 from struct import unpack
-from typing import Any, BinaryIO, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, BinaryIO
 
 import numpy as np
 from numpy import float32, float64, frombuffer

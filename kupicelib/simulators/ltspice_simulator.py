@@ -161,6 +161,35 @@ class LTspice(Simulator):
                 f"Valid switches are: {valid_keys}"
             )
 
+    @classmethod
+    def create_netlist(
+        cls,
+        asc_file: str | Path,
+        cmd_line_switches: Sequence[str] | None = None,
+        *,
+        exe_log: bool | None = None,
+    ) -> Path:
+        """Generate a netlist from an LTspice schematic."""
+        if not cls.spice_exe:
+            cls.create_from(None)
+
+        asc_path = Path(asc_file)
+        if not asc_path.exists():
+            raise FileNotFoundError(f"ASC file not found: {asc_path}")
+
+        switches: list[str] = ["-netlist"]
+        if cmd_line_switches:
+            switches.extend(cmd_line_switches)
+
+        command = [*cls.spice_exe, *switches, asc_path.as_posix()]
+        if exe_log:
+            _logger.info(
+                "create_netlist ignores exe_log=%s; netlist generation does not emit logs",
+                exe_log,
+            )
+        run_function(command)
+        return asc_path.with_suffix(".net")
+
 
 
 

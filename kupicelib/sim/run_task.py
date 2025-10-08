@@ -27,6 +27,8 @@ import time
 from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 from time import sleep
+from typing import Any
+
 from .process_callback import ProcessCallback
 from .simulator import Simulator
 
@@ -85,8 +87,8 @@ class RunTask:
         simulator: type[Simulator],
         runno: int,
         netlist_file: Path,
-        callback: type[ProcessCallback] | Callable[[Path, Path], object] | None,
-        callback_args: Mapping[str, object] | None = None,
+        callback: type[ProcessCallback] | Callable[..., object] | None,
+        callback_args: Mapping[str, Any] | None = None,
         switches: Sequence[str] | None = None,
         timeout: float | None = None,
         verbose: bool = False,
@@ -100,10 +102,10 @@ class RunTask:
         self.simulator: type[Simulator] = simulator
         self.runno: int = runno
         self.netlist_file: Path = netlist_file
-        self.callback: type[ProcessCallback] | Callable[[Path, Path], object] | None = (
+        self.callback: type[ProcessCallback] | Callable[..., object] | None = (
             callback
         )
-        self.callback_args: dict[str, object] | None = (
+        self.callback_args: dict[str, Any] | None = (
             dict(callback_args) if callback_args is not None else None
         )
         self.retcode: int = -1  # Signals an error by default

@@ -21,6 +21,8 @@ from __future__ import annotations
 import logging
 import random
 from collections.abc import Callable, Mapping, Sequence
+from typing import Any
+
 from ...log.logfile_data import LogfileData, ValueType
 from ..process_callback import ProcessCallback
 from ..sim_runner import SimRunner
@@ -69,7 +71,7 @@ class Montecarlo(ToleranceDeviations):
     when it is prone to crashes and stalls.
     """
 
-    def prepare_testbench(self, **kwargs: object) -> None:
+    def prepare_testbench(self, **kwargs: Any) -> None:
         """Prepares the simulation by setting the tolerances for the components :keyword
         num_runs: Number of runs to be performed.
 
@@ -195,8 +197,12 @@ class Montecarlo(ToleranceDeviations):
             raise NotImplementedError(msg)
 
         num_runs_arg = kwargs.get("num_runs")
-        if num_runs_arg is not None:
+        if isinstance(num_runs_arg, int):
+            self.last_run_number = num_runs_arg
+        elif isinstance(num_runs_arg, str):
             self.last_run_number = int(num_runs_arg)
+        elif num_runs_arg is not None:
+            raise TypeError("num_runs must be an int or string")
         elif self.last_run_number == 0:
             self.last_run_number = 1000
         self.editor.add_instruction(
@@ -235,7 +241,7 @@ class Montecarlo(ToleranceDeviations):
     def run_analysis(
         self,
         callback: type[ProcessCallback] | Callable[..., object] | None = None,
-        callback_args: Sequence[object] | Mapping[str, object] | None = None,
+        callback_args: Sequence[object] | Mapping[str, Any] | None = None,
         switches: Sequence[str] | None = None,
         timeout: float | None = None,
         exe_log: bool = True,

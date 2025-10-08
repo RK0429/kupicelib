@@ -27,14 +27,14 @@ from pathlib import Path
 from time import strftime
 from typing import Protocol, cast
 
-
-class _SupportsToBytes(Protocol):
-    def tobytes(self) -> bytes: ...
-
 from numpy import array, float32, ndarray, zeros
 
 from .raw_classes import Axis, DataSet, TraceRead
 from .raw_read import RawRead
+
+
+class _SupportsToBytes(Protocol):
+    def tobytes(self) -> bytes: ...
 
 
 class Trace(DataSet):

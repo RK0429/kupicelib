@@ -22,6 +22,8 @@ from __future__ import annotations
 
 from multiprocessing import Process, Queue
 from pathlib import Path
+
+
 class ProcessCallback(Process):
     """Wrapper for the callback function."""
 

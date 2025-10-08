@@ -232,17 +232,7 @@ class SimRunner(AnyRunner):
                 "No default simulator defined; please specify a simulator"
             )
 
-        simulator_value = simulator
-        if isinstance(simulator_value, Simulator):
-            simulator_type: type[Simulator] = type(simulator_value)
-        else:
-            if not isinstance(simulator_value, type) or not issubclass(
-                simulator_value, Simulator
-            ):  # pyright: ignore[reportUnnecessaryIsInstance]
-                raise SimRunnerConfigError(
-                    "Invalid simulator specification; expected Simulator subclass or instance"
-                )
-            simulator_type = simulator_value
+        simulator_type: type[Simulator] = self._normalize_simulator(simulator)
 
         self.simulator: type[Simulator] = simulator_type
         _logger.info("SimRunner initialized")
@@ -273,16 +263,22 @@ class SimRunner(AnyRunner):
         :type spice_tool: Simulator type
         :return: Nothing
         """
-        spice_tool_value = spice_tool
-        if isinstance(spice_tool_value, Simulator):
-            simulator_type = type(spice_tool_value)
-        elif not isinstance(spice_tool_value, type) or not issubclass(
-            spice_tool_value, Simulator
-        ):  # pyright: ignore[reportUnnecessaryIsInstance]
-            raise TypeError("Expecting Simulator subclasses")
-        else:
-            simulator_type = spice_tool_value
-        self.simulator = simulator_type
+        self.simulator = self._normalize_simulator(spice_tool)
+
+    @staticmethod
+    def _normalize_simulator(simulator: object) -> type[Simulator]:
+        """Return a simulator class from a class or instance."""
+        if simulator is None:
+            raise SimRunnerConfigError(
+                "No default simulator defined; please specify a simulator"
+            )
+        if isinstance(simulator, Simulator):
+            return type(simulator)
+        if isinstance(simulator, type) and issubclass(simulator, Simulator):
+            return simulator
+        raise SimRunnerConfigError(
+            "Invalid simulator specification; expected Simulator subclass or instance"
+        )
 
     def clear_command_line_switches(self) -> None:
         """Clear all the command line switches added previously."""

@@ -40,7 +40,6 @@ from .base_editor import (
     Component,
     ComponentNotFoundError,
     ParameterNotFoundError,
-    ParameterValue,
     format_eng,
 )
 
@@ -677,10 +676,9 @@ class SpiceCircuit(BaseEditor):
             line_no, match = self._get_component_line_and_regex(reference)
             if attribute in ("value", "model"):
                 # They are actually the same thing just the model is not converted.
-                if isinstance(value, int | float):
-                    value_str = format_eng(value)
-                else:
-                    value_str = str(value)
+                value_str = (
+                    format_eng(value) if isinstance(value, int | float) else str(value)
+                )
                 start = match.start("value")
                 end = match.end("value")
                 line = self._line_as_str(line_no)

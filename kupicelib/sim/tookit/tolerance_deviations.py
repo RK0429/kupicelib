@@ -16,6 +16,8 @@
 # Created:     10-08-2023
 # Licence:     refer to the LICENSE file
 # -------------------------------------------------------------------------------
+from __future__ import annotations
+
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Iterator, Mapping, Sequence
 from dataclasses import dataclass
@@ -79,7 +81,7 @@ class ToleranceDeviations(SimAnalysis, ABC):
         self, circuit_file: str | BaseEditor, runner: AnyRunner | None = None
     ) -> None:
         super().__init__(circuit_file, runner)
-        self.default_tolerance = {
+        self.default_tolerance: dict[str, ComponentDeviation] = {
             prefix: ComponentDeviation.none()
             for prefix in self.devices_with_deviation_allowed
         }
@@ -375,7 +377,7 @@ class ToleranceDeviations(SimAnalysis, ABC):
             raise RuntimeError("The analysis has not been executed yet")
 
         if "log_data" in self.simulation_results:
-            return self.simulation_results["log_data"]
+            return cast(LogfileData, self.simulation_results["log_data"])
 
         super().read_logfiles()
         # The code below makes the run measure (if it exists) available on the stepset.
