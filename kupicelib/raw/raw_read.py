@@ -783,7 +783,7 @@ class RawRead:
             if self.steps is not None and has_axis and self.axis is not None:
                 # Individual access to the Trace Classes, this information is stored in
                 # the Axis
-                self.axis._set_steps(self.steps)
+                self.axis.set_steps(self.steps)
 
     def get_raw_property(
         self, property_name: str | None = None
@@ -803,6 +803,16 @@ class RawRead:
             return self.raw_params[property_name]
         else:
             raise ValueError(f"Invalid property. Use {self.raw_params.keys()!s}")
+
+    @property
+    def traces(self) -> list[Axis | TraceRead | DummyTrace]:
+        """Expose the loaded trace objects for inspection."""
+        return self._traces
+
+    @traces.setter
+    def traces(self, value: list[Axis | TraceRead | DummyTrace]) -> None:
+        self._traces = value
+
 
     def get_trace_names(self) -> list[str]:
         """Returns a list of exiting trace names of the RAW file.

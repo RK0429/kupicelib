@@ -264,15 +264,15 @@ class LTspice(Simulator):
 
         return run_function(cmd_run, timeout=timeout, stdout=stdout, stderr=stderr)
     @classmethod
-    def _detect_executable(cls) -> None:
+    def detect_executable(cls) -> None:
         """Detect and set spice_exe and process_name based on platform."""
         if sys.platform in ("linux", "darwin"):
-            cls._detect_unix_executable()
+            cls.detect_unix_executable()
         else:
-            cls._detect_windows_executable()
+            cls.detect_windows_executable()
 
     @classmethod
-    def _detect_unix_executable(cls) -> None:
+    def detect_unix_executable(cls) -> None:
         """Detect on Linux/Mac using wine and environment variables."""
         spice_folder = os.environ.get("LTSPICEFOLDER")
         spice_executable = os.environ.get("LTSPICEEXECUTABLE")
@@ -307,7 +307,7 @@ class LTspice(Simulator):
                 cls.process_name = cls.guess_process_name(exe)
 
     @classmethod
-    def _detect_windows_executable(cls) -> None:
+    def detect_windows_executable(cls) -> None:
         """Detect on Windows using default executable paths."""
         for exe in cls._spice_exe_win_paths:
             path = exe
@@ -320,5 +320,5 @@ class LTspice(Simulator):
 
 
 # initialize LTspice executable detection
-LTspice._detect_executable()
+LTspice.detect_executable()
 _logger.debug(f"Found LTspice installed in: '{LTspice.spice_exe}'")

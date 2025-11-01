@@ -132,6 +132,10 @@ class Axis(DataSet):
                 f"Expecting {len(self.step_offsets)} got {k}"
             )
 
+    def set_steps(self, step_info: list[dict[str, Any]]) -> None:
+        """Public wrapper around the internal step assignment helper."""
+        self._set_steps(step_info)
+
     def step_offset(self, step: int) -> int:
         """In Stepped RAW files, several simulations runs are stored in the same RAW
         file. This function returns the offset within the binary stream where each step
