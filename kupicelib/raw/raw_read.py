@@ -1179,7 +1179,7 @@ class RawRead:
         columns: list[str] | None = None,
         step: int | list[int] = -1,
         separator: str = ",",
-        **kwargs: object,
+        **kwargs: Any,
     ) -> None:
         """Saves the data to a CSV file.
 
